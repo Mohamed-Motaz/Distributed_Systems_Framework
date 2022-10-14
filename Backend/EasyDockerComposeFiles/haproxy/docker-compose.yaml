@@ -1,0 +1,22 @@
+version: "3.9" # optional since v1.27.0
+services:
+
+  haproxy:
+    # net: host
+    networks:
+      - haproxy_network
+    container_name: haproxy_container
+    image: haproxy:alpine
+
+    restart: always
+
+    ports:
+      - "80:80"
+    volumes:
+      - ~/docker-conf/local/haproxy/:/usr/local/etc/haproxy
+      - ~/Your/Config/Path/Here/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    # your haproxy.cfg file's location here
+
+
+
+

@@ -1,0 +1,10 @@
+version: "3.9" # optional since v1.27.0
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ~/docker-conf/local/rabbitmq/data/:/var/lib/rabbitmq/
+      - ~/docker-conf/local/rabbitmq/log/:/var/log/rabbitmq

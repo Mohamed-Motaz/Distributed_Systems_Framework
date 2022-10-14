@@ -1,0 +1,36 @@
+version: "3.9" # optional since v1.27.0
+services:
+  postgres:
+    #network_mode: "host"
+    # net: host
+    container_name: postgres_container
+    image: postgres:latest
+    command: postgres -c stats_temp_directory=/tmp    #to avoid this -> WARNING:  could not open statistics file "pg_stat_tmp/global.stat": Operation not permitted
+
+    restart: always
+
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=DistributedWebCrawler
+    ports:
+      - 5432:5432
+    volumes:
+      - ~/docker-conf/local/postgresql/data/:/var/lib/postgresql/data
+
+  pgadmin:
+    container_name: pgadmin_container
+    image: dpage/pgadmin4:latest
+
+    restart: always
+
+    environment:
+     - PGADMIN_DEFAULT_EMAIL=pgadmin4@pgadmin.org
+     - PGADMIN_DEFAULT_PASSWORD=admin
+     - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+       - ~/docker-conf/local/pgadmin:/var/lib/pgadmin
+
+    ports:
+      - 5050:80
+
