@@ -16,7 +16,7 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - ~/docker-conf/local/postgresql/data/:/var/lib/postgresql/data
+      - ~/docker-conf/postgresql/data/:/var/lib/postgresql/data
 
   pgadmin:
     container_name: pgadmin_container
@@ -29,7 +29,7 @@ services:
      - PGADMIN_DEFAULT_PASSWORD=admin
      - PGADMIN_CONFIG_SERVER_MODE=False
     volumes:
-       - ~/docker-conf/local/pgadmin:/var/lib/pgadmin
+       - ~/docker-conf/pgadmin:/var/lib/pgadmin
 
     ports:
       - 5050:80

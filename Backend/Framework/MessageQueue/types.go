@@ -1,7 +1,7 @@
 package MessageQueue
 
 import (
-	utils "Server/Utils"
+	utils "Framework/Utils"
 	"log"
 	"strings"
 	"sync"

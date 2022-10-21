@@ -1,7 +1,7 @@
 package MessageQueue
 
 import (
-	logger "Server/Logger"
+	logger "Framework/Logger"
 	"context"
 	"fmt"
 	"sync"

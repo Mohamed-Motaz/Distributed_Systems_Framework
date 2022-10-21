@@ -1,11 +1,11 @@
 version: "3.9" # optional since v1.27.0
 services:
   redis:
-    image: redis:latest
+    image: redis:6.2.7
     restart: always
     ports:
       - 6379:6379
-    volumes: 
-      - ~/docker-conf/local/redis/data/:/data
+    volumes:
+      - ~/docker-conf/redis/data/:/data
       - ~/Desktop/Programming/DockerComposeFiles/redis/redis.conf:/usr/local/etc/redis/redis.conf
       #your redis.conf file here

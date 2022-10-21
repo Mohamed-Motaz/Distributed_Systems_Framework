@@ -13,7 +13,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ~/docker-conf/local/haproxy/:/usr/local/etc/haproxy
+      - ~/docker-conf/haproxy/:/usr/local/etc/haproxy
       - ~/Your/Config/Path/Here/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     # your haproxy.cfg file's location here
 
