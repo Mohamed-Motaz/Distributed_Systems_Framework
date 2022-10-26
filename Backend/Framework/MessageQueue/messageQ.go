@@ -10,7 +10,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func New(amqpAddr string) *MQ {
+func NewMQ(amqpAddr string) *MQ {
 	mq := &MQ{
 		conn: nil,
 		ch:   nil,
@@ -35,6 +35,10 @@ func New(amqpAddr string) *MQ {
 		logger.LogInfo(logger.MESSAGE_Q, logger.ESSENTIAL, "MessageQueue setup complete")
 	}
 	return mq
+}
+
+func CreateMQAddress(username string, password string, host string, port string) string {
+	return "amqp://" + username + ":" + password + "@" + host + ":" + port + "/"
 }
 
 func (mq *MQ) Close() {
@@ -83,8 +87,55 @@ func (mq *MQ) Publish(qName string, body []byte) error {
 		return err
 	}
 
-	logger.LogInfo(logger.MESSAGE_Q, logger.NON_ESSENTIAL, "Successfully published to queue %v a message with this data:\n%v", qName, string(body))
+	logger.LogInfo(logger.MESSAGE_Q, logger.DEBUGGING, "Successfully published to queue %v a message with this data:\n%v", qName, string(body))
 	return nil
+}
+
+func (mq *MQ) Consume(qName string) (<-chan amqp.Delivery, error) {
+
+	//if q is nill, declare it
+	mq.mu.Lock()
+	if _, ok := mq.qMap[qName]; !ok {
+		mq.mu.Unlock()
+		q, err := mq.ch.QueueDeclare(
+			qName,
+			true,  //durable
+			false, //autoDelete
+			false, //exclusive -> send errors when another consumer tries to connect to it
+			false, //noWait
+			nil,
+		)
+		if err != nil {
+			return nil, err
+		}
+		mq.mu.Lock()
+		mq.qMap[qName] = &q
+	}
+	mq.mu.Unlock()
+
+	err := mq.ch.Qos(
+		1,     // prefetch count
+		0,     // prefetch size
+		false, // global
+	)
+	if err != nil {
+		return nil, err
+	}
+	msgs, err := mq.ch.Consume(
+		qName,
+		"",    //consumer --> unique identifier that rabbit can just generate
+		false, //auto ack
+		false, //exclusive --> errors if other consumers consume
+		false, //nolocal, dont receive back if i send on channel
+		false, //no wait
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.LogInfo(logger.MESSAGE_Q, logger.DEBUGGING, "Successfully subscribed to queue %v", qName)
+	return msgs, nil
 }
 
 func (mq *MQ) connect(amqpAddr string) error {
