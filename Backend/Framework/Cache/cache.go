@@ -21,7 +21,17 @@ func NewCache(address string) *Cache {
 		ctx: context.Background(),
 	}
 
-	_, err := cache.client.Ping(cache.ctx).Result()
+	//try to reconnect and sleep 10 seconds on failure
+	var err error = fmt.Errorf("error")
+	ctr := 0
+	for ctr < 3 && err != nil {
+		_, err := cache.client.Ping(cache.ctx).Result()
+		ctr++
+		if err != nil {
+			time.Sleep(time.Second * 10)
+		}
+	}
+
 	if err != nil {
 		logger.FailOnError(logger.SERVER, logger.ESSENTIAL, "Unable to connect to caching layer with error %+v", err)
 	} else {

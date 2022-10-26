@@ -58,5 +58,4 @@ func init() {
 	MqPort = utils.GetEnv(_MQ_PORT, "5672")
 	MqUsername = utils.GetEnv(_MQ_USERNAME, "guest")
 	MqPassword = utils.GetEnv(_MQ_PASSWORD, "guest")
-
 }

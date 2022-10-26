@@ -18,7 +18,7 @@ func NewMQ(amqpAddr string) *MQ {
 		mu:   sync.Mutex{},
 	}
 
-	//try to reconnect and sleep 2 seconds on failure
+	//try to reconnect and sleep 10 seconds on failure
 	var err error = fmt.Errorf("error")
 	ctr := 0
 	for ctr < 3 && err != nil {
@@ -46,10 +46,10 @@ func (mq *MQ) Close() {
 	mq.conn.Close()
 }
 
-func (mq *MQ) Publish(qName string, body []byte) error {
+func (mq *MQ) Enqueue(qName string, body []byte) error {
 
 	mq.mu.Lock()
-	//if q is nill, declare it
+	//if q is nil, declare it
 	if _, ok := mq.qMap[qName]; !ok {
 		mq.mu.Unlock()
 		q, err := mq.ch.QueueDeclare(
@@ -91,7 +91,7 @@ func (mq *MQ) Publish(qName string, body []byte) error {
 	return nil
 }
 
-func (mq *MQ) Consume(qName string) (<-chan amqp.Delivery, error) {
+func (mq *MQ) Dequeue(qName string) (<-chan amqp.Delivery, error) {
 
 	//if q is nill, declare it
 	mq.mu.Lock()

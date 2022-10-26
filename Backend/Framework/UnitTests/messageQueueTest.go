@@ -3,7 +3,6 @@ package main
 import (
 	logger "Framework/Logger"
 	q "Framework/MessageQueue"
-	"bytes"
 	"encoding/json"
 	"time"
 )
@@ -16,21 +15,25 @@ func main() {
 		JobId:    "11",
 		Content:  "This is the content",
 	}
+	//[0,1,1,1,1,1,0,0,01,01,101,1]
 
 	//convert to byte array
-	bytesArr := new(bytes.Buffer)
-	err := json.NewEncoder(bytesArr).Encode(assignedJob)
+	bytesArr, err := json.Marshal(assignedJob)
 	if err != nil {
-		logger.LogError(logger.MESSAGE_Q, logger.ESSENTIAL, "Unable to publish message to queue %+v", q.ASSIGNED_JOBS_QUEUE)
+		logger.LogError(logger.MESSAGE_Q, logger.ESSENTIAL, "Unable to convert struct %+v to byte array", assignedJob)
 	}
 
-	mqObj.Publish(q.ASSIGNED_JOBS_QUEUE, bytesArr.Bytes())
+	err = mqObj.Enqueue(q.ASSIGNED_JOBS_QUEUE, bytesArr)
+	if err != nil {
+		logger.LogError(logger.MESSAGE_Q, logger.ESSENTIAL, "Unable to push message %+v to q %+v", assignedJob, q.ASSIGNED_JOBS_QUEUE)
+
+	}
 
 	time.Sleep(time.Second * 10)
 
 	//now get a channel to consume from the assigned jobs queue
 
-	ch, err := mqObj.Consume(q.ASSIGNED_JOBS_QUEUE)
+	ch, err := mqObj.Dequeue(q.ASSIGNED_JOBS_QUEUE)
 	if err != nil {
 		logger.LogError(logger.MESSAGE_Q, logger.ESSENTIAL, "Unable to consume message from queue %+v", q.ASSIGNED_JOBS_QUEUE)
 	}
