@@ -22,11 +22,18 @@ func (JobInfo) TableName() string {
 
 type JobStatus string
 
-const IN_PROGESS JobStatus = "IN_PROGRESS"
+const IN_PROGRESS JobStatus = "IN_PROGRESS"
 const DONE JobStatus = "DONE"
 
 func (dBWrapper *DBWrapper) GetAllJobsInfo(jobsInfo *[]JobInfo) *gorm.DB {
 	return dBWrapper.Db.Raw("SELECT * FROM jobs.jobsinfo").Scan(jobsInfo)
+}
+
+func (dBWrapper *DBWrapper) GetAllLateInProgressJobsInfo(jobsInfo *[]JobInfo, maxTime time.Time) *gorm.DB {
+	return dBWrapper.Db.Raw(`
+	SELECT * FROM jobs.jobsinfo 
+	WHERE status = ? AND timeAssigned > ?
+	`, IN_PROGRESS, maxTime).Scan(jobsInfo)
 }
 
 func (dBWrapper *DBWrapper) CreateJobsInfo(jobInfo *JobInfo) *gorm.DB {
