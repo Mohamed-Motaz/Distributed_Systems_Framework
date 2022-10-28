@@ -1,7 +1,7 @@
 package Database
 
 import (
-	logger "Server/Logger"
+	logger "Framework/Logger"
 	"fmt"
 	"time"
 
@@ -9,19 +9,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type DBWrapper struct {
-	Db *gorm.DB
-}
-
 //return a thread-safe *gorm.DB that can safely be used
 //by multiple goroutines
-func New() *DBWrapper {
+func NewDbWrapper() *DBWrapper {
 	db := connect()
 	logger.LogInfo(logger.DATABASE, logger.ESSENTIAL, "Db setup complete")
 	wrapper := &DBWrapper{
 		Db: db,
 	}
-	wrapper.ApplyMigrations()
 	return wrapper
 }
 
@@ -31,19 +26,23 @@ func connect() *gorm.DB {
 		DbUser, DbPassword, DbProtocol,
 		"", DbHost, DbPort, DbSettings)
 
+	//try to reconnect and sleep 10 seconds on failure
+	var err error = fmt.Errorf("error")
+	var db *gorm.DB
 	ctr := 0
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	for ctr < 5 {
-		ctr++
-		if err == nil {
-			continue
-		}
+
+	for ctr < 3 && err != nil {
 		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-		time.Sleep(10 * time.Second)
+		ctr++
+		if err != nil {
+			time.Sleep(time.Second * 10)
+		}
 	}
 
+	applyMigrations(db)
+
 	if err != nil {
-		logger.FailOnError(logger.DATABASE, logger.ESSENTIAL, "Unable to connect to db with this error %v", err)
+		logger.FailOnError(logger.DATABASE, logger.ESSENTIAL, "Unable to automigrate the db with this error %v", err)
 	}
 	return db
 }
@@ -53,4 +52,22 @@ func generateDSN(user, password, protocol, dbName, myHost, myPort, settings stri
 	return fmt.Sprintf(
 		"%v:%v@%v(%v:%v)/%v?%v",
 		user, password, protocol, myHost, myPort, dbName, settings)
+}
+
+//fine, I'll do it myself
+func applyMigrations(db *gorm.DB) {
+
+	//create jobs database if it doesnt exist
+	err := db.Exec("CREATE DATABASE IF NOT EXISTS `jobs`").Error
+	if err != nil {
+		logger.FailOnError(logger.DATABASE, logger.ESSENTIAL, "Unable to create database jobs with this error %v", err)
+	}
+
+	err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS jobs.jobsinfo (id bigint AUTO_INCREMENT,clientId longtext,masterId longtext,jobId longtext,content longtext,timeAssigned datetime(3) NULL,status longtext,PRIMARY KEY (id))
+	`).Error
+
+	if err != nil {
+		logger.FailOnError(logger.DATABASE, logger.ESSENTIAL, "Unable to create the db with this error %v", err)
+	}
 }
