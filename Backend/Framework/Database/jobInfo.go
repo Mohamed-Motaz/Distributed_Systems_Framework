@@ -32,7 +32,7 @@ func (dBWrapper *DBWrapper) GetAllJobsInfo(jobsInfo *[]JobInfo) *gorm.DB {
 func (dBWrapper *DBWrapper) GetAllLateInProgressJobsInfo(jobsInfo *[]JobInfo, maxTime time.Time) *gorm.DB {
 	return dBWrapper.Db.Raw(`
 	SELECT * FROM jobs.jobsinfo 
-	WHERE status = ? AND timeAssigned > ?
+	WHERE status = ? AND timeAssigned < ?
 	`, IN_PROGRESS, maxTime).Scan(jobsInfo)
 }
 

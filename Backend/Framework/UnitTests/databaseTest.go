@@ -42,11 +42,12 @@ func main() {
 	}
 	logger.LogInfo(logger.DATABASE, logger.ESSENTIAL, "%+v", jobsInfo)
 
+	lateJobsInfo := &[]db.JobInfo{}
 
-	err = dbObj.GetAllLateInProgressJobsInfo(jobsInfo,time.Now().Add(time.Duration(-10)*time.Second)).Error
+	err = dbObj.GetAllLateInProgressJobsInfo(lateJobsInfo, time.Now().Add(time.Duration(-10)*time.Second)).Error
 	if err != nil {
-		logger.LogError(logger.DATABASE, logger.ESSENTIAL, "Unable to get all jobsinfo with err %+v", err)
+		logger.LogError(logger.DATABASE, logger.ESSENTIAL, "Unable to get all lateJobsInfo with err %+v", err)
 	}
-	logger.LogInfo(logger.DATABASE, logger.ESSENTIAL, "%+v", jobsInfo)
+	logger.LogInfo(logger.DATABASE, logger.ESSENTIAL, "late jobs info\n%+v", lateJobsInfo)
 
 }
