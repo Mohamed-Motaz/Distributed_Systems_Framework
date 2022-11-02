@@ -7,13 +7,14 @@ for any inter-servers communication
 
 //master-worker communication ---------
 type GetTaskArgs struct {
+	WorkerId string
 }
 
 type GetTaskReply struct {
+	TaskAvailable bool
 	TaskContent   string
 	TaskId        string
 	JobId         string
-	TaskAvailable bool
 }
 
 //master-lockserver communication ---------

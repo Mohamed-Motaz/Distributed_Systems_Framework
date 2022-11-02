@@ -6,18 +6,31 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Master struct {
-	id           string
-	currentJob   string
-	currentJobId string
-	currentTasks []string
-	isRunning    bool //do i currently have a job
-	mu           sync.Mutex
-	q            *mq.MQ
+	id                string
+	currentJob        string
+	currentJobId      string
+	currentTasks      []Task
+	workersTimers     []WorkerAndHisTimer
+	maxHeartBeatTimer time.Duration
+	isRunning         bool //do i currently have a job
+	mu                sync.Mutex
+	q                 *mq.MQ
+}
+
+type WorkerAndHisTimer struct {
+	lastHeartBeat time.Time
+	workerId      string
+}
+
+type Task struct {
+	content string
+	id      string
 }
 
 const (

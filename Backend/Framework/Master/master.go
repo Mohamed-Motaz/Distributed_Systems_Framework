@@ -9,6 +9,7 @@ import (
 	"net/rpc"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -16,9 +17,10 @@ import (
 //returns a pointer a master and runs it
 func NewMaster() *Master {
 	master := &Master{
-		id: uuid.NewString(), //random id
-		q:  mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
-		mu: sync.Mutex{},
+		id:                uuid.NewString(), //random id
+		q:                 mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
+		maxHeartBeatTimer: 10 * time.Second,
+		mu:                sync.Mutex{},
 	}
 	master.resetStatus()
 
@@ -58,7 +60,8 @@ func CreateMasterAddress() string {
 func (master *Master) resetStatus() {
 	master.currentJob = ""
 	master.currentJobId = ""
-	master.currentTasks = make([]string, 0)
+	master.currentTasks = make([]Task, 0)
+	master.workersTimers = make([]WorkerAndHisTimer, 0)
 	master.isRunning = false
 }
 
@@ -76,5 +79,30 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 		reply.TaskAvailable = false
 		return nil
 	}
+
+	//now need to check the available tasks
+
+	for i := range master.currentTasks {
+		currentTask := master.currentTasks[i]
+		currentWorkerAndTimer := master.workersTimers[i]
+
+		if time.Since(currentWorkerAndTimer.lastHeartBeat) > master.maxHeartBeatTimer {
+			//the other worker is probably dead, so give this worker this job
+			reply.TaskAvailable = true
+			reply.TaskContent = currentTask.content
+			reply.TaskId = currentTask.id
+			reply.JobId = master.currentJobId
+
+			//now as a master, need to mark this job as given to a worker
+			master.workersTimers[i] = WorkerAndHisTimer{
+				lastHeartBeat: time.Now(),
+				workerId:      args.WorkerId,
+			}
+			return nil
+		}
+
+	}
+
+	reply.TaskAvailable = false
 	return nil
 }

@@ -25,7 +25,9 @@ func NewWorker() *Worker {
 func (worker *Worker) work() {
 	//endless for loop that keeps asking for tasks from the master
 	for {
-		args := &RPC.GetTaskArgs{}
+		args := &RPC.GetTaskArgs{
+			WorkerId: worker.id,
+		}
 		reply := &RPC.GetTaskReply{}
 
 		ok := worker.callMaster("Master.HandleGetTasks", args, reply)
@@ -75,7 +77,7 @@ func (worker *Worker) callMaster(rpcName string, args *RPC.GetTaskArgs, reply *R
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master with RPC with error: %v", err)
 		return false
 	}
-	logger.LogInfo(logger.WORKER, logger.ESSENTIAL, "Success dialing master")
+	logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Success dialing master")
 
 	return true
 }
