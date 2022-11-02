@@ -7,12 +7,12 @@ import (
 	"syscall"
 )
 
-//run the master --> go run .
+//run the worker --> go run .
 func main() {
 
-	m := NewMaster()
+	w := NewWorker()
 
-	fmt.Printf("This is the newly created master %+v\n", m)
+	fmt.Printf("This is the newly created worker %+v\n", w)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)

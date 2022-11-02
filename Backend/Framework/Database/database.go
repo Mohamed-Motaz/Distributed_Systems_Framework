@@ -11,8 +11,8 @@ import (
 
 //return a thread-safe *gorm.DB that can safely be used
 //by multiple goroutines
-func NewDbWrapper() *DBWrapper {
-	db := connect()
+func NewDbWrapper(address string) *DBWrapper {
+	db := connect(address)
 	logger.LogInfo(logger.DATABASE, logger.ESSENTIAL, "Db setup complete")
 	wrapper := &DBWrapper{
 		Db: db,
@@ -20,12 +20,7 @@ func NewDbWrapper() *DBWrapper {
 	return wrapper
 }
 
-func connect() *gorm.DB {
-
-	dsn := generateDSN(
-		DbUser, DbPassword, DbProtocol,
-		"", DbHost, DbPort, DbSettings)
-
+func connect(dsn string) *gorm.DB {
 	//try to reconnect and sleep 10 seconds on failure
 	var err error = fmt.Errorf("error")
 	var db *gorm.DB
@@ -47,7 +42,7 @@ func connect() *gorm.DB {
 	return db
 }
 
-func generateDSN(user, password, protocol, dbName, myHost, myPort, settings string) string {
+func CreateDBAddress(user, password, protocol, dbName, myHost, myPort, settings string) string {
 
 	return fmt.Sprintf(
 		"%v:%v@%v(%v:%v)/%v?%v",

@@ -6,8 +6,14 @@ for any inter-servers communication
 */
 
 //master-worker communication ---------
-type SayHello struct {
-	Content string
+type GetTaskArgs struct {
+}
+
+type GetTaskReply struct {
+	TaskContent   string
+	TaskId        string
+	JobId         string
+	TaskAvailable bool
 }
 
 //master-lockserver communication ---------

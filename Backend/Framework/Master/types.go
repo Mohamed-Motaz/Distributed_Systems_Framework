@@ -5,12 +5,19 @@ import (
 	utils "Framework/Utils"
 	"log"
 	"strings"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
 
 type Master struct {
-	q *mq.MQ
+	id           string
+	currentJob   string
+	currentJobId string
+	currentTasks []string
+	isRunning    bool //do i currently have a job
+	mu           sync.Mutex
+	q            *mq.MQ
 }
 
 const (
@@ -42,9 +49,9 @@ func init() {
 		}
 	}
 	MyHost = strings.Replace(utils.GetEnv(_MY_HOST, _LOCAL_HOST), "_", ".", -1) //replace all "_" with ".""
-	MyPort = utils.GetEnv(_MY_PORT, "6666")
+	MyPort = utils.GetEnv(_MY_PORT, "5555")
 	LockServerHost = strings.Replace(utils.GetEnv(_LOCK_SERVER_HOST, _LOCAL_HOST), "_", ".", -1) //replace all "_" with ".""
-	LockServerPort = utils.GetEnv(_LOCK_SERVER_PORT, "5555")
+	LockServerPort = utils.GetEnv(_LOCK_SERVER_PORT, "7777")
 	MqHost = strings.Replace(utils.GetEnv(_MQ_HOST, _LOCAL_HOST), "_", ".", -1) //replace all "_" with ".""
 	MqPort = utils.GetEnv(_MQ_PORT, "5672")
 	MqUsername = utils.GetEnv(_MQ_USERNAME, "guest")

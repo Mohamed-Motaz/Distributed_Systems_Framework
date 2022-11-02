@@ -2,19 +2,30 @@ package main
 
 import (
 	logger "Framework/Logger"
+	mq "Framework/MessageQueue"
+	"Framework/RPC"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
+	"sync"
+
+	"github.com/google/uuid"
 )
 
+//returns a pointer a master and runs it
 func NewMaster() *Master {
 	master := &Master{
-		//q: mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
+		id: uuid.NewString(), //random id
+		q:  mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
+		mu: sync.Mutex{},
 	}
+	master.resetStatus()
 
-	//start any go routines here
 	go master.server()
+
+	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master is now alive")
+
 	return master
 }
 
@@ -25,20 +36,45 @@ func (master *Master) server() error {
 	rpc.Register(master)
 	rpc.HandleHTTP()
 
-	masterAddr := createMasterAddress()
-	os.Remove(masterAddr)
-	listener, err := net.Listen("tcp", masterAddr)
+	addrToListen := CreateMasterAddress()
+
+	os.Remove(addrToListen)
+	listener, err := net.Listen("tcp", addrToListen)
 
 	if err != nil {
 		logger.FailOnError(logger.MASTER, logger.ESSENTIAL, "Error while listening on socket: %v", err)
 	} else {
-		logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Listening on socket: %v", masterAddr)
+		logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Listening on socket: %v", addrToListen)
 	}
 
 	go http.Serve(listener, nil)
 	return nil
 }
 
-func createMasterAddress() string {
+func CreateMasterAddress() string {
 	return MyHost + ":" + MyPort
+}
+
+func (master *Master) resetStatus() {
+	master.currentJob = ""
+	master.currentJobId = ""
+	master.currentTasks = make([]string, 0)
+	master.isRunning = false
+}
+
+//
+//RPC handlers
+//
+
+func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskReply) error {
+	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Worker called HandleGetTasks with these args %+v", args)
+
+	master.mu.Lock()
+	defer master.mu.Unlock()
+
+	if !master.isRunning {
+		reply.TaskAvailable = false
+		return nil
+	}
+	return nil
 }
