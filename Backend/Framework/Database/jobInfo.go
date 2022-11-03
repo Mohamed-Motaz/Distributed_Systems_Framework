@@ -33,8 +33,20 @@ func (dBWrapper *DBWrapper) GetAllLateInProgressJobsInfo(jobsInfo *[]JobInfo, ma
 	return dBWrapper.Db.Raw(`
 	SELECT * FROM jobs.jobsinfo 
 	WHERE status = ? AND timeAssigned < ?
+	ORDER BY timeAssigned ASC
 	`, IN_PROGRESS, maxTime).Scan(jobsInfo)
 }
+
+// check if the job is assigned to another master
+
+func (dBWrapper *DBWrapper) CheckIsJobAssigned(jobsInfo *[]JobInfo, jobId string) *gorm.DB{
+	return dBWrapper.Db.Raw(`
+	SELECT * FROM jobs.jobsinfo 
+	WHERE jobId = ?
+		`, jobId).Scan(jobsInfo)
+}
+
+// assign job to master
 
 func (dBWrapper *DBWrapper) CreateJobsInfo(jobInfo *JobInfo) *gorm.DB {
 	return dBWrapper.Db.Create(jobInfo)

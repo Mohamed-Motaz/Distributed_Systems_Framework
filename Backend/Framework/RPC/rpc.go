@@ -47,6 +47,5 @@ type GetJobReply struct {
 	IsAccepted bool //lock server will answer whether it accepted my job request
 	JobId      string
 	ClientId   string
-	MasterId   string
 	JobContent string
 }
