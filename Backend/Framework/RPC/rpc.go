@@ -35,14 +35,15 @@ type WorkerHeartBeatReply struct {
 
 //master-lockserver communication ---------
 
-type GetJobsArgs struct {
+type GetJobArgs struct {
 	JobId      string
 	ClientId   string
 	MasterId   string
 	JobContent string
+	MQJobFound bool
 }
 
-type GetJobsReply struct {
+type GetJobReply struct {
 	IsAccepted bool //lock server will answer whether it accepted my job request
 	JobId      string
 	ClientId   string

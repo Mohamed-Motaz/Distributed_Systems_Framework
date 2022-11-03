@@ -31,7 +31,7 @@ func (worker *Worker) work() {
 		}
 		getTaskReply := &RPC.GetTaskReply{}
 
-		ok := worker.call("Master.HandleGetTasks", getTaskArgs, getTaskReply)
+		ok := worker.callMaster("Master.HandleGetTasks", getTaskArgs, getTaskReply)
 		if !ok {
 			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleGetTasks")
 			continue
@@ -70,7 +70,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		finishedTaskArgs := &RPC.FinishedTaskArgs{IsSuccess: false}
 		finishedTaskReply := &RPC.FinishedTaskReply{}
 
-		ok := worker.call("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)
+		ok := worker.callMaster("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)
 		if !ok {
 			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
 		}
@@ -85,7 +85,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 	}
 	finishedTaskReply := &RPC.FinishedTaskReply{}
 
-	ok := worker.call("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)
+	ok := worker.callMaster("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)
 	if !ok {
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
 	}
@@ -107,7 +107,7 @@ func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartB
 				JobId:    getTaskReply.JobId,
 			}
 			reply := &RPC.WorkerHeartBeatReply{}
-			ok := worker.call("Master.HandleWorkerHeartBeats", args, reply)
+			ok := worker.callMaster("Master.HandleWorkerHeartBeats", args, reply)
 			if !ok {
 				logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleWorkerHeartBeats")
 			}
@@ -116,7 +116,7 @@ func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartB
 }
 
 //blocking
-func (worker *Worker) call(rpcName string, args interface{}, reply interface{}) bool {
+func (worker *Worker) callMaster(rpcName string, args interface{}, reply interface{}) bool {
 	ctr := 1
 	successfullConnection := false
 	var client *rpc.Client
