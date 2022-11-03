@@ -10,7 +10,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
 	"github.com/google/uuid"
 )
 
@@ -23,6 +22,8 @@ func NewMaster() *Master {
 		mu:                sync.Mutex{},
 	}
 	master.resetStatus()
+
+	master.addDumbJob()
 
 	go master.server()
 
@@ -67,6 +68,19 @@ func (master *Master) resetStatus() {
 	master.isRunning = false
 }
 
+// this function expects to hold a lock
+func (master *Master) addDumbJob() {
+	master.currentJob = "Do Stupid Things"
+	master.currentJobId = "#1"
+	master.currentTasks = make([]Task, 2)
+	master.finishedTasks = make([]string, 2)
+	master.workersTimers = make([]WorkerAndHisTimer, 2)
+	master.isRunning = true
+
+	master.currentTasks[0] = Task{id: "#1 task",content: "hello for 1",isDone: false}
+	master.currentTasks[1] = Task{id: "#2 task",content: "hello for 2",isDone: false}
+}
+
 //
 //RPC handlers
 //
@@ -76,6 +90,8 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 
 	master.mu.Lock()
 	defer master.mu.Unlock()
+	defer logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master replied with this reply: %+v", reply)
+
 
 	if !master.isRunning {
 		reply.TaskAvailable = false
@@ -103,12 +119,14 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 				lastHeartBeat: time.Now(),
 				workerId:      args.WorkerId,
 			}
+
 			return nil
 		}
 
 	}
 
 	reply.TaskAvailable = false
+
 	return nil
 }
 
@@ -127,6 +145,11 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 		return nil
 	}
 
+	if !args.IsSuccess {
+		//TODO: need to handle this failure
+		return nil
+	}
+
 	taskIndex := master.getTaskIndexByTaskId(args.TaskId)
 	if taskIndex == -1 {
 		return nil
@@ -134,6 +157,8 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 
 	master.currentTasks[taskIndex].isDone = true
 	master.finishedTasks[taskIndex] = args.TaskResult
+
+	// TODO: create a thread that checks if all tasks are done and aggregates the results
 
 	return nil
 }

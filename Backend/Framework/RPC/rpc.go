@@ -21,6 +21,7 @@ type FinishedTaskArgs struct {
 	TaskId     string
 	JobId      string
 	TaskResult string
+	IsSuccess  bool
 }
 
 type FinishedTaskReply struct {
