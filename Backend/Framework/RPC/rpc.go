@@ -34,3 +34,18 @@ type WorkerHeartBeatReply struct {
 }
 
 //master-lockserver communication ---------
+
+type GetJobsArgs struct {
+	JobId      string
+	ClientId   string
+	MasterId   string
+	JobContent string
+}
+
+type GetJobsReply struct {
+	IsAccepted bool //lock server will answer whether it accepted my job request
+	JobId      string
+	ClientId   string
+	MasterId   string
+	JobContent string
+}
