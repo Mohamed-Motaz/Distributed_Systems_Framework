@@ -19,7 +19,7 @@ func NewMaster() *Master {
 	master := &Master{
 		id:                uuid.NewString(), //random id
 		q:                 mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
-		maxHeartBeatTimer: 10 * time.Second,
+		maxHeartBeatTimer: 30 * time.Second, //each heartbeat should be every 10 seconds but we allaow up to 2 failures
 		mu:                sync.Mutex{},
 	}
 	master.resetStatus()
@@ -57,10 +57,12 @@ func CreateMasterAddress() string {
 	return MyHost + ":" + MyPort
 }
 
+// this function expects to hold a lock
 func (master *Master) resetStatus() {
 	master.currentJob = ""
 	master.currentJobId = ""
 	master.currentTasks = make([]Task, 0)
+	master.finishedTasks = make([]string, 0)
 	master.workersTimers = make([]WorkerAndHisTimer, 0)
 	master.isRunning = false
 }
@@ -86,6 +88,9 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 		currentTask := master.currentTasks[i]
 		currentWorkerAndTimer := master.workersTimers[i]
 
+		if currentTask.isDone { 
+			continue 
+		}
 		if time.Since(currentWorkerAndTimer.lastHeartBeat) > master.maxHeartBeatTimer {
 			//the other worker is probably dead, so give this worker this job
 			reply.TaskAvailable = true
@@ -106,3 +111,53 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 	reply.TaskAvailable = false
 	return nil
 }
+
+
+func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC.FinishedTaskReply) error {
+	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Worker called HandleFinishedTasks with these args %+v", args)
+
+	master.mu.Lock()
+	defer master.mu.Unlock()
+
+	if !master.isRunning {
+		return nil
+	}
+
+	if args.JobId != master.currentJobId {
+		return nil
+	}
+
+	taskIndex := master.getTaskIndexByTaskId(args.TaskId)
+	if taskIndex == -1 {
+		return nil
+	}
+
+	master.currentTasks[taskIndex].isDone = true
+	master.finishedTasks[taskIndex] = args.TaskResult
+
+	return nil
+}
+
+// this function expects to hold a lock
+// returns -1 if task not found
+func (master *Master) getTaskIndexByTaskId (taskId string) int{
+
+	for i := range master.currentTasks {
+		if master.currentTasks[i].id == taskId {
+			return i
+		}
+	}
+
+	return -1
+}
+
+// func (master *Master) removeSliceElementByIndex (arr *[]Task, index int) int {
+
+// 	// Shift a[i+1:] left one index.
+// 	copy((*arr)[index:], (*arr)[index+1:]) 
+// 	// Erase last element (write zero value).
+// 	(*arr)[len((*arr))-1] = Task{}
+// 	// Truncate slice.   
+// 	(*arr) = (*arr)[:len((*arr))-1] 	
+// }
+

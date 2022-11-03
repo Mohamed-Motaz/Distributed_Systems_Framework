@@ -16,6 +16,7 @@ type Master struct {
 	currentJob        string
 	currentJobId      string
 	currentTasks      []Task
+	finishedTasks     []string
 	workersTimers     []WorkerAndHisTimer
 	maxHeartBeatTimer time.Duration
 	isRunning         bool //do i currently have a job
@@ -31,6 +32,7 @@ type WorkerAndHisTimer struct {
 type Task struct {
 	content string
 	id      string
+	isDone  bool
 }
 
 const (

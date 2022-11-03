@@ -17,4 +17,13 @@ type GetTaskReply struct {
 	JobId         string
 }
 
+type FinishedTaskArgs struct {
+	TaskId     string
+	JobId      string
+	TaskResult string
+}
+
+type FinishedTaskReply struct {
+}
+
 //master-lockserver communication ---------
