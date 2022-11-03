@@ -13,7 +13,8 @@ import (
 
 type Master struct {
 	id                string
-	currentJob        string
+	clientId          string
+	currentJobContent string
 	currentJobId      string
 	currentTasks      []Task
 	finishedTasks     []string
