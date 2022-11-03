@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -22,7 +23,6 @@ func NewMaster() *Master {
 		mu:                sync.Mutex{},
 	}
 	master.resetStatus()
-
 	master.addDumbJob()
 
 	go master.server()
@@ -30,28 +30,6 @@ func NewMaster() *Master {
 	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master is now alive")
 
 	return master
-}
-
-//
-// start a thread that listens for RPCs
-//
-func (master *Master) server() error {
-	rpc.Register(master)
-	rpc.HandleHTTP()
-
-	addrToListen := CreateMasterAddress()
-
-	os.Remove(addrToListen)
-	listener, err := net.Listen("tcp", addrToListen)
-
-	if err != nil {
-		logger.FailOnError(logger.MASTER, logger.ESSENTIAL, "Error while listening on socket: %v", err)
-	} else {
-		logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Listening on socket: %v", addrToListen)
-	}
-
-	go http.Serve(listener, nil)
-	return nil
 }
 
 func CreateMasterAddress() string {
@@ -77,8 +55,8 @@ func (master *Master) addDumbJob() {
 	master.workersTimers = make([]WorkerAndHisTimer, 2)
 	master.isRunning = true
 
-	master.currentTasks[0] = Task{id: "#1 task",content: "hello for 1",isDone: false}
-	master.currentTasks[1] = Task{id: "#2 task",content: "hello for 2",isDone: false}
+	master.currentTasks[0] = Task{id: "#1 task", content: "hello for 1", isDone: false}
+	master.currentTasks[1] = Task{id: "#2 task", content: "hello for 2", isDone: false}
 }
 
 //
@@ -92,7 +70,6 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 	defer master.mu.Unlock()
 	defer logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master replied with this reply: %+v", reply)
 
-
 	if !master.isRunning {
 		reply.TaskAvailable = false
 		return nil
@@ -104,8 +81,8 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 		currentTask := master.currentTasks[i]
 		currentWorkerAndTimer := master.workersTimers[i]
 
-		if currentTask.isDone { 
-			continue 
+		if currentTask.isDone {
+			continue
 		}
 		if time.Since(currentWorkerAndTimer.lastHeartBeat) > master.maxHeartBeatTimer {
 			//the other worker is probably dead, so give this worker this job
@@ -129,7 +106,6 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 
 	return nil
 }
-
 
 func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC.FinishedTaskReply) error {
 	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Worker called HandleFinishedTasks with these args %+v", args)
@@ -157,15 +133,71 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 
 	master.currentTasks[taskIndex].isDone = true
 	master.finishedTasks[taskIndex] = args.TaskResult
+	master.workersTimers[taskIndex].lastHeartBeat = time.Now()
 
 	// TODO: create a thread that checks if all tasks are done and aggregates the results
 
 	return nil
 }
 
+func (master *Master) HandleWorkerHeartBeats(args *RPC.WorkerHeartBeatArgs, reply *RPC.WorkerHeartBeatReply) error {
+	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Worker called HandleWorkerHeartBeat with these args %+v", args)
+
+	master.mu.Lock()
+	defer master.mu.Unlock()
+
+	if !master.isRunning {
+		return nil
+	}
+
+	if args.JobId != master.currentJobId {
+		return nil
+	}
+
+	taskIndex := master.getTaskIndexByTaskId(args.TaskId)
+	if taskIndex == -1 {
+		return nil
+	}
+
+	//now make sure that this worker was actually assigned this task
+	if master.workersTimers[taskIndex].workerId != args.WorkerId {
+		return nil
+	}
+
+	master.workersTimers[taskIndex].lastHeartBeat = time.Now()
+
+	return nil
+}
+
+//
+//main server loop
+//
+func (master *Master) server() error {
+	rpc.Register(master)
+	rpc.HandleHTTP()
+
+	addrToListen := CreateMasterAddress()
+
+	os.Remove(addrToListen)
+	listener, err := net.Listen("tcp", addrToListen)
+
+	if err != nil {
+		logger.FailOnError(logger.MASTER, logger.ESSENTIAL, "Error while listening on socket: %v", err)
+	} else {
+		logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Listening on socket: %v", addrToListen)
+	}
+
+	go http.Serve(listener, nil)
+	return nil
+}
+
+//
+//helpers
+//
+
 // this function expects to hold a lock
 // returns -1 if task not found
-func (master *Master) getTaskIndexByTaskId (taskId string) int{
+func (master *Master) getTaskIndexByTaskId(taskId string) int {
 
 	for i := range master.currentTasks {
 		if master.currentTasks[i].id == taskId {
@@ -179,10 +211,9 @@ func (master *Master) getTaskIndexByTaskId (taskId string) int{
 // func (master *Master) removeSliceElementByIndex (arr *[]Task, index int) int {
 
 // 	// Shift a[i+1:] left one index.
-// 	copy((*arr)[index:], (*arr)[index+1:]) 
+// 	copy((*arr)[index:], (*arr)[index+1:])
 // 	// Erase last element (write zero value).
 // 	(*arr)[len((*arr))-1] = Task{}
-// 	// Truncate slice.   
-// 	(*arr) = (*arr)[:len((*arr))-1] 	
+// 	// Truncate slice.
+// 	(*arr) = (*arr)[:len((*arr))-1]
 // }
-

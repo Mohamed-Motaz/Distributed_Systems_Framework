@@ -47,42 +47,71 @@ func (worker *Worker) work() {
 
 		// Now ready to call the process.exe
 		// TODO: we will need to write the task to a file and make sure the process can read from a file
-		time.Sleep(3*time.Second)
+		time.Sleep(3 * time.Second)
 
 		worker.handleTask(getTaskReply)
-
-		time.Sleep(10*time.Second)
 
 	}
 
 }
 
 func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
+	stopHeartBeatsCh := make(chan bool)
+	go worker.startHeartBeats(getTaskReply, stopHeartBeatsCh)
+	defer func() {
+		logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Worker done with handleTask with this data %+v", getTaskReply)
+		stopHeartBeatsCh <- true
+	}()
+
 	output, err := exec.Command(ProcessExeCmd).Output()
 	if err != nil {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to excute the client process with err: %+v",err)	
+		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to excute the client process with err: %+v", err)
 
 		finishedTaskArgs := &RPC.FinishedTaskArgs{IsSuccess: false}
 		finishedTaskReply := &RPC.FinishedTaskReply{}
 
 		ok := worker.call("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)
 		if !ok {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")	
+			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
 		}
 		return
 	}
 
 	finishedTaskArgs := &RPC.FinishedTaskArgs{
-		TaskId: getTaskReply.TaskId,
-		JobId: getTaskReply.JobId,
+		TaskId:     getTaskReply.TaskId,
+		JobId:      getTaskReply.JobId,
 		TaskResult: string(output),
-		IsSuccess: true,
+		IsSuccess:  true,
 	}
 	finishedTaskReply := &RPC.FinishedTaskReply{}
 
-	ok := worker.call("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)	
+	ok := worker.call("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)
 	if !ok {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")	
+		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
+	}
+}
+
+func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartBeats chan bool) {
+	logger.LogInfo(logger.WORKER, logger.DEBUGGING, "About to start sending heartbeats for this task %+v", getTaskReply)
+
+	for {
+		select {
+		case <-stopHeartBeats:
+			logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Stopped sending heartbeats for this task %+v", getTaskReply)
+			return
+		default:
+			time.Sleep(9 * time.Second)
+			args := &RPC.WorkerHeartBeatArgs{
+				WorkerId: worker.id,
+				TaskId:   getTaskReply.TaskId,
+				JobId:    getTaskReply.JobId,
+			}
+			reply := &RPC.WorkerHeartBeatReply{}
+			ok := worker.call("Master.HandleWorkerHeartBeats", args, reply)
+			if !ok {
+				logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleWorkerHeartBeats")
+			}
+		}
 	}
 }
 

@@ -9,7 +9,6 @@ for any inter-servers communication
 type GetTaskArgs struct {
 	WorkerId string
 }
-
 type GetTaskReply struct {
 	TaskAvailable bool
 	TaskContent   string
@@ -23,8 +22,15 @@ type FinishedTaskArgs struct {
 	TaskResult string
 	IsSuccess  bool
 }
-
 type FinishedTaskReply struct {
+}
+
+type WorkerHeartBeatArgs struct {
+	WorkerId string
+	TaskId   string
+	JobId    string
+}
+type WorkerHeartBeatReply struct {
 }
 
 //master-lockserver communication ---------
