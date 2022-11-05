@@ -14,7 +14,7 @@ import (
 
 )
 
-type client struct{
+type Client struct{
 	id                    string
 	finishedJobs          chan string
 	webSocketConn         *websocket.Conn
@@ -26,10 +26,9 @@ type WebSocketServer struct{
 	requestHandler        http.Handler
 	cache                 *cache.Cache
 	queue                 *mq.MQ
-	clients               map[string]*client
+	clients               map[string]*Client
 	mu                    sync.Mutex
 }
-
 
 const (
 
@@ -43,16 +42,24 @@ const (
 	_MQ_PASSWORD          string = "MQ_PASSWORD"
 	_LOCAL_HOST           string = "127.0.0.1"
 
-)
+) 
 
-var MyHost string
-var MyPort string
-var CacheHost string
-var CachePort string
-var MqHost string
-var MqPort string
-var MqUsername string
-var MqPassword string
+var(
+
+	upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024 * 1024,
+		CheckOrigin:     func(req *http.Request) bool { return true },
+	}
+	MyHost string
+	MyPort string
+	CacheHost string
+    CachePort string
+	MqHost string
+	MqPort string
+	MqUsername string
+	MqPassword string
+)
 
 
 func init() {
