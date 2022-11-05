@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/gorilla/websocket"
-
+	"github.com/joho/godotenv"
 )
 
 type Client struct{
@@ -41,6 +41,7 @@ const (
 	_MQ_USERNAME          string = "MQ_USERNAME"
 	_MQ_PASSWORD          string = "MQ_PASSWORD"
 	_LOCAL_HOST           string = "127.0.0.1"
+	MAX_IDLE_CACHE_TIME   time.Duration = 60 * time.Minute
 
 ) 
 

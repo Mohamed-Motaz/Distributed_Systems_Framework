@@ -4,6 +4,7 @@ import (
 	cache "Framework/Cache"
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
+	"encoding/json"
 	"net/http"
 	"sync"
 	"time"
@@ -35,7 +36,7 @@ func newWebSocketServer() (*WebSocketServer,error){
 	webSocketServer.requestHandler = serveMux;
 	
 	go webSocketServer.listenAndServe();
-	//go write
+	go webSocketServer.deliverJob();
 	//go releaser
 	
 	return webSocketServer, nil;
@@ -43,10 +44,10 @@ func newWebSocketServer() (*WebSocketServer,error){
 
 func (webSocketServer *WebSocketServer) listenAndServe(){
 
-	logger.LogInfo(logger.SERVER, logger.ESSENTIAL, "Listening on %v:%v", MyHost, MyPort)
+	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Listening on %v:%v", MyHost, MyPort)
 
 	if err := http.ListenAndServe(MyHost + ":" + MyPort, webSocketServer.requestHandler) ; err != nil{
-		logger.FailOnError(logger.SERVER, logger.ESSENTIAL, "{Failed in listening on port} -> error : %v", err)
+		logger.FailOnError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Failed in listening on port} -> error : %v", err)
 	}
 
 }
@@ -56,14 +57,14 @@ func (webSocketServer *WebSocketServer) handleRequest(res http.ResponseWriter, r
 	upgradedConn, err := upgrader.Upgrade(res, req, nil);
 
 	if err != nil {
-		logger.LogError(logger.SERVER, logger.ESSENTIAL, "{Unable to upgrade http request to websocket} -> error : %v", err);
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to upgrade http request to websocket} -> error : %v", err);
 		return;
 	}
 
 	client, err := newClient(upgradedConn);
 	
 	if err != nil {
-		logger.FailOnError(logger.SERVER, logger.ESSENTIAL, "{Unable to create client} -> error : %v", err);
+		logger.FailOnError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to create client} -> error : %v", err);
 		return;
 	}
 
@@ -72,6 +73,50 @@ func (webSocketServer *WebSocketServer) handleRequest(res http.ResponseWriter, r
 	webSocketServer.mu.Unlock();
 
 	//go read
+}
+
+func (webSocketServer *WebSocketServer) deliverJob() {
+
+	finishedJobsChan , err := webSocketServer.queue.Dequeue(mq.FINISHED_JOBS_QUEUE); 
+
+	if err != nil{
+		logger.FailOnError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Server can't consume finished Jobs} -> error : %v", err)
+		return;
+	}
+
+	for {
+
+		for finishedJob := range finishedJobsChan{
+			body := finishedJob.Body;
+			data := &mq.FinishedJob{}
+			err := json.Unmarshal(body, data)
+			if err != nil {
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to unMarshal job %v } -> error : %v\n Will be discarded", string(body),err) 
+				finishedJob.Ack(false)
+				continue
+			}
+
+			webSocketServer.mu.Lock();
+
+			if client, ok := webSocketServer.clients[data.ClientId]; ok {
+
+				webSocketServer.mu.Unlock();
+
+				go func (client *Client,data interface{}){
+					client.webSocketConn.WriteJSON(data);
+				} (client, data)
+
+				finishedJob.Ack(false)
+				logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Job sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), data) 
+
+			}else{
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Connection with client may have been terminated}") 
+				finishedJob.Nack(false, true)  
+			} 
+			
+		}
+		time.Sleep(time.Second * 5);
+	}
 
 }
 

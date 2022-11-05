@@ -33,7 +33,7 @@ func NewCache(address string) *Cache {
 	}
 
 	if err != nil {
-		logger.FailOnError(logger.SERVER, logger.ESSENTIAL, "Unable to connect to caching layer with error %+v", err)
+		logger.FailOnError(logger.CACHE, logger.ESSENTIAL, "Unable to connect to caching layer with error %+v", err)
 	} else {
 		logger.LogInfo(logger.CACHE, logger.ESSENTIAL, "Successfully connected to caching layer")
 	}
@@ -64,7 +64,7 @@ func (c *Cache) Set(key string, value interface{}, expiration time.Duration) err
 func (cache *Cache) debug() {
 	time.Sleep(10 * time.Second)
 	for {
-		fmt.Println("About to print all redis keys and vals\n")
+		fmt.Println("About to print all redis keys and values\n")
 		iter := cache.client.Scan(cache.ctx, 0, "*", 0).Iterator()
 		for iter.Next(cache.ctx) {
 			key := iter.Val()
@@ -74,7 +74,7 @@ func (cache *Cache) debug() {
 		if err := iter.Err(); err != nil {
 			panic(err)
 		}
-		fmt.Println("\nDone printing all redis keys and vals\n")
+		fmt.Println("\nDone printing all redis keys and values\n")
 
 		time.Sleep(10 * time.Second)
 	}

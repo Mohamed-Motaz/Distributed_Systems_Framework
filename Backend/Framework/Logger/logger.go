@@ -24,7 +24,7 @@ const (
 	CRAWLING
 	DATABASE
 	MESSAGE_Q
-	SERVER
+	WEBSOCKET_SERVER
 	CACHE
 )
 
@@ -151,8 +151,8 @@ func determineRole(role int) string {
 		return "MESSAGE_Q-> "
 	case DATABASE:
 		return "DATABASE-> "
-	case SERVER:
-		return "SERVER-> "
+	case WEBSOCKET_SERVER:
+		return "WEBSOCKET_SERVER-> "
 	case CACHE:
 		return "CACHE-> "
 	default:
