@@ -19,9 +19,11 @@ const (
 	_LOCAL_HOST      string = "127.0.0.1"
 )
 
-var MasterHost string
-var MasterPort string
-var ProcessExeCmd string
+var(  
+	MasterHost string
+	MasterPort string
+	ProcessExeCmd string
+)
 
 func init() {
 	if !utils.IN_DOCKER {

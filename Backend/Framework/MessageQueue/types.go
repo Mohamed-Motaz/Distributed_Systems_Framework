@@ -9,9 +9,10 @@ import (
 //todo  handle the lifetime for a job in the message queue
 
 //queue names
-const ASSIGNED_JOBS_QUEUE = "assignedJobs"
-const FINISHED_JOBS_QUEUE = "finishedJobs"
-
+const ( 
+	ASSIGNED_JOBS_QUEUE = "assignedJobs"
+	FINISHED_JOBS_QUEUE = "finishedJobs"
+)
 //objects passed into and out of messageQ
 
 type MQ struct {

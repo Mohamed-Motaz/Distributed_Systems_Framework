@@ -48,14 +48,17 @@ const (
 	_LOCAL_HOST       string = "127.0.0.1"
 )
 
-var MyHost string
-var MyPort string
-var LockServerHost string
-var LockServerPort string
-var MqHost string
-var MqPort string
-var MqUsername string
-var MqPassword string
+var(
+	MyHost string
+ 	MyPort string
+	LockServerHost string
+	LockServerPort string
+	MqHost string
+	MqPort string
+	MqUsername string
+	MqPassword string
+)
+
 
 func init() {
 	if !utils.IN_DOCKER {

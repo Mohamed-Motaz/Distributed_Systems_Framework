@@ -31,14 +31,18 @@ const (
 	_LOCAL_HOST string = "127.0.0.1"
 )
 
-var MyHost string
-var MyPort string
-var DbUser string
-var DbPassword string
-var DbProtocol string
-var DbHost string
-var DbPort string
-var DbSettings string
+
+var( 
+	MyHost string
+	MyPort string
+	DbUser string
+	DbPassword string
+	DbProtocol string
+	DbHost string
+	DbPort string
+	DbSettings string
+)
+
 
 func init() {
 	if !utils.IN_DOCKER {

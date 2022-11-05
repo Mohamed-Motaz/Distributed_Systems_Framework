@@ -11,8 +11,10 @@ const (
 	ESSENTIAL_LOGS = "ESSENTIAL_LOGS"
 )
 
-var DebugLogs int16
-var EssentialLogs int16
+var ( 
+	DebugLogs int16
+	EssentialLogs int16
+)
 
 const (
 	MASTER = iota
