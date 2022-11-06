@@ -18,7 +18,7 @@ type Client struct{
 	id                    string
 	finishedJobs          chan string
 	webSocketConn         *websocket.Conn
-	connStartTime         int64
+	lastRequestTime          int64
 }
 
 type WebSocketServer struct{
@@ -41,8 +41,7 @@ const (
 	_MQ_USERNAME          string = "MQ_USERNAME"
 	_MQ_PASSWORD          string = "MQ_PASSWORD"
 	_LOCAL_HOST           string = "127.0.0.1"
-	MAX_IDLE_CACHE_TIME   time.Duration = 60 * time.Minute
-
+	MAX_IDLE_CACHE_TIME   time.Duration = time.Hour * 24 * 30;
 ) 
 
 var(

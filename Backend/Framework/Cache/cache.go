@@ -52,7 +52,7 @@ func CreateCacheAddress(host string, port string) string {
 
 //gets the value of a key
 func (c *Cache) Get(key string) (string, error) {
-	return c.client.Get(c.ctx, key).Result()
+	return c.client.Get(c.ctx, key).Result();
 }
 
 //sets the value of a key
