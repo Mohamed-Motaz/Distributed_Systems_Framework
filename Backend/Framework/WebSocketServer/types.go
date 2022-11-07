@@ -14,54 +14,49 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Client struct{
-	id                    string
-	finishedJobs          chan string
-	webSocketConn         *websocket.Conn
-	connStartTime         int64
+type Client struct {
+	id              string
+	finishedJobs    chan string
+	webSocketConn   *websocket.Conn
+	lastRequestTime int64
 }
 
-type WebSocketServer struct{
-
-	requestHandler        http.Handler
-	cache                 *cache.Cache
-	queue                 *mq.MQ
-	clients               map[string]*Client
-	mu                    sync.Mutex
+type WebSocketServer struct {
+	requestHandler http.Handler
+	cache          *cache.Cache
+	queue          *mq.MQ
+	clients        map[string]*Client
+	mu             sync.Mutex
 }
 
 const (
+	_MY_HOST            string        = "MY_HOST"
+	_MY_PORT            string        = "MY_PORT"
+	_CACHE_HOST         string        = "CACHE_HOST"
+	_CACHE_PORT         string        = "CACHE_PORT"
+	_MQ_HOST            string        = "MQ_HOST"
+	_MQ_PORT            string        = "MQ_PORT"
+	_MQ_USERNAME        string        = "MQ_USERNAME"
+	_MQ_PASSWORD        string        = "MQ_PASSWORD"
+	_LOCAL_HOST         string        = "127.0.0.1"
+	MAX_IDLE_CACHE_TIME time.Duration = time.Hour * 24 * 30
+)
 
-	_MY_HOST              string = "MY_HOST"
-	_MY_PORT              string = "MY_PORT"
-	_CACHE_HOST           string = "CACHE_HOST"
-	_CACHE_PORT           string = "CACHE_PORT"
-	_MQ_HOST              string = "MQ_HOST"
-	_MQ_PORT              string = "MQ_PORT"
-	_MQ_USERNAME          string = "MQ_USERNAME"
-	_MQ_PASSWORD          string = "MQ_PASSWORD"
-	_LOCAL_HOST           string = "127.0.0.1"
-	MAX_IDLE_CACHE_TIME   time.Duration = 60 * time.Minute
-
-) 
-
-var(
-
+var (
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024 * 1024,
 		CheckOrigin:     func(req *http.Request) bool { return true },
 	}
-	MyHost string
-	MyPort string
-	CacheHost string
-    CachePort string
-	MqHost string
-	MqPort string
+	MyHost     string
+	MyPort     string
+	CacheHost  string
+	CachePort  string
+	MqHost     string
+	MqPort     string
 	MqUsername string
 	MqPassword string
 )
-
 
 func init() {
 	if !utils.IN_DOCKER {
