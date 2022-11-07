@@ -4,7 +4,6 @@ import (
 	cache "Framework/Cache"
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"sync"
@@ -78,59 +77,6 @@ func (webSocketServer *WebSocketServer) handleRequests(res http.ResponseWriter, 
 
 func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob interface{}) {
 	client.webSocketConn.WriteJSON(finishedJob)
-}
-
-func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
-
-	defer delete(webSocketServer.clients, client.id)
-	defer client.webSocketConn.Close()
-
-	for {
-
-		_, message, err := client.webSocketConn.ReadMessage()
-		if err != nil {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
-			return
-		}
-
-		//update client time
-		webSocketServer.mu.Lock()
-		client.lastRequestTime = time.Now().Unix() //lock this operation since cleaner is running
-		webSocketServer.mu.Unlock()                //and may check on c.connTime
-		newJob := &mq.AssignedJob{}
-		newJob.ClientId = client.id //need to set clientId of the newJob as this client's id
-
-		//read message into json
-		err = json.Unmarshal(message, newJob)
-		if err != nil {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
-			return
-		}
-
-		cachedJob, err := webSocketServer.cache.Get(newJob.Content)
-
-		if err == nil {
-			go webSocketServer.writeFinishedJob(client, cachedJob)
-			continue
-		}
-
-		jobToAssign := new(bytes.Buffer)
-
-		err = json.NewEncoder(jobToAssign).Encode(newJob)
-
-		if err != nil {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with client %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
-			return
-		}
-		//message is viable and isnt present in cache, can now send it over to mq
-		err = webSocketServer.queue.Enqueue(mq.ASSIGNED_JOBS_QUEUE, jobToAssign.Bytes())
-
-		if err != nil {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not Enqeue to jobs assigned queue} -> error : %+v", err)
-		} else {
-			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully Enqeue to jobs assigned queue")
-		}
-	}
 }
 
 func (webSocketServer *WebSocketServer) deliverJobs() {
