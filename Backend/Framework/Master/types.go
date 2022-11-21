@@ -13,16 +13,20 @@ import (
 
 type Master struct {
 	id                string
-	clientId          string
-	currentJobContent string
-	currentJobId      string
-	currentTasks      []Task
-	finishedTasks     []string
-	workersTimers     []WorkerAndHisTimer
+	currentJob        CurrentJob
 	maxHeartBeatTimer time.Duration
 	isRunning         bool //do i currently have a job
 	mu                sync.Mutex
 	q                 *mq.MQ
+}
+
+type CurrentJob struct {
+	clientId      string
+	jobContent    string
+	jobId         string
+	tasks         []Task
+	finishedTasks []string
+	workersTimers []WorkerAndHisTimer
 }
 
 type WorkerAndHisTimer struct {
@@ -48,17 +52,16 @@ const (
 	_LOCAL_HOST       string = "127.0.0.1"
 )
 
-var(
-	MyHost string
- 	MyPort string
+var (
+	MyHost         string
+	MyPort         string
 	LockServerHost string
 	LockServerPort string
-	MqHost string
-	MqPort string
-	MqUsername string
-	MqPassword string
+	MqHost         string
+	MqPort         string
+	MqUsername     string
+	MqPassword     string
 )
-
 
 func init() {
 	if !utils.IN_DOCKER {

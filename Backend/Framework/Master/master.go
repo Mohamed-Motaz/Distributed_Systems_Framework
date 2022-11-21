@@ -39,41 +39,47 @@ func CreateMasterAddress() string {
 }
 
 // this function expects to hold a lock
+//it resets the currentJob of the master
 func (master *Master) resetStatus() {
-	master.currentJobContent = ""
-	master.currentJobId = ""
-	master.clientId = ""
-	master.currentTasks = make([]Task, 0)
-	master.finishedTasks = make([]string, 0)
-	master.workersTimers = make([]WorkerAndHisTimer, 0)
+	master.currentJob = CurrentJob{
+		tasks:         make([]Task, 0),
+		finishedTasks: make([]string, 0),
+		workersTimers: make([]WorkerAndHisTimer, 0),
+	}
 	master.isRunning = false
 }
 
 // this function expects to hold a lock
 func (master *Master) setJobStatus(jobId string, jobContent string, clientId string) {
-	master.currentJobContent = jobContent
-	master.currentJobId = jobId
-	master.clientId = clientId
+	master.currentJob = CurrentJob{
+		clientId:   clientId,
+		jobContent: jobContent,
+		jobId:      jobId,
 
-	//now need to run the distribute process
-
-	master.currentTasks = make([]Task, 0)
-	master.finishedTasks = make([]string, 0)
-	master.workersTimers = make([]WorkerAndHisTimer, 0)
+		tasks:         make([]Task, 0),
+		finishedTasks: make([]string, 0),
+		workersTimers: make([]WorkerAndHisTimer, 0),
+	}
 	master.isRunning = true
+
+	//todoneed to run the distribute process now
+
 }
 
 // this function expects to hold a lock
 func (master *Master) addDumbJob() {
-	master.currentJobContent = "Do Stupid Things"
-	master.currentJobId = "#1"
-	master.currentTasks = make([]Task, 2)
-	master.finishedTasks = make([]string, 2)
-	master.workersTimers = make([]WorkerAndHisTimer, 2)
-	master.isRunning = true
 
-	master.currentTasks[0] = Task{id: "#1 task", content: "hello for 1", isDone: false}
-	master.currentTasks[1] = Task{id: "#2 task", content: "hello for 2", isDone: false}
+	master.currentJob = CurrentJob{
+		clientId:      "id",
+		jobContent:    "Do Stupid Things",
+		jobId:         "#1",
+		tasks:         make([]Task, 2),
+		finishedTasks: make([]string, 2),
+		workersTimers: make([]WorkerAndHisTimer, 2),
+	}
+	master.isRunning = true
+	master.currentJob.tasks[0] = Task{id: "#1 task", content: "hello for 1", isDone: false}
+	master.currentJob.tasks[1] = Task{id: "#2 task", content: "hello for 2", isDone: false}
 }
 
 //
@@ -188,9 +194,9 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 
 	//now need to check the available tasks
 
-	for i := range master.currentTasks {
-		currentTask := master.currentTasks[i]
-		currentWorkerAndTimer := master.workersTimers[i]
+	for i := range master.currentJob.tasks {
+		currentTask := master.currentJob.tasks[i]
+		currentWorkerAndTimer := master.currentJob.workersTimers[i]
 
 		if currentTask.isDone {
 			continue
@@ -200,10 +206,10 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 			reply.TaskAvailable = true
 			reply.TaskContent = currentTask.content
 			reply.TaskId = currentTask.id
-			reply.JobId = master.currentJobId
+			reply.JobId = master.currentJob.jobId
 
 			//now as a master, need to mark this job as given to a worker
-			master.workersTimers[i] = WorkerAndHisTimer{
+			master.currentJob.workersTimers[i] = WorkerAndHisTimer{
 				lastHeartBeat: time.Now(),
 				workerId:      args.WorkerId,
 			}
@@ -228,7 +234,7 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 		return nil
 	}
 
-	if args.JobId != master.currentJobId {
+	if args.JobId != master.currentJob.jobId {
 		return nil
 	}
 
@@ -242,9 +248,9 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 		return nil
 	}
 
-	master.currentTasks[taskIndex].isDone = true
-	master.finishedTasks[taskIndex] = args.TaskResult
-	master.workersTimers[taskIndex].lastHeartBeat = time.Now()
+	master.currentJob.tasks[taskIndex].isDone = true
+	master.currentJob.finishedTasks[taskIndex] = args.TaskResult
+	master.currentJob.workersTimers[taskIndex].lastHeartBeat = time.Now()
 
 	// TODO: create a thread that checks if all tasks are done and aggregates the results
 
@@ -261,7 +267,7 @@ func (master *Master) HandleWorkerHeartBeats(args *RPC.WorkerHeartBeatArgs, repl
 		return nil
 	}
 
-	if args.JobId != master.currentJobId {
+	if args.JobId != master.currentJob.jobId {
 		return nil
 	}
 
@@ -271,11 +277,11 @@ func (master *Master) HandleWorkerHeartBeats(args *RPC.WorkerHeartBeatArgs, repl
 	}
 
 	//now make sure that this worker was actually assigned this task
-	if master.workersTimers[taskIndex].workerId != args.WorkerId {
+	if master.currentJob.workersTimers[taskIndex].workerId != args.WorkerId {
 		return nil
 	}
 
-	master.workersTimers[taskIndex].lastHeartBeat = time.Now()
+	master.currentJob.workersTimers[taskIndex].lastHeartBeat = time.Now()
 
 	return nil
 }
@@ -344,8 +350,8 @@ func (Master *Master) callLockServer(rpcName string, args interface{}, reply int
 // returns -1 if task not found
 func (master *Master) getTaskIndexByTaskId(taskId string) int {
 
-	for i := range master.currentTasks {
-		if master.currentTasks[i].id == taskId {
+	for i := range master.currentJob.tasks {
+		if master.currentJob.tasks[i].id == taskId {
 			return i
 		}
 	}
