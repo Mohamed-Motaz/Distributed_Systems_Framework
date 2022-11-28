@@ -11,6 +11,18 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const (
+	PROCESS_EXE                    = "process_"
+	DISTRIBUTE_EXE                 = "distribute_"
+	AGGREGATE_EXE                  = "aggregate_"
+	PROCESS_EXE_INPUT_FILENAME     = "processExeInput.txt"
+	PROCESS_EXE_OUTPUT_FILENAME    = "processExeOutput.txt"
+	DISTRIBUTE_EXE_INPUT_FILENAME  = "distributeExeInput.txt"
+	DISTRIBUTE_EXE_OUTPUT_FILENAME = "distributeExeOutput.txt"
+	AGGREGATE_EXE_INPUT_FILENAME   = "aggregateExeInput.txt"
+	AGGREGATE_EXE_OUTPUT_FILENAME  = "aggregateExeOutput.txt"
+)
+
 type Master struct {
 	id                string
 	currentJob        CurrentJob
@@ -27,6 +39,14 @@ type CurrentJob struct {
 	tasks         []Task
 	finishedTasks []string
 	workersTimers []WorkerAndHisTimer
+	processExe    Exe
+	distributeExe Exe
+	aggregateExe  Exe
+}
+
+type Exe struct {
+	exe  []byte
+	name string
 }
 
 type WorkerAndHisTimer struct {

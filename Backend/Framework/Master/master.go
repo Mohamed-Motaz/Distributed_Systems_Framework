@@ -3,7 +3,13 @@ package main
 import (
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
+	utils "Framework/Utils"
+	"bytes"
+	"fmt"
+	"os/exec"
+
 	"Framework/RPC"
+	"encoding/gob"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -45,12 +51,32 @@ func (master *Master) resetStatus() {
 		tasks:         make([]Task, 0),
 		finishedTasks: make([]string, 0),
 		workersTimers: make([]WorkerAndHisTimer, 0),
+		processExe: Exe{
+			exe: make([]byte, 0),
+		},
+		distributeExe: Exe{
+			exe: make([]byte, 0),
+		},
+		aggregateExe: Exe{
+			exe: make([]byte, 0),
+		},
 	}
 	master.isRunning = false
+
+	//todo support other oss
+	utils.RemoveFilesWithStartName(PROCESS_EXE)
+	utils.RemoveFilesWithStartName(DISTRIBUTE_EXE)
+	utils.RemoveFilesWithStartName(AGGREGATE_EXE)
+
 }
 
 // this function expects to hold a lock
-func (master *Master) setJobStatus(jobId string, jobContent string, clientId string) {
+//this function is responsible for setting up the new job and running distribute
+func (master *Master) setJobStatus(jobId string, jobContent string, clientId string,
+	processExe []byte, processExeName string,
+	distributeExe []byte, distributeExeName string,
+	aggregateExe []byte, aggregateExeName string) error {
+
 	master.currentJob = CurrentJob{
 		clientId:   clientId,
 		jobContent: jobContent,
@@ -59,11 +85,82 @@ func (master *Master) setJobStatus(jobId string, jobContent string, clientId str
 		tasks:         make([]Task, 0),
 		finishedTasks: make([]string, 0),
 		workersTimers: make([]WorkerAndHisTimer, 0),
+		processExe: Exe{
+			exe:  processExe,
+			name: PROCESS_EXE + processExeName,
+		},
+		distributeExe: Exe{
+			exe:  distributeExe,
+			name: DISTRIBUTE_EXE + distributeExeName,
+		},
+		aggregateExe: Exe{
+			exe:  aggregateExe,
+			name: AGGREGATE_EXE + aggregateExeName,
+		},
 	}
 	master.isRunning = true
 
-	//todoneed to run the distribute process now
+	//todo, think about supporting different os exes
+	//todo any errors here should be propagated to client
 
+	err := utils.CreateAndWriteToFile(master.currentJob.processExe.name, master.currentJob.processExe.exe)
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while creating the process exe file locally on the master %+v", err)
+		return fmt.Errorf("Error while creating the process exe file locally on the master")
+	}
+	err = utils.CreateAndWriteToFile(master.currentJob.distributeExe.name, master.currentJob.distributeExe.exe)
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while creating the distribute exe file locally on the master %+v", err)
+		return fmt.Errorf("Error while creating the distribute exe file locally on the master")
+	}
+	err = utils.CreateAndWriteToFile(master.currentJob.aggregateExe.name, master.currentJob.aggregateExe.exe)
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while creating the aggregate exe file locally on the master %+v", err)
+		return fmt.Errorf("Error while creating the aggregate exe file locally on the master")
+	}
+
+	//now, need to run distribute
+	fName := "distributeTaskContents.txt"
+	fPath := "./" + fName
+	err = utils.CreateAndWriteToFile(fName, []byte(master.currentJob.jobContent))
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while creating the temporary file that contains the job contents for distribute process locally on the master %+v", err)
+		return fmt.Errorf("Error while creating the temporary file that contains the job contents for distribute process locally on the master")
+	}
+
+	_, err = exec.Command("./" + master.currentJob.distributeExe.name + " " + fPath).Output()
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while executing distribute process %+v", err)
+		return fmt.Errorf("Error while executing distribute process")
+	}
+
+	//now need to read from this file the resulting data
+	data, err := os.ReadFile(fPath)
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while reading from the distribute process %+v", err)
+		return fmt.Errorf("Error while reading from the distribute process")
+	}
+
+	var tasks *[]string
+	err = gob.NewDecoder(bytes.NewReader(data)).Decode(tasks)
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while decoding the tasks array created by the distribute exe %+v", err)
+		return fmt.Errorf("Error while decoding the tasks array created by the distribute exe")
+	}
+
+	//now that I have the tasks, set the appropriate fields in the master
+	master.currentJob.tasks = make([]Task, len(*tasks))
+	master.currentJob.finishedTasks = make([]string, len(*tasks))
+	master.currentJob.workersTimers = make([]WorkerAndHisTimer, len(*tasks))
+
+	for i, task := range *tasks {
+		master.currentJob.tasks[i] = Task{
+			id:      uuid.NewString(),
+			content: task,
+			isDone:  false,
+		}
+	}
+	return nil
 }
 
 // this function expects to hold a lock
@@ -76,6 +173,18 @@ func (master *Master) addDumbJob() {
 		tasks:         make([]Task, 2),
 		finishedTasks: make([]string, 2),
 		workersTimers: make([]WorkerAndHisTimer, 2),
+		processExe: Exe{
+			exe:  make([]byte, 0),
+			name: PROCESS_EXE + "process.exe",
+		},
+		distributeExe: Exe{
+			exe:  make([]byte, 0),
+			name: DISTRIBUTE_EXE + "distribute.exe",
+		},
+		aggregateExe: Exe{
+			exe:  make([]byte, 0),
+			name: AGGREGATE_EXE + "aggregate.exe",
+		},
 	}
 	master.isRunning = true
 	master.currentJob.tasks[0] = Task{id: "#1 task", content: "hello for 1", isDone: false}
