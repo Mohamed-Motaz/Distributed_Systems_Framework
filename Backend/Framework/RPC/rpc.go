@@ -71,22 +71,22 @@ const DistributeExe FileType = "Distribute"
 const AggregateExe FileType = "Aggregate"
 
 type ProcessUploadArgs struct {
-	FileType FileType
+	FileType    FileType
 	FileContent File
 }
 
 type ProcessUploadReply struct {
-	Error bool
+	Error    bool
 	ErrorMsg string
 }
 
 type OptionalFilesUploadArgs struct {
-	JobId string 
+	JobId       string
 	FileContent []File
 }
 
 type OptionalFilesUploadReply struct {
-	Error bool
+	Error    bool
 	ErrorMsg string
 }
 
@@ -98,4 +98,13 @@ type FinishedJobArgs struct {
 type FinishedJobReply struct {
 	Error bool
 	ErrorMsg string
+}
+type GetExeFilesArgs struct {
+}
+type GetExeFilesReply struct {
+	ProcessExeFiles    []string
+	DistributeExeFiles []string
+	AggregateExeFiles  []string
+	Error              bool
+	ErrorMsg           string
 }
