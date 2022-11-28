@@ -18,7 +18,7 @@ func main() {
 	}
 
 	//time.Sleep(time.Second)
-
+	
 	val, err := cacheObj.Get("agina")
 	if err == redis.Nil {
 		logger.LogError(logger.CACHE, logger.ESSENTIAL, "key agina not present")

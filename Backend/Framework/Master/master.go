@@ -235,7 +235,7 @@ func (master *Master) qConsumer() {
 				JobId:      data.JobId,
 				ClientId:   data.ClientId,
 				MasterId:   master.id,
-				JobContent: data.Content,
+				JobContent: data.JobContent,
 				MQJobFound: true,
 			}
 			reply := &RPC.GetJobReply{}

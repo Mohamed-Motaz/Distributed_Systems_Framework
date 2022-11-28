@@ -50,7 +50,6 @@ func (webSocketServer *WebSocketServer) listenAndServe() {
 	if err := http.ListenAndServe(MyHost+":"+MyPort, webSocketServer.requestHandler); err != nil {
 		logger.FailOnError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Failed in listening on port} -> error : %v", err)
 	}
-
 }
 
 func (webSocketServer *WebSocketServer) handleRequests(res http.ResponseWriter, req *http.Request) {
@@ -97,17 +96,22 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 		webSocketServer.mu.Lock()
 		client.lastRequestTime = time.Now().Unix() //lock this operation since cleaner is running
 		webSocketServer.mu.Unlock()                //and may check on c.connTime
-		newJob := &mq.AssignedJob{}
-		newJob.ClientId = client.id //need to set clientId of the newJob as this client's id
+		newWebSocketRequest := &WebSocketServerRequest{}
+		newWebSocketRequest.ClientId = client.id //need to set clientId of the newJob as this client's id
+		newWebSocketRequest.JobId = uuid.NewString()
 
 		//read message into json
-		err = json.Unmarshal(message, newJob)
+		err = json.Unmarshal(message, newWebSocketRequest)
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
 			return
 		}
 
-		cachedJob, err := webSocketServer.cache.Get(newJob.Content)
+		//TODO : send to lockServer 
+
+		newJob := newWebSocketRequest.createJob();
+
+		cachedJob, err := webSocketServer.cache.Get(newJob.JobContent)
 
 		if err == nil {
 			go webSocketServer.writeFinishedJob(client, cachedJob)
@@ -131,6 +135,21 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully Enqeue to jobs assigned queue")
 		}
 	}
+}
+
+func (webSocketServerRequest *WebSocketServerRequest) createJob() *mq.AssignedJob{
+	newJob := &mq.AssignedJob{};
+	newJob.ClientId = webSocketServerRequest.ClientId;
+	newJob.JobId = webSocketServerRequest.JobId;
+	newJob.JobContent = webSocketServerRequest.JobContent;
+	for _,optionalFile := range webSocketServerRequest.OptionalFiles {
+	    newJob.OptionalfilesNames = append(newJob.OptionalfilesNames, optionalFile.Name);
+	}
+	newJob.DistributeExeName = webSocketServerRequest.DistributeFile.Name;
+	newJob.ProcessExeName = webSocketServerRequest.ProcessFile.Name;
+	newJob.AggregateExeName = webSocketServerRequest.AggregateFile.Name;
+
+	return newJob;
 }
 
 func (webSocketServer *WebSocketServer) deliverJobs() {
