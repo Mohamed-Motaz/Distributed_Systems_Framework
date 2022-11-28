@@ -49,3 +49,7 @@ type GetJobReply struct {
 	ClientId   string
 	JobContent string
 }
+
+
+//websocketserver - lockserver communication --------------
+

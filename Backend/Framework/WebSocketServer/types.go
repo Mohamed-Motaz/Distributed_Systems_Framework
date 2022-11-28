@@ -29,6 +29,21 @@ type WebSocketServer struct {
 	mu             sync.Mutex
 }
 
+type File struct{
+	Name string
+	Content []byte
+}
+
+type WebSocketServerRequest struct{
+	ClientId       string `json:"clientId"`
+	JobId          string `json:"jobId"`
+	JobContent     string `json:"jobContent"`
+	OptionalFiles []*File `json:"optionalFiles"`
+	DistributeFile  *File `json:"distributeFile"`
+	ProcessFile     *File `json:"processFile"`
+	AggregateFile   *File `json:"aggregateFile"`
+}
+
 const (
 	_MY_HOST            string        = "MY_HOST"
 	_MY_PORT            string        = "MY_PORT"
