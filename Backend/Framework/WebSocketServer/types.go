@@ -29,6 +29,7 @@ type WebSocketServer struct {
 	mu             sync.Mutex
 }
 
+// todo has been moved to RPC
 type File struct{
 	Name string
 	Content []byte
