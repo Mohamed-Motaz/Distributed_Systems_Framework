@@ -80,7 +80,7 @@ type ProcessUploadReply struct {
 
 type OptionalFilesUploadArgs struct {
 	JobId string 
-	FileContent File
+	FileContent []File
 }
 
 type OptionalFilesUploadReply struct {

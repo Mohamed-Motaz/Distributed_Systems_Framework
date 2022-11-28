@@ -4,10 +4,12 @@ import (
 	database "Framework/Database"
 	logger "Framework/Logger"
 	"Framework/RPC"
+	"errors"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -115,5 +117,32 @@ func (lockServer *LockServer) getLateJob(args *RPC.GetJobArgs, reply *RPC.GetJob
 	reply.ClientId = lateJob.ClientId
 	return true
 
+}
+
+func (lockServer *LockServer) addOptionalFiles(args *RPC.OptionalFilesUploadArgs, reply *RPC.OptionalFilesUploadReply ) {
+
+	path :=  filepath.Join("./OptionalFiles", args.JobId)
+
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(path, os.ModePerm)
+		if err != nil {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL,  "Unable to create a folder with this JobId", err )
+			reply.Error = true
+			reply.ErrorMsg = "Cannot create folder with this JobId " + args.JobId 
+		}
+	}
+
+	for i:= 0; i < len(args.FileContent); i++ {
+
+		fileOut, err := os.Create(filepath.Join(path, args.FileContent[i].Name))
+		if err != nil {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL,  "Unable to create a file, fileName: %v",args.FileContent[i].Name, err)
+			reply.Error = true
+			reply.ErrorMsg = "Cannot create this file" + args.FileContent[i].Name
+		}
+		defer fileOut.Close()
+	}
+
+	reply.Error = false
 	
 }
