@@ -46,6 +46,12 @@ func (dBWrapper *DBWrapper) CheckIsJobAssigned(jobsInfo *[]JobInfo, jobId string
 		`, jobId).Scan(jobsInfo)
 }
 
+// delete job by id 
+
+func (dBWrapper *DBWrapper) DeleteJobById(jobId string) *gorm.DB{
+	return dBWrapper.Db.Delete(jobId)
+}
+
 // assign job to master
 
 func (dBWrapper *DBWrapper) CreateJobsInfo(jobInfo *JobInfo) *gorm.DB {

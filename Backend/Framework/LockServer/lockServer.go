@@ -116,8 +116,8 @@ func (lockServer *LockServer) getLateJob(args *RPC.GetJobArgs, reply *RPC.GetJob
 	reply.IsAccepted = false
 	reply.ClientId = lateJob.ClientId
 	return true
-
 }
+
 func createFolderIfNotExist(path string) bool {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		err := os.Mkdir(path, os.ModePerm)
@@ -129,6 +129,33 @@ func createFolderIfNotExist(path string) bool {
 	return true
 }
 
+func deleteFolder (path string) error {
+	err := os.Remove(path)
+	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete folder %+v", err)
+	return err
+}
+
+func ( lockServer *LockServer) handleFinishJob (args *RPC.FinishedJobArgs, reply *RPC.FinishedJobReply) error {
+	reply.Error = false
+	path := filepath.Join("./OptionalFiles", args.JobId)
+	err := deleteFolder(path)
+	if err != nil {
+		reply.Error = true
+		reply.ErrorMsg = err.Error()
+		return err
+	}
+
+	DbErr := lockServer.databaseWrapper.DeleteJobById(args.JobId)
+	if DbErr != nil {
+		reply.Error = true
+		reply.ErrorMsg = DbErr.Error.Error()
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete job id from the database %+v", err)
+		return DbErr.Error
+	}
+
+	return nil
+}
+
 func addExeFile(args *RPC.ProcessUploadArgs, reply *RPC.ProcessUploadReply) {
 	path := filepath.Join("./ExeFiles", string(args.FileType))
 	isFound := createFolderIfNotExist(path)
@@ -136,7 +163,7 @@ func addExeFile(args *RPC.ProcessUploadArgs, reply *RPC.ProcessUploadReply) {
 		reply.Error = true
 		reply.ErrorMsg = "Cannot create folder with this exe file " + string(args.FileType)
 	}
-	fileOut, err := os.Create(filepath.Join(path, args.FileContent.Name, "/"))
+	fileOut, err := os.Create(filepath.Join(path, args.FileContent.Name))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to add this exe file, fileName: %v", string(args.FileType), err)
 		reply.Error = true

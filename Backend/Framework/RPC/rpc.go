@@ -89,3 +89,13 @@ type OptionalFilesUploadReply struct {
 	Error bool
 	ErrorMsg string
 }
+
+type FinishedJobArgs struct {
+	JobId string
+	MasterId string
+}
+
+type FinishedJobReply struct {
+	Error bool
+	ErrorMsg string
+}
