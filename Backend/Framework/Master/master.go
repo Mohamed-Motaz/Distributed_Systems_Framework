@@ -162,17 +162,20 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 
 // this function expects to hold a lock
 func (master *Master) addDumbJob() {
+	p, _ := os.ReadFile("./process.exe")
+	d, _ := os.ReadFile("./distribute.exe")
+	a, _ := os.ReadFile("./aggregate.exe")
 
 	reply := RPC.GetJobReply{
 		IsAccepted:        true,
 		JobId:             "#1",
 		ClientId:          "clientId",
 		JobContent:        "jobContent.txt",
-		ProcessExe:        make([]byte, 0),
+		ProcessExe:        p,
 		ProcessExeName:    "process.exe",
-		DistributeExe:     make([]byte, 0),
+		DistributeExe:     d,
 		DistributeExeName: "distribute.exe",
-		AggregateExe:      make([]byte, 0),
+		AggregateExe:      a,
 		AggregateExeName:  "aggregate.exe",
 	}
 	master.setJobStatus(&reply)
