@@ -136,7 +136,7 @@ func deleteFolder (path string) error {
 	return err
 }
 
-func ( lockServer *LockServer) handleFinishJob (args *RPC.FinishedJobArgs, reply *RPC.FinishedJobReply) error {
+func ( lockServer *LockServer) HandleFinishJob (args *RPC.FinishedJobArgs, reply *RPC.FinishedJobReply) error {
 	reply.Error = false
 	path := filepath.Join("./OptionalFiles", args.JobId)
 	err := deleteFolder(path)
