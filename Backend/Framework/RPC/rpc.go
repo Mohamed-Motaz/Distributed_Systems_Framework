@@ -44,12 +44,16 @@ type GetJobArgs struct {
 }
 
 type GetJobReply struct {
-	IsAccepted bool //lock server will answer whether it accepted my job request
-	JobId      string
-	ClientId   string
-	JobContent string
+	IsAccepted        bool //lock server will answer whether it accepted my job request
+	JobId             string
+	ClientId          string
+	JobContent        string
+	ProcessExe        []byte
+	ProcessExeName    string
+	DistributeExe     []byte
+	DistributeExeName string
+	AggregateExe      []byte
+	AggregateExeName  string
 }
 
-
 //websocketserver - lockserver communication --------------
-

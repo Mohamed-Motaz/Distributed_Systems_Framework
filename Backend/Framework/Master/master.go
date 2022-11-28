@@ -72,30 +72,27 @@ func (master *Master) resetStatus() {
 
 // this function expects to hold a lock
 //this function is responsible for setting up the new job and running distribute
-func (master *Master) setJobStatus(jobId string, jobContent string, clientId string,
-	processExe []byte, processExeName string,
-	distributeExe []byte, distributeExeName string,
-	aggregateExe []byte, aggregateExeName string) error {
+func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 
 	master.currentJob = CurrentJob{
-		clientId:   clientId,
-		jobContent: jobContent,
-		jobId:      jobId,
+		clientId:   reply.ClientId,
+		jobContent: reply.JobContent,
+		jobId:      reply.JobId,
 
 		tasks:         make([]Task, 0),
 		finishedTasks: make([]string, 0),
 		workersTimers: make([]WorkerAndHisTimer, 0),
 		processExe: Exe{
-			exe:  processExe,
-			name: PROCESS_EXE + processExeName,
+			exe:  reply.ProcessExe,
+			name: PROCESS_EXE + reply.ProcessExeName,
 		},
 		distributeExe: Exe{
-			exe:  distributeExe,
-			name: DISTRIBUTE_EXE + distributeExeName,
+			exe:  reply.DistributeExe,
+			name: DISTRIBUTE_EXE + reply.DistributeExeName,
 		},
 		aggregateExe: Exe{
-			exe:  aggregateExe,
-			name: AGGREGATE_EXE + aggregateExeName,
+			exe:  reply.AggregateExe,
+			name: AGGREGATE_EXE + reply.AggregateExeName,
 		},
 	}
 	master.isRunning = true
@@ -250,13 +247,13 @@ func (master *Master) qConsumer() {
 				//use args that the lockserver has accepted
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer accepted job request %v for client %+v", args.JobId, args.ClientId)
 				newJob.Ack(false)
-				master.setJobStatus(args.JobId, args.JobContent, args.ClientId)
+				master.setJobStatus(reply)
 				continue
 			} else {
 				//use alternative provided by lockserver
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v for client %v instead of requested job %v", reply.JobId, reply.ClientId, args.JobId)
 				newJob.Nack(false, true)
-				master.setJobStatus(reply.JobId, reply.JobContent, reply.ClientId)
+				master.setJobStatus(reply)
 				continue
 			}
 
@@ -273,7 +270,7 @@ func (master *Master) qConsumer() {
 			if ok && reply.IsAccepted {
 				//there is indeed an outstanding job
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v", reply.JobId)
-				master.setJobStatus(reply.JobId, reply.JobContent, reply.ClientId)
+				master.setJobStatus(reply)
 				continue
 			}
 
