@@ -58,7 +58,7 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Assigned late job to the master%v", args)
 		return nil
 	}
-	 //check the job isn't assigned to other master
+	//check the job isn't assigned to other master
 	jobsInfo := []database.JobInfo{}
 	err := lockServer.databaseWrapper.CheckIsJobAssigned(&jobsInfo, args.JobId).Error
 	if err != nil {
@@ -118,25 +118,47 @@ func (lockServer *LockServer) getLateJob(args *RPC.GetJobArgs, reply *RPC.GetJob
 	return true
 
 }
-
-func (lockServer *LockServer) addOptionalFiles(args *RPC.OptionalFilesUploadArgs, reply *RPC.OptionalFilesUploadReply ) {
-
-	path :=  filepath.Join("./OptionalFiles", args.JobId)
-
+func createFolderIfNotExist(path string) bool {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		err := os.Mkdir(path, os.ModePerm)
 		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL,  "Unable to create a folder with this JobId", err )
-			reply.Error = true
-			reply.ErrorMsg = "Cannot create folder with this JobId " + args.JobId 
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot create folder %+v", err)
+			return false
 		}
 	}
+	return true
+}
 
-	for i:= 0; i < len(args.FileContent); i++ {
+func addExeFile(args *RPC.ProcessUploadArgs, reply *RPC.ProcessUploadReply) {
+	path := filepath.Join("./ExeFiles", string(args.FileType))
+	isFound := createFolderIfNotExist(path)
+	if !isFound {
+		reply.Error = true
+		reply.ErrorMsg = "Cannot create folder with this exe file " + string(args.FileType)
+	}
+	fileOut, err := os.Create(filepath.Join(path, args.FileContent.Name, "/"))
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to add this exe file, fileName: %v", string(args.FileType), err)
+		reply.Error = true
+		reply.ErrorMsg = "Cannot add this file" + args.FileContent.Name
+	}
+	defer fileOut.Close()
+	reply.Error = false
+}
+
+func (lockServer *LockServer) addOptionalFiles(args *RPC.OptionalFilesUploadArgs, reply *RPC.OptionalFilesUploadReply) {
+
+	path := filepath.Join("./OptionalFiles", args.JobId)
+	isFound := createFolderIfNotExist(path)
+	if !isFound {
+		reply.Error = true
+		reply.ErrorMsg = "Cannot create folder with this JobId " + args.JobId
+	}
+	for i := 0; i < len(args.FileContent); i++ {
 
 		fileOut, err := os.Create(filepath.Join(path, args.FileContent[i].Name))
 		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL,  "Unable to create a file, fileName: %v",args.FileContent[i].Name, err)
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %v", args.FileContent[i].Name, err)
 			reply.Error = true
 			reply.ErrorMsg = "Cannot create this file" + args.FileContent[i].Name
 		}
@@ -144,5 +166,5 @@ func (lockServer *LockServer) addOptionalFiles(args *RPC.OptionalFilesUploadArgs
 	}
 
 	reply.Error = false
-	
+
 }
