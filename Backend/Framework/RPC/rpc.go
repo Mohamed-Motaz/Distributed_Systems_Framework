@@ -10,10 +10,12 @@ type GetTaskArgs struct {
 	WorkerId string
 }
 type GetTaskReply struct {
-	TaskAvailable bool
-	TaskContent   string
-	TaskId        string
-	JobId         string
+	TaskAvailable  bool
+	TaskContent    string
+	ProcessExe     []byte
+	ProcessExeName string
+	TaskId         string
+	JobId          string
 }
 
 type FinishedTaskArgs struct {

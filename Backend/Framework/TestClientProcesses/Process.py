@@ -1,11 +1,19 @@
 import json
 
-def process(taskFilePath):
-    f = open(taskFilePath, 'r+')
+filePath = "./process.txt"
+
+def process():
+    f = open(filePath, 'r+')
+
+    taskContentFilePath = f.read().replace("\n", "").strip()
+
+
+    taskContentF = open(taskContentFilePath, "r")
+    file_contents = taskContentF.read().split()
+    taskContentF.close()
 
     wordsCount = {}
 
-    file_contents = f.read().split()
 
     for word in file_contents:
         currentWord = word.lower()
@@ -18,3 +26,5 @@ def process(taskFilePath):
     f.truncate(0)
     f.write(json.dumps(wordsCount))
     f.close()
+
+process()

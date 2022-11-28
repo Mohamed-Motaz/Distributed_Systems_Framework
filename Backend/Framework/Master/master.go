@@ -118,15 +118,14 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	}
 
 	//now, need to run distribute
-	fName := "distributeJobContents.txt"
-	fPath := "./" + fName
-	err = utils.CreateAndWriteToFile(fName, []byte(master.currentJob.jobContent))
+	fPath := "./distribute.txt"
+	err = utils.CreateAndWriteToFile(fPath, []byte(master.currentJob.jobContent))
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the temporary file that contains the job contents for distribute process locally on the master %+v", err)
 		return fmt.Errorf("error while creating the temporary file that contains the job contents for distribute process locally on the master")
 	}
 
-	_, err = exec.Command("./" + master.currentJob.distributeExe.name + " " + fPath).Output()
+	_, err = exec.Command("./" + master.currentJob.distributeExe.name).Output()
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while executing distribute process %+v", err)
 		return fmt.Errorf("error while executing distribute process")
@@ -164,29 +163,42 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 // this function expects to hold a lock
 func (master *Master) addDumbJob() {
 
-	master.currentJob = CurrentJob{
-		clientId:      "id",
-		jobContent:    "Do Stupid Things",
-		jobId:         "#1",
-		tasks:         make([]Task, 2),
-		finishedTasks: make([]string, 2),
-		workersTimers: make([]WorkerAndHisTimer, 2),
-		processExe: Exe{
-			exe:  make([]byte, 0),
-			name: PROCESS_EXE + "process.exe",
-		},
-		distributeExe: Exe{
-			exe:  make([]byte, 0),
-			name: DISTRIBUTE_EXE + "distribute.exe",
-		},
-		aggregateExe: Exe{
-			exe:  make([]byte, 0),
-			name: AGGREGATE_EXE + "aggregate.exe",
-		},
+	reply := RPC.GetJobReply{
+		IsAccepted:        true,
+		JobId:             "#1",
+		ClientId:          "clientId",
+		JobContent:        "jobContent.txt",
+		ProcessExe:        make([]byte, 0),
+		ProcessExeName:    "process.exe",
+		DistributeExe:     make([]byte, 0),
+		DistributeExeName: "distribute.exe",
+		AggregateExe:      make([]byte, 0),
+		AggregateExeName:  "aggregate.exe",
 	}
-	master.isRunning = true
-	master.currentJob.tasks[0] = Task{id: "#1 task", content: "hello for 1", isDone: false}
-	master.currentJob.tasks[1] = Task{id: "#2 task", content: "hello for 2", isDone: false}
+	master.setJobStatus(&reply)
+	// master.currentJob = CurrentJob{
+	// 	clientId:      "id",
+	// 	jobContent:    "jobContent.txt",
+	// 	jobId:         "#1",
+	// 	tasks:         make([]Task, 2),
+	// 	finishedTasks: make([]string, 2),
+	// 	workersTimers: make([]WorkerAndHisTimer, 2),
+	// 	processExe: Exe{
+	// 		exe:  make([]byte, 0),
+	// 		name: PROCESS_EXE + "process.exe",
+	// 	},
+	// 	distributeExe: Exe{
+	// 		exe:  make([]byte, 0),
+	// 		name: DISTRIBUTE_EXE + "distribute.exe",
+	// 	},
+	// 	aggregateExe: Exe{
+	// 		exe:  make([]byte, 0),
+	// 		name: AGGREGATE_EXE + "aggregate.exe",
+	// 	},
+	// }
+	// master.isRunning = true
+	// master.currentJob.tasks[0] = Task{id: "#1task", content: "hello for 1", isDone: false}
+	// master.currentJob.tasks[1] = Task{id: "#2task", content: "hello for 2", isDone: false}
 }
 
 //
@@ -354,6 +366,8 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 			reply.TaskContent = currentTask.content
 			reply.TaskId = currentTask.id
 			reply.JobId = master.currentJob.jobId
+			reply.ProcessExe = master.currentJob.processExe.exe
+			reply.ProcessExeName = master.currentJob.processExe.name
 
 			//now as a master, need to mark this job as given to a worker
 			master.currentJob.workersTimers[i] = WorkerAndHisTimer{
@@ -395,8 +409,17 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 		return nil
 	}
 
+	//now need to write the results to a file, and save this files location
+	filePath := "./" + args.TaskId + ".txt"
+	err := utils.CreateAndWriteToFile(filePath, []byte(args.TaskResult))
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the task file locally on the master %+v", err)
+		return nil
+		//todo how should i handle this error
+	}
+
 	master.currentJob.tasks[taskIndex].isDone = true
-	master.currentJob.finishedTasks[taskIndex] = args.TaskResult
+	master.currentJob.finishedTasks[taskIndex] = filePath
 	master.currentJob.workersTimers[taskIndex].lastHeartBeat = time.Now()
 
 	//check if all tasks are done and aggregate the results
@@ -407,21 +430,20 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 
 	//all tasks have been finished!
 	var finishedTasksBytes *bytes.Buffer
-	err := gob.NewEncoder(finishedTasksBytes).Encode(master.currentJob.finishedTasks)
+	err = gob.NewEncoder(finishedTasksBytes).Encode(master.currentJob.finishedTasks)
 	if err != nil {
 		//TODO: send this in the mq somehow
 		return nil
 	}
 
-	fName := "aggregateTasksContent.txt"
-	fPath := "./" + fName
-	err = utils.CreateAndWriteToFile(fName, finishedTasksBytes.Bytes())
+	fPath := "./aggregate.txt"
+	err = utils.CreateAndWriteToFile(fPath, finishedTasksBytes.Bytes())
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the temporary file that contains the aggregate tasks locally on the master %+v", err)
 		//TODO: send this in the mq somehow
 	}
 
-	_, err = exec.Command("./" + master.currentJob.aggregateExe.name + " " + fPath).Output()
+	_, err = exec.Command("./" + master.currentJob.aggregateExe.name).Output()
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while executing aggregate process %+v", err)
 		//TODO: send this in the mq somehow
@@ -438,6 +460,8 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	master.publishCh <- string(finalResult)
 	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
 		master.currentJob.jobId, master.currentJob.clientId, string(finalResult))
+
+	//todo then need to send this to the lockserver
 
 	return nil
 }
