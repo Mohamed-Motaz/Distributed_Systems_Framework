@@ -27,6 +27,7 @@ func NewMaster() *Master {
 		id:                uuid.NewString(), //random id
 		q:                 mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
 		maxHeartBeatTimer: 30 * time.Second, //each heartbeat should be every 10 seconds but we allaow up to 2 failures
+		publishCh:         make(chan string, 1000),
 		mu:                sync.Mutex{},
 	}
 	master.resetStatus()
@@ -102,47 +103,47 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 
 	err := utils.CreateAndWriteToFile(master.currentJob.processExe.name, master.currentJob.processExe.exe)
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while creating the process exe file locally on the master %+v", err)
-		return fmt.Errorf("Error while creating the process exe file locally on the master")
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the process exe file locally on the master %+v", err)
+		return fmt.Errorf("error while creating the process exe file locally on the master")
 	}
 	err = utils.CreateAndWriteToFile(master.currentJob.distributeExe.name, master.currentJob.distributeExe.exe)
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while creating the distribute exe file locally on the master %+v", err)
-		return fmt.Errorf("Error while creating the distribute exe file locally on the master")
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the distribute exe file locally on the master %+v", err)
+		return fmt.Errorf("error while creating the distribute exe file locally on the master")
 	}
 	err = utils.CreateAndWriteToFile(master.currentJob.aggregateExe.name, master.currentJob.aggregateExe.exe)
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while creating the aggregate exe file locally on the master %+v", err)
-		return fmt.Errorf("Error while creating the aggregate exe file locally on the master")
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the aggregate exe file locally on the master %+v", err)
+		return fmt.Errorf("error while creating the aggregate exe file locally on the master")
 	}
 
 	//now, need to run distribute
-	fName := "distributeTaskContents.txt"
+	fName := "distributeJobContents.txt"
 	fPath := "./" + fName
 	err = utils.CreateAndWriteToFile(fName, []byte(master.currentJob.jobContent))
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while creating the temporary file that contains the job contents for distribute process locally on the master %+v", err)
-		return fmt.Errorf("Error while creating the temporary file that contains the job contents for distribute process locally on the master")
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the temporary file that contains the job contents for distribute process locally on the master %+v", err)
+		return fmt.Errorf("error while creating the temporary file that contains the job contents for distribute process locally on the master")
 	}
 
 	_, err = exec.Command("./" + master.currentJob.distributeExe.name + " " + fPath).Output()
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while executing distribute process %+v", err)
-		return fmt.Errorf("Error while executing distribute process")
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while executing distribute process %+v", err)
+		return fmt.Errorf("error while executing distribute process")
 	}
 
 	//now need to read from this file the resulting data
 	data, err := os.ReadFile(fPath)
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while reading from the distribute process %+v", err)
-		return fmt.Errorf("Error while reading from the distribute process")
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while reading from the distribute process %+v", err)
+		return fmt.Errorf("error while reading from the distribute process")
 	}
 
 	var tasks *[]string
 	err = gob.NewDecoder(bytes.NewReader(data)).Decode(tasks)
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while decoding the tasks array created by the distribute exe %+v", err)
-		return fmt.Errorf("Error while decoding the tasks array created by the distribute exe")
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while decoding the tasks array created by the distribute exe %+v", err)
+		return fmt.Errorf("error while decoding the tasks array created by the distribute exe")
 	}
 
 	//now that I have the tasks, set the appropriate fields in the master
@@ -283,6 +284,46 @@ func (master *Master) qConsumer() {
 }
 
 //
+// this function expects to hold a lok
+// start a thread that listens for a finished job
+// and then publishes it to the message queue
+//
+func (master *Master) qPublisher() {
+
+	for {
+		select {
+		case finishedJob := <-master.publishCh:
+			fin := &mq.FinishedJob{
+				ClientId: master.currentJob.clientId,
+				JobId:    master.currentJob.jobId,
+				Content:  master.currentJob.jobContent,
+				Result:   finishedJob,
+			}
+
+			res, err := json.Marshal(fin)
+			if err != nil {
+				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to convert finished job to string! Discarding...")
+				//todo publish an error to the queue
+			} else {
+				err = master.q.Enqueue(mq.FINISHED_JOBS_QUEUE, res)
+				if err != nil {
+					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Finished job not published to queue with err %v", err)
+				} else {
+					logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", fin.JobId, fin.ClientId)
+				}
+			}
+
+			master.resetStatus()
+
+		default:
+			time.Sleep(time.Second)
+		}
+
+	}
+
+}
+
+//
 //RPC handlers
 //
 
@@ -358,7 +399,45 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	master.currentJob.finishedTasks[taskIndex] = args.TaskResult
 	master.currentJob.workersTimers[taskIndex].lastHeartBeat = time.Now()
 
-	// TODO: create a thread that checks if all tasks are done and aggregates the results
+	//check if all tasks are done and aggregate the results
+	jobDone := master.allTasksDone()
+	if !jobDone {
+		return nil
+	}
+
+	//all tasks have been finished!
+	var finishedTasksBytes *bytes.Buffer
+	err := gob.NewEncoder(finishedTasksBytes).Encode(master.currentJob.finishedTasks)
+	if err != nil {
+		//TODO: send this in the mq somehow
+		return nil
+	}
+
+	fName := "aggregateTasksContent.txt"
+	fPath := "./" + fName
+	err = utils.CreateAndWriteToFile(fName, finishedTasksBytes.Bytes())
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the temporary file that contains the aggregate tasks locally on the master %+v", err)
+		//TODO: send this in the mq somehow
+	}
+
+	_, err = exec.Command("./" + master.currentJob.aggregateExe.name + " " + fPath).Output()
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while executing aggregate process %+v", err)
+		//TODO: send this in the mq somehow
+	}
+
+	//now need to read from this file the resulting data
+	finalResult, err := os.ReadFile(fPath)
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while reading from the aggregate process %+v", err)
+		//TODO: send this in the mq somehow
+	}
+
+	//now need to push this to the mq
+	master.publishCh <- string(finalResult)
+	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
+		master.currentJob.jobId, master.currentJob.clientId, string(finalResult))
 
 	return nil
 }
@@ -463,6 +542,20 @@ func (master *Master) getTaskIndexByTaskId(taskId string) int {
 	}
 
 	return -1
+}
+
+//this function expects to hold a lock
+func (master *Master) allTasksDone() bool {
+	if !master.isRunning {
+		return false //no tasks in the first plac
+	}
+
+	for _, t := range master.currentJob.tasks {
+		if !t.isDone {
+			return false
+		}
+	}
+	return true
 }
 
 // func (master *Master) removeSliceElementByIndex (arr *[]Task, index int) int {

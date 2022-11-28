@@ -29,6 +29,7 @@ type Master struct {
 	maxHeartBeatTimer time.Duration
 	isRunning         bool //do i currently have a job
 	mu                sync.Mutex
+	publishCh         chan string //ch to send finished jobs on
 	q                 *mq.MQ
 }
 
