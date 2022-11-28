@@ -3,7 +3,9 @@ package main
 import (
 	logger "Framework/Logger"
 	"Framework/RPC"
+	utils "Framework/Utils"
 	"net/rpc"
+	"os"
 	"os/exec"
 	"time"
 
@@ -45,10 +47,6 @@ func (worker *Worker) work() {
 
 		logger.LogInfo(logger.WORKER, logger.ESSENTIAL, "This is the response received from the master %+v", getTaskReply)
 
-		// Now ready to call the process.exe
-		// TODO: we will need to write the task to a file and make sure the process can read from a file
-		time.Sleep(3 * time.Second)
-
 		worker.handleTask(getTaskReply)
 
 	}
@@ -63,7 +61,17 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		stopHeartBeatsCh <- true
 	}()
 
-	output, err := exec.Command(ProcessExeCmd).Output()
+	//now, need to run process
+	fPath := "./process.txt"
+	err := utils.CreateAndWriteToFile(fPath, []byte(getTaskReply.TaskContent))
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the temporary file that contains the task contents for process locally on the worker %+v", err)
+		//return fmt.Errorf("error while creating the temporary file that contains the task contents for process locally on the worker")
+		//todo handle this error
+		return
+	}
+
+	_, err = exec.Command("./" + getTaskReply.ProcessExeName).Output()
 	if err != nil {
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to excute the client process with err: %+v", err)
 
@@ -77,10 +85,19 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		return
 	}
 
+	//now need to read from this file the resulting data
+	data, err := os.ReadFile(fPath)
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while reading from the distribute process %+v", err)
+		//return fmt.Errorf("error while reading from the distribute process")
+		//todo handle this error
+		return
+	}
+
 	finishedTaskArgs := &RPC.FinishedTaskArgs{
 		TaskId:     getTaskReply.TaskId,
 		JobId:      getTaskReply.JobId,
-		TaskResult: string(output),
+		TaskResult: string(data),
 		IsSuccess:  true,
 	}
 	finishedTaskReply := &RPC.FinishedTaskReply{}

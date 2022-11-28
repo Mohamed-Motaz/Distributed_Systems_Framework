@@ -38,7 +38,7 @@ type CurrentJob struct {
 	jobContent    string
 	jobId         string
 	tasks         []Task
-	finishedTasks []string
+	finishedTasks []string //this is an array of the filePaths of the finished tasks
 	workersTimers []WorkerAndHisTimer
 	processExe    Exe
 	distributeExe Exe
