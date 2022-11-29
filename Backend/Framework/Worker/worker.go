@@ -4,7 +4,6 @@ import (
 	logger "Framework/Logger"
 	"Framework/RPC"
 	utils "Framework/Utils"
-	"net/rpc"
 	"os"
 	"os/exec"
 	"time"
@@ -12,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-//returns a pointer a worker and runs it
+// returns a pointer a worker and runs it
 func NewWorker() *Worker {
 	worker := &Worker{
 		id: uuid.NewString(), //random id
@@ -33,7 +32,18 @@ func (worker *Worker) work() {
 		}
 		getTaskReply := &RPC.GetTaskReply{}
 
-		ok := worker.callMaster("Master.HandleGetTasks", getTaskArgs, getTaskReply)
+		rpcConn := &RPC.RpcConnection{
+			Name:         "Master.HandleGetTasks",
+			Args:         getTaskArgs,
+			Reply:        &getTaskReply,
+			SenderLogger: logger.WORKER,
+			Reciever: RPC.Reciever{
+				Name: "Master",
+				Port: MasterPort,
+				Host: MasterHost,
+			},
+		}
+		ok := RPC.EstablishRpcConnection(rpcConn)
 		if !ok {
 			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleGetTasks")
 			continue
@@ -78,7 +88,19 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		finishedTaskArgs := &RPC.FinishedTaskArgs{IsSuccess: false}
 		finishedTaskReply := &RPC.FinishedTaskReply{}
 
-		ok := worker.callMaster("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)
+		rpcConn := &RPC.RpcConnection{
+			Name:         "Master.HandleFinishedTasks",
+			Args:         finishedTaskArgs,
+			Reply:        &finishedTaskReply,
+			SenderLogger: logger.WORKER,
+			Reciever: RPC.Reciever{
+				Name: "Master",
+				Port: MasterPort,
+				Host: MasterHost,
+			},
+		}
+		ok := RPC.EstablishRpcConnection(rpcConn)
+
 		if !ok {
 			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
 		}
@@ -102,7 +124,18 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 	}
 	finishedTaskReply := &RPC.FinishedTaskReply{}
 
-	ok := worker.callMaster("Master.HandleFinishedTasks", finishedTaskArgs, finishedTaskReply)
+	rpcConn := &RPC.RpcConnection{
+		Name:         "Master.HandleFinishedTasks",
+		Args:         finishedTaskArgs,
+		Reply:        &finishedTaskReply,
+		SenderLogger: logger.WORKER,
+		Reciever: RPC.Reciever{
+			Name: "Master",
+			Port: MasterPort,
+			Host: MasterHost,
+		},
+	}
+	ok := RPC.EstablishRpcConnection(rpcConn);
 	if !ok {
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
 	}
@@ -124,44 +157,22 @@ func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartB
 				JobId:    getTaskReply.JobId,
 			}
 			reply := &RPC.WorkerHeartBeatReply{}
-			ok := worker.callMaster("Master.HandleWorkerHeartBeats", args, reply)
+
+			rpcConn := &RPC.RpcConnection{
+				Name:         "Master.HandleWorkerHeartBeats",
+				Args:         args,
+				Reply:        &reply,
+				SenderLogger: logger.WORKER,
+				Reciever: RPC.Reciever{
+					Name: "Master",
+					Port: MasterPort,
+					Host: MasterHost,
+				},
+			}
+			ok := RPC.EstablishRpcConnection(rpcConn)
 			if !ok {
 				logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleWorkerHeartBeats")
 			}
 		}
 	}
-}
-
-//blocking
-func (worker *Worker) callMaster(rpcName string, args interface{}, reply interface{}) bool {
-	ctr := 1
-	successfullConnection := false
-	var client *rpc.Client
-	var err error
-
-	//attempt to conncect to master
-	for ctr <= 3 && !successfullConnection {
-		client, err = rpc.DialHTTP("tcp", MasterHost+":"+MasterPort) //blocking
-		if err != nil {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Attempt number %v of dialing master failed with error: %v\n", ctr, err)
-			time.Sleep(10 * time.Second)
-		} else {
-			successfullConnection = true
-		}
-		ctr++
-	}
-	if !successfullConnection {
-		logger.FailOnError(logger.WORKER, logger.ESSENTIAL, "Error dialing http: %v\nFatal Error: Can't establish connection to master. Exiting now", err)
-	}
-
-	defer client.Close()
-
-	err = client.Call(rpcName, args, reply)
-
-	if err != nil {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master with RPC with error: %v", err)
-		return false
-	}
-
-	return true
 }

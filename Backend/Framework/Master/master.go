@@ -533,40 +533,6 @@ func (master *Master) server() error {
 //helpers
 //
 
-// blocking
-func (Master *Master) callLockServer(rpcName string, args interface{}, reply interface{}) bool {
-	ctr := 1
-	successfullConnection := false
-	var client *rpc.Client
-	var err error
-
-	//attempt to conncect to master
-	for ctr <= 3 && !successfullConnection {
-		client, err = rpc.DialHTTP("tcp", LockServerHost+":"+LockServerPort) //blocking
-		if err != nil {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Attempt number %v of dialing master failed with error: %v\n", ctr, err)
-			time.Sleep(10 * time.Second)
-		} else {
-			successfullConnection = true
-		}
-		ctr++
-	}
-	if !successfullConnection {
-		logger.FailOnError(logger.WORKER, logger.ESSENTIAL, "Error dialing http: %v\nFatal Error: Can't establish connection to master. Exiting now", err)
-	}
-
-	defer client.Close()
-
-	err = client.Call(rpcName, args, reply)
-
-	if err != nil {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master with RPC with error: %v", err)
-		return false
-	}
-
-	return true
-}
-
 // this function expects to hold a lock
 // returns -1 if task not found
 func (master *Master) getTaskIndexByTaskId(taskId string) int {
