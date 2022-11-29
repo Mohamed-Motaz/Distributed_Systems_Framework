@@ -29,15 +29,14 @@ type WebSocketServer struct {
 	mu             sync.Mutex
 }
 
-
-type JobRequest struct{
-	ClientId       string `json:"clientId"`
-	JobId          string `json:"jobId"`
-	JobContent     string `json:"jobContent"`
-	OptionalFiles  []utils.File `json:"optionalFiles"`
-	DistributeExeName  string `json:"distributeExeName"`
-	ProcessExeName     string `json:"processExeName"`
-	AggregateExeName   string `json:"aggregateExeName"`
+type JobRequest struct {
+	ClientId          string       `json:"clientId"`
+	JobId             string       `json:"jobId"`
+	JobContent        string       `json:"jobContent"`
+	OptionalFiles     []utils.File `json:"optionalFiles"`
+	DistributeExeName string       `json:"distributeExeName"`
+	ProcessExeName    string       `json:"processExeName"`
+	AggregateExeName  string       `json:"aggregateExeName"`
 }
 
 const (
@@ -61,16 +60,16 @@ var (
 		WriteBufferSize: 1024 * 1024,
 		CheckOrigin:     func(req *http.Request) bool { return true },
 	}
-	MyHost     string
-	MyPort     string
-	CacheHost  string
-	CachePort  string
+	MyHost         string
+	MyPort         string
+	CacheHost      string
+	CachePort      string
 	LockServerHost string
 	LockServerPort string
-	MqHost     string
-	MqPort     string
-	MqUsername string
-	MqPassword string
+	MqHost         string
+	MqPort         string
+	MqUsername     string
+	MqPassword     string
 )
 
 func init() {

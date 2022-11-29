@@ -79,9 +79,12 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 	go webSocketServer.assignJobs(client)
 }
 
-func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWriter, req *http.Request) {}
-func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.ResponseWriter, req *http.Request) {}
-func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.ResponseWriter, req *http.Request) {}
+func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWriter, req *http.Request) {
+}
+func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.ResponseWriter, req *http.Request) {
+}
+func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.ResponseWriter, req *http.Request) {
+}
 
 func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob interface{}) {
 	client.webSocketConn.WriteJSON(finishedJob)
@@ -105,8 +108,79 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 		client.lastRequestTime = time.Now().Unix() //lock this operation since cleaner is running
 		webSocketServer.mu.Unlock()                //and may check on c.connTime
 
+		if err != nil {
+			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
+			return
+		}
+
+		//----------------------------------------
+
+		//TODO : send to lockServer
+		// Add Exe files to lock server
+		// newReq:=&JobRequest{}
+
+		// err = json.Unmarshal(message, newReq)
+		// if err != nil {
+		// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
+		// 	return
+
+		// }
+
+		// rpcReq:=&RPC.ExeUploadArgs{
+		// FileType:utils.FileType(newReq.JobId),
+		// file: newReq.JobId,
+		// }
+
+		// err :=	lo.NewLockServer().HandleAddExeFile(rpcReq)
+		// if err!=nil {
+		// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lock Server} -> error : %+v", err)
+		// 	return
+		// }
+		// else{
+		// 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "added successfully to lock server")
+		// }
+
+		// --------------=------------------------
+		//Get all exe files from lock server
+
+		// err,[]files := lo.NewLockServer().HandleGetExeFiles() //return only error
+		// if err !=nil{
+		// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with get exe from lock server %v\n%v", client.webSocketConn.RemoteAddr(), err)
+		// 	return
+		// }
+		// else{
+		//     logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Get exe Files from lock server successfully ")
+		// 	return files
+		// }
+		// -------------------------
+		// Delete from Lock server
+
+		// newReq:=&JobRequest{}
+
+		// 		err = json.Unmarshal(message, newReq)
+		// 		if err != nil {
+		// 			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
+		// 			return
+
+		// 		}
+
+		// rpcReq:=&RPC.ExeUploadArgs{
+		// 	FileType:utils.FileType(newReq.JobId),
+		// 	file: newReq.JobId,
+		// }
+
+		// err :=	lo.NewLockServer().HandleDeleteExeFile(rpcReq)
+		// if err!=nil {
+		// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with delete exe from lock server} -> error : %+v", err)
+		// 	return
+		// }
+		// else{
+		// 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Delete exe  successfully from lock server")
+		// }
+		// ----------------------------------------
+
 		newJob := &mq.AssignedJob{}
-		
+
 		//read message into json
 		err = json.Unmarshal(message, newJob)
 		if err != nil {
@@ -114,20 +188,17 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 			return
 		}
 
-		//TODO : send to lockServer
-
 		cachedJob, err := webSocketServer.cache.Get(newJob.JobContent)
 
 		if err == nil {
 			go webSocketServer.writeFinishedJob(client, cachedJob)
 			continue
 		}
-		
 
 		jobToAssign := new(bytes.Buffer)
 
 		err = json.NewEncoder(jobToAssign).Encode(newJob)
-		
+
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with client %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
 			return
@@ -140,7 +211,7 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully Enqeue to jobs assigned queue")
 		}
-		
+
 	}
 }
 
