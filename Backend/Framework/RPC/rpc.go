@@ -103,11 +103,15 @@ type WorkerHeartBeatReply struct {
 //master-lockserver communication ---------
 
 type GetJobArgs struct {
-	JobId      string
-	ClientId   string
-	MasterId   string
-	JobContent string
-	MQJobFound bool
+	JobId             string
+	ClientId          string
+	MasterId          string
+	JobContent        string
+	MQJobFound        bool
+	ProcessExeName    string
+	DistributeExeName string
+	AggregateExeName  string
+	OptionalFiles     []string
 }
 
 type GetJobReply struct {

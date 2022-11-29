@@ -7,13 +7,17 @@ import (
 )
 
 type JobInfo struct {
-	Id           int       `gorm:"primaryKey; column:id"       json:"id"`
-	ClientId     string    `gorm:"column:clientId"             json:"clientId"`
-	MasterId     string    `gorm:"column:masterId"             json:"masterId"`
-	JobId        string    `gorm:"column:jobId"                json:"jobId"`
-	Content      string    `gorm:"column:content"              json:"content"`
-	TimeAssigned time.Time `gorm:"column:timeAssigned"         json:"timeAssigned"`
-	Status       JobStatus `gorm:"column:status"               json:"status"`
+	Id                int       `gorm:"primaryKey; column:id"       json:"id"`
+	ClientId          string    `gorm:"column:clientId"             json:"clientId"`
+	MasterId          string    `gorm:"column:masterId"             json:"masterId"`
+	JobId             string    `gorm:"column:jobId"                json:"jobId"`
+	Content           string    `gorm:"column:content"              json:"content"`
+	TimeAssigned      time.Time `gorm:"column:timeAssigned"         json:"timeAssigned"`
+	Status            JobStatus `gorm:"column:status"               json:"status"`
+	ProcessExeName    string    `gorm:"column:processExeName"       json:"processExeName"`
+	DistributeExeName string    `gorm:"column:distributeExeName"    json:"distributeExeName"`
+	AggregateExeName  string    `gorm:"column:aggregateExeName"     json:"aggregateExeName"`
+	OptionalFiles     string    `gorm:"column:optionalFiles"        json:"optionalFiles"`
 }
 
 func (JobInfo) TableName() string {
@@ -39,16 +43,16 @@ func (dBWrapper *DBWrapper) GetAllLateInProgressJobsInfo(jobsInfo *[]JobInfo, ma
 
 // check if the job is assigned to another master
 
-func (dBWrapper *DBWrapper) CheckIsJobAssigned(jobsInfo *[]JobInfo, jobId string) *gorm.DB{
+func (dBWrapper *DBWrapper) CheckIsJobAssigned(jobsInfo *[]JobInfo, jobId string) *gorm.DB {
 	return dBWrapper.Db.Raw(`
 	SELECT * FROM jobs.jobsinfo 
 	WHERE jobId = ?
 		`, jobId).Scan(jobsInfo)
 }
 
-// delete job by id 
+// delete job by id
 
-func (dBWrapper *DBWrapper) DeleteJobById(jobId string) *gorm.DB{
+func (dBWrapper *DBWrapper) DeleteJobById(jobId string) *gorm.DB {
 	return dBWrapper.Db.Delete(jobId)
 }
 
