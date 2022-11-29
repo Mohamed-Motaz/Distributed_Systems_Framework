@@ -30,14 +30,14 @@ type WebSocketServer struct {
 }
 
 
-type WebSocketServerRequest struct{
+type JobRequest struct{
 	ClientId       string `json:"clientId"`
 	JobId          string `json:"jobId"`
 	JobContent     string `json:"jobContent"`
 	OptionalFiles  []utils.File `json:"optionalFiles"`
-	DistributeExe  utils.File `json:"distributeFile"`
-	ProcessExe     utils.File `json:"processFile"`
-	AggregateExe   utils.File `json:"aggregateFile"`
+	DistributeExeName  string `json:"distributeExeName"`
+	ProcessExeName     string `json:"processExeName"`
+	AggregateExeName   string `json:"aggregateExeName"`
 }
 
 const (

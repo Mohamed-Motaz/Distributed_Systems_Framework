@@ -135,7 +135,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 			Host: MasterHost,
 		},
 	}
-	ok := RPC.EstablishRpcConnection(rpcConn);
+	ok := RPC.EstablishRpcConnection(rpcConn)
 	if !ok {
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
 	}

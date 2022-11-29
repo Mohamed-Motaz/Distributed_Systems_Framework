@@ -33,7 +33,11 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	}
 
 	serveMux := http.NewServeMux()
-	serveMux.HandleFunc("/", webSocketServer.handleRequests)
+	serveMux.HandleFunc("/submitJob", webSocketServer.handleJobRequests)
+	serveMux.HandleFunc("/addExe", webSocketServer.handleAddExeRequests)
+	serveMux.HandleFunc("/getAllExes", webSocketServer.handleGetAllExesRequests)
+	serveMux.HandleFunc("/deleteExe", webSocketServer.handleDeleteExeRequests)
+
 	webSocketServer.requestHandler = serveMux
 
 	go webSocketServer.listenAndServe()
@@ -52,7 +56,7 @@ func (webSocketServer *WebSocketServer) listenAndServe() {
 	}
 }
 
-func (webSocketServer *WebSocketServer) handleRequests(res http.ResponseWriter, req *http.Request) {
+func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWriter, req *http.Request) {
 
 	upgradedConn, err := upgrader.Upgrade(res, req, nil)
 
@@ -75,6 +79,10 @@ func (webSocketServer *WebSocketServer) handleRequests(res http.ResponseWriter, 
 	go webSocketServer.assignJobs(client)
 }
 
+func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWriter, req *http.Request) {}
+func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.ResponseWriter, req *http.Request) {}
+func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.ResponseWriter, req *http.Request) {}
+
 func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob interface{}) {
 	client.webSocketConn.WriteJSON(finishedJob)
 }
@@ -96,12 +104,11 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 		webSocketServer.mu.Lock()
 		client.lastRequestTime = time.Now().Unix() //lock this operation since cleaner is running
 		webSocketServer.mu.Unlock()                //and may check on c.connTime
-		newWebSocketRequest := &WebSocketServerRequest{}
-		newWebSocketRequest.ClientId = client.id //need to set clientId of the newJob as this client's id
-		newWebSocketRequest.JobId = uuid.NewString()
 
+		newJob := &mq.AssignedJob{}
+		
 		//read message into json
-		err = json.Unmarshal(message, newWebSocketRequest)
+		err = json.Unmarshal(message, newJob)
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
 			return
@@ -109,19 +116,18 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 
 		//TODO : send to lockServer
 
-		newJob := newWebSocketRequest.createJob()
-
 		cachedJob, err := webSocketServer.cache.Get(newJob.JobContent)
 
 		if err == nil {
 			go webSocketServer.writeFinishedJob(client, cachedJob)
 			continue
 		}
+		
 
 		jobToAssign := new(bytes.Buffer)
 
 		err = json.NewEncoder(jobToAssign).Encode(newJob)
-
+		
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with client %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
 			return
@@ -134,22 +140,8 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully Enqeue to jobs assigned queue")
 		}
+		
 	}
-}
-
-func (webSocketServerRequest *WebSocketServerRequest) createJob() *mq.AssignedJob {
-	newJob := &mq.AssignedJob{}
-	newJob.ClientId = webSocketServerRequest.ClientId
-	newJob.JobId = webSocketServerRequest.JobId
-	newJob.JobContent = webSocketServerRequest.JobContent
-	for _, optionalFile := range webSocketServerRequest.OptionalFiles {
-		newJob.OptionalfilesNames = append(newJob.OptionalfilesNames, optionalFile.Name)
-	}
-	newJob.DistributeExeName = webSocketServerRequest.DistributeExe.Name
-	newJob.ProcessExeName = webSocketServerRequest.ProcessExe.Name
-	newJob.AggregateExeName = webSocketServerRequest.AggregateExe.Name
-
-	return newJob
 }
 
 func (webSocketServer *WebSocketServer) deliverJobs() {
