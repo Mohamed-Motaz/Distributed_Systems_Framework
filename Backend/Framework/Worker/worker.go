@@ -71,7 +71,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		return
 	}
 
-	_, err = exec.Command("./" + getTaskReply.ProcessExeName).Output()
+	_, err = exec.Command("./" + getTaskReply.ProcessExe.Name).Output()
 	if err != nil {
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to excute the client process with err: %+v", err)
 

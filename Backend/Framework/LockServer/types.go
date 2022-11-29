@@ -31,18 +31,16 @@ const (
 	_LOCAL_HOST string = "127.0.0.1"
 )
 
-
-var( 
-	MyHost string
-	MyPort string
-	DbUser string
+var (
+	MyHost     string
+	MyPort     string
+	DbUser     string
 	DbPassword string
 	DbProtocol string
-	DbHost string
-	DbPort string
+	DbHost     string
+	DbPort     string
 	DbSettings string
 )
-
 
 func init() {
 	if !utils.IN_DOCKER {
@@ -56,7 +54,7 @@ func init() {
 	DbUser = utils.GetEnv(_DB_USER, "root")
 	DbPassword = utils.GetEnv(_DB_PASSWORD, "TheRootPassword1234")
 	DbProtocol = utils.GetEnv(_DB_PROTOCOL, "tcp")
-	DbHost = strings.Replace(utils.GetEnv(_DB_HOST,_LOCAL_HOST ), "_", ".", -1) //replace all "_" with ".""
+	DbHost = strings.Replace(utils.GetEnv(_DB_HOST, _LOCAL_HOST), "_", ".", -1) //replace all "_" with ".""
 	DbPort = utils.GetEnv(_DB_PORT, "3306")
-	DbSettings = utils.GetEnv(_DB_SETTINGS, "charset=utf8mb4&parseTime=True&loc=Local") 
+	DbSettings = utils.GetEnv(_DB_SETTINGS, "charset=utf8mb4&parseTime=True&loc=Local")
 }

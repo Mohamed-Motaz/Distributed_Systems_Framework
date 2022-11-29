@@ -40,14 +40,9 @@ type CurrentJob struct {
 	tasks         []Task
 	finishedTasks []string //this is an array of the filePaths of the finished tasks
 	workersTimers []WorkerAndHisTimer
-	processExe    Exe
-	distributeExe Exe
-	aggregateExe  Exe
-}
-
-type Exe struct {
-	exe  []byte
-	name string
+	processExe    utils.File
+	distributeExe utils.File
+	aggregateExe  utils.File
 }
 
 type WorkerAndHisTimer struct {

@@ -107,9 +107,9 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 			return
 		}
 
-		//TODO : send to lockServer 
+		//TODO : send to lockServer
 
-		newJob := newWebSocketRequest.createJob();
+		newJob := newWebSocketRequest.createJob()
 
 		cachedJob, err := webSocketServer.cache.Get(newJob.JobContent)
 
@@ -137,19 +137,19 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 	}
 }
 
-func (webSocketServerRequest *WebSocketServerRequest) createJob() *mq.AssignedJob{
-	newJob := &mq.AssignedJob{};
-	newJob.ClientId = webSocketServerRequest.ClientId;
-	newJob.JobId = webSocketServerRequest.JobId;
-	newJob.JobContent = webSocketServerRequest.JobContent;
-	for _,optionalFile := range webSocketServerRequest.OptionalFiles {
-	    newJob.OptionalfilesNames = append(newJob.OptionalfilesNames, optionalFile.Name);
+func (webSocketServerRequest *WebSocketServerRequest) createJob() *mq.AssignedJob {
+	newJob := &mq.AssignedJob{}
+	newJob.ClientId = webSocketServerRequest.ClientId
+	newJob.JobId = webSocketServerRequest.JobId
+	newJob.JobContent = webSocketServerRequest.JobContent
+	for _, optionalFile := range webSocketServerRequest.OptionalFiles {
+		newJob.OptionalfilesNames = append(newJob.OptionalfilesNames, optionalFile.Name)
 	}
-	newJob.DistributeExeName = webSocketServerRequest.DistributeFile.Name;
-	newJob.ProcessExeName = webSocketServerRequest.ProcessFile.Name;
-	newJob.AggregateExeName = webSocketServerRequest.AggregateFile.Name;
+	newJob.DistributeExeName = webSocketServerRequest.DistributeExe.Name
+	newJob.ProcessExeName = webSocketServerRequest.ProcessExe.Name
+	newJob.AggregateExeName = webSocketServerRequest.AggregateExe.Name
 
-	return newJob;
+	return newJob
 }
 
 func (webSocketServer *WebSocketServer) deliverJobs() {

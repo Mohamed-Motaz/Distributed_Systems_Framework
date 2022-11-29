@@ -29,20 +29,15 @@ type WebSocketServer struct {
 	mu             sync.Mutex
 }
 
-// todo has been moved to RPC
-type File struct{
-	Name string
-	Content []byte
-}
 
 type WebSocketServerRequest struct{
 	ClientId       string `json:"clientId"`
 	JobId          string `json:"jobId"`
 	JobContent     string `json:"jobContent"`
-	OptionalFiles []*File `json:"optionalFiles"`
-	DistributeFile  *File `json:"distributeFile"`
-	ProcessFile     *File `json:"processFile"`
-	AggregateFile   *File `json:"aggregateFile"`
+	OptionalFiles  []utils.File `json:"optionalFiles"`
+	DistributeExe  utils.File `json:"distributeFile"`
+	ProcessExe     utils.File `json:"processFile"`
+	AggregateExe   utils.File `json:"aggregateFile"`
 }
 
 const (
@@ -50,6 +45,8 @@ const (
 	_MY_PORT            string        = "MY_PORT"
 	_CACHE_HOST         string        = "CACHE_HOST"
 	_CACHE_PORT         string        = "CACHE_PORT"
+	_LOCK_SERVER_HOST   string        = "LOCK_SERVER_HOST"
+	_LOCK_SERVER_PORT   string        = "LOCK_SERVER_PORT"
 	_MQ_HOST            string        = "MQ_HOST"
 	_MQ_PORT            string        = "MQ_PORT"
 	_MQ_USERNAME        string        = "MQ_USERNAME"
@@ -68,6 +65,8 @@ var (
 	MyPort     string
 	CacheHost  string
 	CachePort  string
+	LockServerHost string
+	LockServerPort string
 	MqHost     string
 	MqPort     string
 	MqUsername string
@@ -85,6 +84,8 @@ func init() {
 	MyPort = utils.GetEnv(_MY_PORT, "6666")
 	CacheHost = strings.Replace(utils.GetEnv(_CACHE_HOST, _LOCAL_HOST), "_", ".", -1) //replace all "_" with ".""
 	CachePort = utils.GetEnv(_CACHE_PORT, "6379")
+	LockServerHost = strings.Replace(utils.GetEnv(_LOCK_SERVER_HOST, _LOCAL_HOST), "_", ".", -1) //replace all "_" with ".""
+	LockServerPort = utils.GetEnv(_LOCK_SERVER_PORT, "7777")
 	MqHost = strings.Replace(utils.GetEnv(_MQ_HOST, _LOCAL_HOST), "_", ".", -1) //replace all "_" with ".""
 	MqPort = utils.GetEnv(_MQ_PORT, "5672")
 	MqUsername = utils.GetEnv(_MQ_USERNAME, "guest")
