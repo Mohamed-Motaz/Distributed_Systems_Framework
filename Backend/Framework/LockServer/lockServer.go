@@ -52,6 +52,49 @@ func (lockServer *LockServer) server() error {
 	return nil
 }
 
+func getExeFileContent(exeFileName string, exeFolderName string) ([]byte, error) {
+	files, err := ioutil.ReadDir(filepath.Join("./ExeFiles", exeFolderName))
+	var fileContent []byte
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from process exes folder %v", err)
+		return fileContent, err
+	}
+	for _, file := range files {
+		if file.Name() == exeFileName {
+			filePath := filepath.Join("./ExeFiles", exeFolderName, string(file.Name()))
+			fileContent, err = os.ReadFile(filePath)
+			if err != nil {
+				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get file %v from process exe folder %v", filePath, err)
+				return fileContent, err
+			}
+		}
+	}
+	return fileContent, nil
+}
+
+func getExeFiles(processExeName string, distributeExeName string, aggregateExeName string, reply *RPC.GetJobReply) {
+	processFileContent, err := getExeFileContent(processExeName, string(utils.ProcessExe))
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get exe file %v from process exes folder %v", processExeName, err)
+	}
+	reply.ProcessExe.Name = processExeName
+	reply.ProcessExe.Content = processFileContent
+
+	distributeFileContent, err := getExeFileContent(distributeExeName, string(utils.DistributeExe))
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get exe file %v from distribute exes folder %v", distributeExeName, err)
+	}
+	reply.DistributeExe.Name = distributeExeName
+	reply.DistributeExe.Content = distributeFileContent
+
+	aggregateFileContent, err := getExeFileContent(aggregateExeName, string(utils.AggregateExe))
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get exe file %v from aggregate exes folder %v", aggregateExeName, err)
+	}
+	reply.AggregateExe.Name = aggregateExeName
+	reply.AggregateExe.Content = aggregateFileContent
+}
+
 func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) error {
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "A master request job", args)
 	reply.IsAccepted = false
@@ -68,10 +111,11 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 	}
 	if len(jobsInfo) == 0 {
 		// the job isn't taken by any other master, send reply to the master
+		reply.IsAccepted = true
 		reply.JobId = args.JobId
 		reply.ClientId = args.ClientId
 		reply.JobContent = args.JobContent
-		reply.IsAccepted = true
+		getExeFiles(args.ProcessExeName, args.DistributeExeName, args.AggregateExeName, reply)
 		// assign job to the master and update database
 		jobInfo := database.JobInfo{}
 		jobInfo.ClientId = args.ClientId
@@ -80,8 +124,11 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		jobInfo.Content = args.JobContent
 		jobInfo.TimeAssigned = time.Now()
 		jobInfo.Status = database.IN_PROGRESS
+		jobInfo.ProcessExeName = args.ProcessExeName
+		jobInfo.DistributeExeName = args.DistributeExeName
+		jobInfo.AggregateExeName = args.AggregateExeName
 		// add job to database
-		err := lockServer.databaseWrapper.CreateJobsInfo(&jobInfo).Error
+		err = lockServer.databaseWrapper.CreateJobsInfo(&jobInfo).Error
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while creating a job", err)
 		}
@@ -91,6 +138,8 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request rejected %v", args.JobId)
 	return nil
 }
+
+// helper function
 
 func (lockServer *LockServer) getLateJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) bool {
 	// return true if there is a late job else false
@@ -113,10 +162,11 @@ func (lockServer *LockServer) getLateJob(args *RPC.GetJobArgs, reply *RPC.GetJob
 	lateJob := &jobsInfo[0] // as jobsInfo is sorted
 	logger.LogDelay(logger.LOCK_SERVER, logger.ESSENTIAL, "Found a late job that will be reassigned %+v", lateJob)
 	// assign late job to the master
+	reply.ClientId = lateJob.ClientId
 	reply.JobId = lateJob.JobId
 	reply.JobContent = lateJob.Content
 	reply.IsAccepted = false
-	reply.ClientId = lateJob.ClientId
+	getExeFiles(lateJob.ProcessExeName, lateJob.DistributeExeName, lateJob.AggregateExeName, reply)
 	return true
 }
 
