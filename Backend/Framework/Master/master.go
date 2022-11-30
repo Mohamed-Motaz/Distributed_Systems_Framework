@@ -1,6 +1,7 @@
 package main
 
 import (
+	common "Framework/Common"
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
 	utils "Framework/Utils"
@@ -27,8 +28,10 @@ func NewMaster() *Master {
 		id:                uuid.NewString(), //random id
 		q:                 mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
 		maxHeartBeatTimer: 30 * time.Second, //each heartbeat should be every 10 seconds but we allaow up to 2 failures
-		publishCh:         make(chan string, 1000),
-		mu:                sync.Mutex{},
+		publishCh:         make(chan mq.FinishedJob),
+		publishChAck:      make(chan bool),
+
+		mu: sync.Mutex{},
 	}
 	master.resetStatus()
 	master.addDumbJob()
@@ -45,9 +48,23 @@ func CreateMasterAddress() string {
 	return MyHost + ":" + MyPort
 }
 
+func (master *Master) removeOldJobFiles() {
+	for _, f := range master.currentJob.optionalFiles {
+		os.Remove(f.Name)
+	}
+
+	utils.RemoveFilesWithStartName(PROCESS_EXE)
+	utils.RemoveFilesWithStartName(DISTRIBUTE_EXE)
+	utils.RemoveFilesWithStartName(AGGREGATE_EXE)
+}
+
 // this function expects to hold a lock
 // it resets the currentJob of the master
 func (master *Master) resetStatus() {
+	//todo support other oss
+
+	master.removeOldJobFiles()
+
 	master.currentJob = CurrentJob{
 		tasks:         make([]Task, 0),
 		finishedTasks: make([]string, 0),
@@ -61,19 +78,16 @@ func (master *Master) resetStatus() {
 		aggregateExe: utils.File{
 			Content: make([]byte, 0),
 		},
+		optionalFiles: make([]utils.File, 0),
 	}
 	master.isRunning = false
-
-	//todo support other oss
-	utils.RemoveFilesWithStartName(PROCESS_EXE)
-	utils.RemoveFilesWithStartName(DISTRIBUTE_EXE)
-	utils.RemoveFilesWithStartName(AGGREGATE_EXE)
 
 }
 
 // this function expects to hold a lock
 // this function is responsible for setting up the new job and running distribute
 func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
+	master.isRunning = true
 
 	master.currentJob = CurrentJob{
 		clientId:   reply.ClientId,
@@ -86,47 +100,42 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		processExe:    reply.ProcessExe,
 		distributeExe: reply.DistributeExe,
 		aggregateExe:  reply.AggregateExe,
+		optionalFiles: reply.OptionalFiles,
 	}
-	master.isRunning = true
+	//add the exe identitfiers next to their names
+	master.currentJob.processExe.Name = PROCESS_EXE + master.currentJob.processExe.Name
+	master.currentJob.distributeExe.Name = DISTRIBUTE_EXE + master.currentJob.distributeExe.Name
+	master.currentJob.aggregateExe.Name = AGGREGATE_EXE + master.currentJob.aggregateExe.Name
 
 	//todo, think about supporting different os exes
 	//todo any errors here should be propagated to client
 
-	err := utils.CreateAndWriteToFile(master.currentJob.processExe.Name, master.currentJob.processExe.Content)
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the process exe file locally on the master %+v", err)
-		return fmt.Errorf("error while creating the process exe file locally on the master")
+	exeLogs := []string{"process", "distribute", "aggregate"}
+	exeNames := []string{master.currentJob.processExe.Name, master.currentJob.distributeExe.Name, master.currentJob.aggregateExe.Name}
+	exeContents := [][]byte{master.currentJob.processExe.Content, master.currentJob.distributeExe.Content, master.currentJob.aggregateExe.Content}
+
+	for i := 0; i < len(exeNames); i++ {
+		err := utils.CreateAndWriteToFile(exeNames[i], exeContents[i])
+		if err != nil {
+			logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the %+v exe file locally on the master %+v", exeLogs[i], err)
+			return fmt.Errorf("error while creating the %+v exe file locally on the master", exeLogs[i])
+		}
 	}
-	err = utils.CreateAndWriteToFile(master.currentJob.distributeExe.Name, master.currentJob.distributeExe.Content)
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the distribute exe file locally on the master %+v", err)
-		return fmt.Errorf("error while creating the distribute exe file locally on the master")
-	}
-	err = utils.CreateAndWriteToFile(master.currentJob.aggregateExe.Name, master.currentJob.aggregateExe.Content)
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the aggregate exe file locally on the master %+v", err)
-		return fmt.Errorf("error while creating the aggregate exe file locally on the master")
+
+	for _, f := range master.currentJob.optionalFiles {
+		err := utils.CreateAndWriteToFile(f.Name, f.Content)
+		if err != nil {
+			logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the file %+v locally on the master %+v", f.Name, err)
+			return fmt.Errorf("error while creating the file %+v locally on the master", f.Name)
+		}
 	}
 
 	//now, need to run distribute
-	fPath := "./distribute.txt"
-	err = utils.CreateAndWriteToFile(fPath, []byte(master.currentJob.jobContent))
+	data, err := common.ExecuteProcess(logger.MASTER, utils.DistributeExe,
+		utils.File{Name: "distribute.txt", Content: []byte(master.currentJob.jobContent)},
+		master.currentJob.distributeExe)
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the temporary file that contains the job contents for distribute process locally on the master %+v", err)
-		return fmt.Errorf("error while creating the temporary file that contains the job contents for distribute process locally on the master")
-	}
-
-	_, err = exec.Command("./" + master.currentJob.distributeExe.Name).Output()
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while executing distribute process %+v", err)
-		return fmt.Errorf("error while executing distribute process")
-	}
-
-	//now need to read from this file the resulting data
-	data, err := os.ReadFile(fPath)
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while reading from the distribute process %+v", err)
-		return fmt.Errorf("error while reading from the distribute process")
+		return err
 	}
 
 	var tasks *[]string
@@ -153,9 +162,9 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 
 // this function expects to hold a lock
 func (master *Master) addDumbJob() {
-	process, _ := os.ReadFile("./process.exe")
-	distribute, _ := os.ReadFile("./distribute.exe")
-	aggregate, _ := os.ReadFile("./aggregate.exe")
+	process, _ := os.ReadFile(PROCESS_EXE + ".exe")
+	distribute, _ := os.ReadFile(DISTRIBUTE_EXE + ".exe")
+	aggregate, _ := os.ReadFile(AGGREGATE_EXE + ".exe")
 
 	reply := RPC.GetJobReply{
 		IsAccepted: true,
@@ -163,42 +172,19 @@ func (master *Master) addDumbJob() {
 		ClientId:   "clientId",
 		JobContent: "jobContent.txt",
 		ProcessExe: utils.File{
-			Name:    "process.exe",
+			Name:    PROCESS_EXE + ".exe",
 			Content: process,
 		},
 		DistributeExe: utils.File{
-			Name:    "distribute.exe",
+			Name:    DISTRIBUTE_EXE + ".exe",
 			Content: distribute,
 		},
 		AggregateExe: utils.File{
-			Name:    "aggregate.exe",
+			Name:    AGGREGATE_EXE + ".exe",
 			Content: aggregate,
 		},
 	}
 	master.setJobStatus(&reply)
-	// master.currentJob = CurrentJob{
-	// 	clientId:      "id",
-	// 	jobContent:    "jobContent.txt",
-	// 	jobId:         "#1",
-	// 	tasks:         make([]Task, 2),
-	// 	finishedTasks: make([]string, 2),
-	// 	workersTimers: make([]WorkerAndHisTimer, 2),
-	// 	processExe: Exe{
-	// 		exe:  make([]byte, 0),
-	// 		name: PROCESS_EXE + "process.exe",
-	// 	},
-	// 	distributeExe: Exe{
-	// 		exe:  make([]byte, 0),
-	// 		name: DISTRIBUTE_EXE + "distribute.exe",
-	// 	},
-	// 	aggregateExe: Exe{
-	// 		exe:  make([]byte, 0),
-	// 		name: AGGREGATE_EXE + "aggregate.exe",
-	// 	},
-	// }
-	// master.isRunning = true
-	// master.currentJob.tasks[0] = Task{id: "#1task", content: "hello for 1", isDone: false}
-	// master.currentJob.tasks[1] = Task{id: "#2task", content: "hello for 2", isDone: false}
 }
 
 // start a thread that waits on a job from the message queue
@@ -207,7 +193,7 @@ func (master *Master) qConsumer() {
 	time.Sleep(10 * time.Second) //sleep for 10 seconds to await lockServer waking up
 
 	if err != nil {
-		logger.FailOnError(logger.MASTER, logger.ESSENTIAL, "Master can't consume jobs because with this error %v", err)
+		logger.FailOnError(logger.MASTER, logger.ESSENTIAL, "Master can't consume jobs with this error %v", err)
 	}
 
 	for {
@@ -247,7 +233,7 @@ func (master *Master) qConsumer() {
 				MQJobFound: true,
 			}
 			reply := &RPC.GetJobReply{}
-			rpcConn := &RPC.RpcConnection{
+			ok := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 				Name:         "LockServer.HandleGetJob",
 				Args:         &args,
 				Reply:        &reply,
@@ -257,8 +243,7 @@ func (master *Master) qConsumer() {
 					Port: LockServerPort,
 					Host: LockServerHost,
 				},
-			}
-			ok := RPC.EstablishRpcConnection(rpcConn)
+			})
 			if !ok {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to contact lockserver to ask about job with error %v\nWill discard it", err)
 				newJob.Nack(false, true)
@@ -283,12 +268,13 @@ func (master *Master) qConsumer() {
 
 			//need to ask lockServer if there are any outstanding jobs
 			reply := &RPC.GetJobReply{}
-			rpcConn := &RPC.RpcConnection{
-				Name: "LockServer.HandleGetJob",
-				Args: &RPC.GetJobArgs{
-					MasterId:   master.id,
-					MQJobFound: false,
-				},
+			args := &RPC.GetJobArgs{
+				MasterId:   master.id,
+				MQJobFound: false,
+			}
+			ok := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+				Name:         "LockServer.HandleGetJob",
+				Args:         args,
 				Reply:        &reply,
 				SenderLogger: logger.MASTER,
 				Reciever: RPC.Reciever{
@@ -296,8 +282,7 @@ func (master *Master) qConsumer() {
 					Port: LockServerPort,
 					Host: LockServerHost,
 				},
-			}
-			ok := RPC.EstablishRpcConnection(rpcConn)
+			})
 			if ok && reply.IsAccepted {
 				//there is indeed an outstanding job
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v", reply.JobId)
@@ -313,7 +298,7 @@ func (master *Master) qConsumer() {
 
 }
 
-// this function expects to hold a lok
+//
 // start a thread that listens for a finished job
 // and then publishes it to the message queue
 func (master *Master) qPublisher() {
@@ -321,14 +306,8 @@ func (master *Master) qPublisher() {
 	for {
 		select {
 		case finishedJob := <-master.publishCh:
-			fin := &mq.FinishedJob{
-				ClientId: master.currentJob.clientId,
-				JobId:    master.currentJob.jobId,
-				Content:  master.currentJob.jobContent,
-				Result:   finishedJob,
-			}
 
-			res, err := json.Marshal(fin)
+			res, err := json.Marshal(finishedJob)
 			if err != nil {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to convert finished job to string! Discarding...")
 				//todo publish an error to the queue
@@ -341,7 +320,7 @@ func (master *Master) qPublisher() {
 				}
 			}
 
-			master.resetStatus()
+			master.publishChAck <- err == nil
 
 		default:
 			time.Sleep(time.Second)
@@ -470,14 +449,61 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 		//TODO: send this in the mq somehow
 	}
 
-	//now need to push this to the mq
-	master.publishCh <- string(finalResult)
 	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
 		master.currentJob.jobId, master.currentJob.clientId, string(finalResult))
 
-	//todo then need to send this to the lockserver
+	//now need to push this to the mq
+	master.publishCh <- mq.FinishedJob{
+		ClientId: master.currentJob.clientId,
+		JobId:    master.currentJob.jobId,
+		Content:  master.currentJob.jobContent,
+		Result:   string(finalResult),
+	}
 
+	//todo then need to send this to the lockserver
+	success := <-master.publishChAck //block till Publisher sends the message to the queue or fails to do so
+
+	if success {
+		master.attemptSendFinishedJobToLockServer()
+	}
+
+	master.resetStatus()
 	return nil
+}
+
+func (master *Master) attemptSendFinishedJobToLockServer() bool {
+	ok := false
+	ctr := 1
+	mxRetries := 3
+
+	for !ok && ctr < mxRetries {
+
+		master.mu.Lock()
+		if !master.isRunning {
+			master.mu.Unlock()
+			break
+		}
+
+		args := &RPC.FinishedJobArgs{
+			MasterId: master.id,
+			JobId:    master.jobId,
+			ClientId: master.clientId,
+			URL:      master.currentURL,
+		}
+		master.mu.Unlock()
+
+		ok := master.callLockServer("LockServer.HandleFinishedJobs", args, &RPC.FinishedJobReply{}) //send data to lockServer
+
+		if !ok {
+			logger.LogError(logger.MASTER, logger.ESSENTIAL, "Attempt number %v to send finished job to lockServer unsuccessfull", ctr)
+		} else {
+			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Attempt number %v to send finished job to lockServer successfull", ctr)
+			return true
+		}
+		ctr++
+		time.Sleep(10 * time.Second)
+	}
+	return ok
 }
 
 func (master *Master) HandleWorkerHeartBeats(args *RPC.WorkerHeartBeatArgs, reply *RPC.WorkerHeartBeatReply) error {

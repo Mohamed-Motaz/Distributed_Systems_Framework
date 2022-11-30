@@ -12,15 +12,9 @@ import (
 )
 
 const (
-	PROCESS_EXE                    = "process_"
-	DISTRIBUTE_EXE                 = "distribute_"
-	AGGREGATE_EXE                  = "aggregate_"
-	PROCESS_EXE_INPUT_FILENAME     = "processExeInput.txt"
-	PROCESS_EXE_OUTPUT_FILENAME    = "processExeOutput.txt"
-	DISTRIBUTE_EXE_INPUT_FILENAME  = "distributeExeInput.txt"
-	DISTRIBUTE_EXE_OUTPUT_FILENAME = "distributeExeOutput.txt"
-	AGGREGATE_EXE_INPUT_FILENAME   = "aggregateExeInput.txt"
-	AGGREGATE_EXE_OUTPUT_FILENAME  = "aggregateExeOutput.txt"
+	PROCESS_EXE    = "process_"
+	DISTRIBUTE_EXE = "distribute_"
+	AGGREGATE_EXE  = "aggregate_"
 )
 
 type Master struct {
@@ -29,8 +23,10 @@ type Master struct {
 	maxHeartBeatTimer time.Duration
 	isRunning         bool //do i currently have a job
 	mu                sync.Mutex
-	publishCh         chan string //ch to send finished jobs on
-	q                 *mq.MQ
+	publishCh         chan mq.FinishedJob //ch to send finished jobs on
+	publishChAck      chan bool           //ch to signal that the finished job was sent to the mq
+
+	q *mq.MQ
 }
 
 type CurrentJob struct {
@@ -43,6 +39,7 @@ type CurrentJob struct {
 	processExe    utils.File
 	distributeExe utils.File
 	aggregateExe  utils.File
+	optionalFiles []utils.File
 }
 
 type WorkerAndHisTimer struct {
