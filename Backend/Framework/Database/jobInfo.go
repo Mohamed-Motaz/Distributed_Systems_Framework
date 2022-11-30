@@ -7,17 +7,17 @@ import (
 )
 
 type JobInfo struct {
-	Id                int       `gorm:"primaryKey; column:id"       json:"id"`
-	ClientId          string    `gorm:"column:clientId"             json:"clientId"`
-	MasterId          string    `gorm:"column:masterId"             json:"masterId"`
-	JobId             string    `gorm:"column:jobId"                json:"jobId"`
-	Content           string    `gorm:"column:content"              json:"content"`
-	TimeAssigned      time.Time `gorm:"column:timeAssigned"         json:"timeAssigned"`
-	Status            JobStatus `gorm:"column:status"               json:"status"`
-	ProcessExeName    string    `gorm:"column:processExeName"       json:"processExeName"`
-	DistributeExeName string    `gorm:"column:distributeExeName"    json:"distributeExeName"`
-	AggregateExeName  string    `gorm:"column:aggregateExeName"     json:"aggregateExeName"`
-	OptionalFiles     string    `gorm:"column:optionalFiles"        json:"optionalFiles"`
+	Id                 int       `gorm:"primaryKey; column:id"       json:"id"`
+	ClientId           string    `gorm:"column:clientId"             json:"clientId"`
+	MasterId           string    `gorm:"column:masterId"             json:"masterId"`
+	JobId              string    `gorm:"column:jobId"                json:"jobId"`
+	Content            string    `gorm:"column:content"              json:"content"`
+	TimeAssigned       time.Time `gorm:"column:timeAssigned"         json:"timeAssigned"`
+	Status             JobStatus `gorm:"column:status"               json:"status"`
+	ProcessExeName     string    `gorm:"column:processExeName"       json:"processExeName"`
+	DistributeExeName  string    `gorm:"column:distributeExeName"    json:"distributeExeName"`
+	AggregateExeName   string    `gorm:"column:aggregateExeName"     json:"aggregateExeName"`
+	OptionalFilesNames string    `gorm:"column:optionalFilesNames"   json:"optionalFilesNames"`
 }
 
 func (JobInfo) TableName() string {

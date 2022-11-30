@@ -39,6 +39,11 @@ type JobRequest struct {
 	AggregateExeName  string       `json:"aggregateExeName"`
 }
 
+type AddExeRequest struct {
+	FileType utils.FileType
+	File     utils.File
+}
+
 const (
 	_MY_HOST            string        = "MY_HOST"
 	_MY_PORT            string        = "MY_PORT"

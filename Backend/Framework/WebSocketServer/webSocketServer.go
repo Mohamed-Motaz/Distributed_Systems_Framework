@@ -80,10 +80,20 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 }
 
 func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWriter, req *http.Request) {
+
+	res.Header().Set("Content-Type", "application/json")
+
+	//get response from lockserver
 }
 func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.ResponseWriter, req *http.Request) {
+
+	res.Header().Set("Content-Type", "application/json")
+
 }
 func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.ResponseWriter, req *http.Request) {
+
+	res.Header().Set("Content-Type", "application/json")
+
 }
 
 func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob interface{}) {

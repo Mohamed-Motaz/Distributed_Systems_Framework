@@ -9,8 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
-//return a thread-safe *gorm.DB that can safely be used
-//by multiple goroutines
+// return a thread-safe *gorm.DB that can safely be used
+// by multiple goroutines
 func NewDbWrapper(address string) *DBWrapper {
 	db := connect(address)
 	logger.LogInfo(logger.DATABASE, logger.ESSENTIAL, "Db setup complete")
@@ -49,7 +49,7 @@ func CreateDBAddress(user, password, protocol, dbName, myHost, myPort, settings 
 		user, password, protocol, myHost, myPort, dbName, settings)
 }
 
-//fine, I'll do it myself
+// fine, I'll do it myself
 func applyMigrations(db *gorm.DB) {
 
 	//create jobs database if it doesnt exist
@@ -59,7 +59,7 @@ func applyMigrations(db *gorm.DB) {
 	}
 
 	err = db.Exec(`
-	CREATE TABLE IF NOT EXISTS jobs.jobsinfo (id bigint AUTO_INCREMENT,clientId longtext,masterId longtext,jobId longtext,content longtext,timeAssigned datetime(3) NULL,status longtext,processExeName longtext,distributeExeName longtext,aggregateExeName longtext,optionalFiles longtext,PRIMARY KEY (id))
+	CREATE TABLE IF NOT EXISTS jobs.jobsinfo (id bigint AUTO_INCREMENT,clientId longtext,masterId longtext,jobId longtext,content longtext,timeAssigned datetime(3) NULL,status longtext,processExeName longtext,distributeExeName longtext,aggregateExeName longtext,optionalFilesNames longtext,PRIMARY KEY (id))
 	`).Error
 
 	if err != nil {

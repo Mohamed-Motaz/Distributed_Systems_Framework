@@ -3,6 +3,7 @@ package RPC
 import (
 	logger "Framework/Logger"
 	utils "Framework/Utils"
+	ws "Framework/WebSocketServer"
 	"net/rpc"
 	"time"
 )
@@ -103,15 +104,15 @@ type WorkerHeartBeatReply struct {
 //master-lockserver communication ---------
 
 type GetJobArgs struct {
-	JobId             string
-	ClientId          string
-	MasterId          string
-	JobContent        string
-	MQJobFound        bool
-	ProcessExeName    string
-	DistributeExeName string
-	AggregateExeName  string
-	OptionalFiles     []string
+	JobId              string
+	ClientId           string
+	MasterId           string
+	JobContent         string
+	MQJobFound         bool
+	ProcessExeName     string
+	DistributeExeName  string
+	AggregateExeName   string
+	OptionalFilesNames []string
 }
 
 type GetJobReply struct {
@@ -136,8 +137,7 @@ type FinishedJobReply struct {
 //websocketserver - lockserver communication --------------
 
 type ExeUploadArgs struct {
-	FileType utils.FileType
-	File     utils.File
+	ws.AddExeRequest
 }
 
 type OptionalFilesUploadArgs struct {
