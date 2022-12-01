@@ -17,7 +17,7 @@ type JobInfo struct {
 	ProcessExeName     string    `gorm:"column:processExeName"       json:"processExeName"`
 	DistributeExeName  string    `gorm:"column:distributeExeName"    json:"distributeExeName"`
 	AggregateExeName   string    `gorm:"column:aggregateExeName"     json:"aggregateExeName"`
-	OptionalFilesNames string    `gorm:"column:optionalFilesNames"   json:"optionalFilesNames"`
+	OptionalFilesNames []string    `gorm:"column:optionalFilesNames"   json:"optionalFilesNames"`
 }
 
 func (JobInfo) TableName() string {
