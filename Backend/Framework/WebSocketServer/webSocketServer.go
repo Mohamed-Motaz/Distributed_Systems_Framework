@@ -4,6 +4,7 @@ import (
 	cache "Framework/Cache"
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
+	"Framework/RPC"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -83,12 +84,12 @@ func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWr
 
 	res.Header().Set("Content-Type", "application/json")
 
-	//get response from lockserver
 }
 func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 
+	
 }
 func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.ResponseWriter, req *http.Request) {
 
@@ -123,82 +124,49 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 			return
 		}
 
-		//----------------------------------------
+		newJobRequest := &JobRequest{}
 
-		//TODO : send to lockServer
-		// Add Exe files to lock server
-		// newReq:=&JobRequest{}
+		err = json.Unmarshal(message, newJobRequest)
 
-		// err = json.Unmarshal(message, newReq)
-		// if err != nil {
-		// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
-		// 	return
-
-		// }
-
-		// rpcReq:=&RPC.ExeUploadArgs{
-		// FileType:utils.FileType(newReq.JobId),
-		// file: newReq.JobId,
-		// }
-
-		// err :=	lo.NewLockServer().HandleAddExeFile(rpcReq)
-		// if err!=nil {
-		// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lock Server} -> error : %+v", err)
-		// 	return
-		// }
-		// else{
-		// 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "added successfully to lock server")
-		// }
-
-		// --------------=------------------------
-		//Get all exe files from lock server
-
-		// err,[]files := lo.NewLockServer().HandleGetExeFiles() //return only error
-		// if err !=nil{
-		// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with get exe from lock server %v\n%v", client.webSocketConn.RemoteAddr(), err)
-		// 	return
-		// }
-		// else{
-		//     logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Get exe Files from lock server successfully ")
-		// 	return files
-		// }
-		// -------------------------
-		// Delete from Lock server
-
-		// newReq:=&JobRequest{}
-
-		// 		err = json.Unmarshal(message, newReq)
-		// 		if err != nil {
-		// 			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
-		// 			return
-
-		// 		}
-
-		// rpcReq:=&RPC.ExeUploadArgs{
-		// 	FileType:utils.FileType(newReq.JobId),
-		// 	file: newReq.JobId,
-		// }
-
-		// err :=	lo.NewLockServer().HandleDeleteExeFile(rpcReq)
-		// if err!=nil {
-		// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with delete exe from lock server} -> error : %+v", err)
-		// 	return
-		// }
-		// else{
-		// 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Delete exe  successfully from lock server")
-		// }
-		// ----------------------------------------
-
-		newJob := &mq.AssignedJob{}
-
-		//read message into json
-		err = json.Unmarshal(message, newJob)
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
 			return
 		}
 
-		cachedJob, err := webSocketServer.cache.Get(newJob.JobContent)
+		optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
+			JobId: newJobRequest.JobId,
+			Files: newJobRequest.OptionalFiles,
+		}
+
+		reply := &RPC.FileUploadReply{}
+
+		ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+			Name:         "LockServer.HandleAddOptionalFiles",
+			Args:         optionalFilesUploadArgs,
+			Reply:        &reply,
+			SenderLogger: logger.WEBSOCKET_SERVER,
+			Reciever: RPC.Reciever{
+				Name: "Lockserver",
+				Port: LockServerPort,
+				Host: LockServerHost,
+			},
+		})
+
+		if !ok {
+			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
+			return
+		} else if reply.Error.IsFound {
+			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.Error.Msg)
+			return
+		}
+
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
+
+		modifiedJobRequest := &mq.AssignedJob{}
+
+		webSocketServer.modifyJobRequest(newJobRequest, modifiedJobRequest)
+
+		cachedJob, err := webSocketServer.cache.Get(modifiedJobRequest.JobContent)
 
 		if err == nil {
 			go webSocketServer.writeFinishedJob(client, cachedJob)
@@ -207,7 +175,7 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 
 		jobToAssign := new(bytes.Buffer)
 
-		err = json.NewEncoder(jobToAssign).Encode(newJob)
+		err = json.NewEncoder(jobToAssign).Encode(modifiedJobRequest)
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with client %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
@@ -285,4 +253,17 @@ func (webSocketServer *WebSocketServer) idleConnCloser() {
 		time.Sleep(time.Second * 5)
 	}
 
+}
+
+func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest, modifiedJobRequest *mq.AssignedJob) {
+
+	modifiedJobRequest.ClientId = jobRequest.ClientId
+	modifiedJobRequest.JobId = jobRequest.JobId
+	modifiedJobRequest.JobContent = jobRequest.JobContent
+	for _, optionalFile := range jobRequest.OptionalFiles {
+		modifiedJobRequest.OptionalfilesNames = append(modifiedJobRequest.OptionalfilesNames, optionalFile.Name)
+	}
+	modifiedJobRequest.DistributeExeName = jobRequest.DistributeExeName
+	modifiedJobRequest.ProcessExeName = jobRequest.ProcessExeName
+	modifiedJobRequest.AggregateExeName = jobRequest.AggregateExeName
 }

@@ -233,7 +233,7 @@ func (master *Master) qConsumer() {
 				MQJobFound: true,
 			}
 			reply := &RPC.GetJobReply{}
-			ok := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+			ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 				Name:         "LockServer.HandleGetJob",
 				Args:         &args,
 				Reply:        &reply,
@@ -272,7 +272,7 @@ func (master *Master) qConsumer() {
 				MasterId:   master.id,
 				MQJobFound: false,
 			}
-			ok := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+			ok, _ := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 				Name:         "LockServer.HandleGetJob",
 				Args:         args,
 				Reply:        &reply,

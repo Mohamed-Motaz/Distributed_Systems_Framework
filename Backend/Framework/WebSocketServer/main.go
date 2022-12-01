@@ -16,7 +16,7 @@ func main() {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to create websocketServer} -> error : %v", err)
 		return
 	}
-
+ 
 	fmt.Printf("This is the newly created websocketServer %+v\n", m)
 
 	c := make(chan os.Signal, 1)

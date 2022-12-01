@@ -270,13 +270,13 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 		reply.Error.IsFound = true
 		reply.Error.Msg = "Cannot create folder with this JobId " + args.JobId
 	}
-	for i := 0; i < len(args.FileContent); i++ {
+	for i := 0; i < len(args.Files); i++ {
 
-		fileOut, err := os.Create(filepath.Join(path, args.FileContent[i].Name))
+		fileOut, err := os.Create(filepath.Join(path, args.Files[i].Name))
 		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %v", args.FileContent[i].Name, err)
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %v", args.Files[i].Name, err)
 			reply.Error.IsFound = true
-			reply.Error.Msg = "Cannot create this file" + args.FileContent[i].Name
+			reply.Error.Msg = "Cannot create this file" + args.Files[i].Name
 		}
 		defer fileOut.Close()
 	}

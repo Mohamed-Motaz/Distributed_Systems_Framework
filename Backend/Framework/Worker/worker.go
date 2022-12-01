@@ -43,9 +43,9 @@ func (worker *Worker) work() {
 				Host: MasterHost,
 			},
 		}
-		ok := RPC.EstablishRpcConnection(rpcConn)
+		ok, err := RPC.EstablishRpcConnection(rpcConn)
 		if !ok {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleGetTasks")
+			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleGetTasks with error -> %v",err);
 			continue
 		}
 
@@ -99,10 +99,10 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 				Host: MasterHost,
 			},
 		}
-		ok := RPC.EstablishRpcConnection(rpcConn)
+		ok, err := RPC.EstablishRpcConnection(rpcConn)
 
 		if !ok {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
+			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v",err)
 		}
 		return
 	}
@@ -135,9 +135,9 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 			Host: MasterHost,
 		},
 	}
-	ok := RPC.EstablishRpcConnection(rpcConn)
+	ok, err := RPC.EstablishRpcConnection(rpcConn)
 	if !ok {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks")
+		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v",err)
 	}
 }
 
@@ -169,9 +169,9 @@ func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartB
 					Host: MasterHost,
 				},
 			}
-			ok := RPC.EstablishRpcConnection(rpcConn)
+			ok, err := RPC.EstablishRpcConnection(rpcConn)
 			if !ok {
-				logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleWorkerHeartBeats")
+				logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleWorkerHeartBeats with error -> %v",err)
 			}
 		}
 	}

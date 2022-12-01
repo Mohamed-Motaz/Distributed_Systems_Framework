@@ -11,7 +11,7 @@ import (
 This package contains all the RPC definitions
 for any inter-servers communication
 */
-func EstablishRpcConnection(rpcConn *RpcConnection) bool {
+func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 	successfullConnection := false
 	var client *rpc.Client
 	var err error
@@ -51,10 +51,10 @@ func EstablishRpcConnection(rpcConn *RpcConnection) bool {
 			"Unable to call %v with RPC with error: %v",
 			rpcConn.Reciever.Name, err,
 		)
-		return false
+		return false, err
 	}
 
-	return true
+	return true, nil
 }
 
 type Reciever struct {
@@ -143,8 +143,8 @@ type ExeUploadArgs struct {
 }
 
 type OptionalFilesUploadArgs struct {
-	JobId       string
-	FileContent []utils.File
+	JobId string
+	Files []utils.File
 }
 
 type FileUploadReply struct {
@@ -156,4 +156,9 @@ type GetExeFilesReply struct {
 	DistributeExeNames []string
 	AggregateExeNames  []string
 	Error              utils.Error
+}
+
+type DeleteExeFileRequest struct {
+	FileType utils.FileType
+	FileName string
 }
