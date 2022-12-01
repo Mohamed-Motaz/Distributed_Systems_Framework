@@ -158,7 +158,11 @@ type GetExeFilesReply struct {
 	Error              utils.Error
 }
 
-type DeleteExeFileRequest struct {
+type DeleteExeFileArgs struct {
 	FileType utils.FileType
 	FileName string
+}
+
+type DeleteExeFileReply struct {
+	FileUploadReply
 }

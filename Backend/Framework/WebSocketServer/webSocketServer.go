@@ -84,7 +84,7 @@ func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWr
 
 	res.Header().Set("Content-Type", "application/json")
 
-	addExeRequestArgs := AddExeRequest{}
+	addExeRequestArgs := RPC.ExeUploadArgs{}
 
 	reply := &RPC.FileUploadReply{}
 
@@ -116,13 +116,13 @@ func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWr
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
 
 	} else if reply.Error.IsFound {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with recieving files from lockServer} -> error : %+v", reply.Error.Msg)
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Adding files to lockServer} -> error : %+v", reply.Error.Msg)
 	}
 	json.NewEncoder(res).Encode(false)
 
 }
 
-func (webSocketServer WebSocketServer) handleGetAllExesRequests(res http.ResponseWriter, req http.Request) {
+func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 
@@ -158,6 +158,41 @@ func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.Respons
 
 	res.Header().Set("Content-Type", "application/json")
 
+	deleteExeRequestArgs := RPC.DeleteExeFileArgs{}
+
+	reply := &RPC.DeleteExeFileReply{}
+
+	err := json.NewDecoder(req.Body).Decode(&deleteExeRequestArgs)
+
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+		Name:         "LockServer.HandleDeleteExeFile",
+		Args:         deleteExeRequestArgs,
+		Reply:        &reply,
+		SenderLogger: logger.WEBSOCKET_SERVER,
+		Reciever: RPC.Reciever{
+			Name: "Lockserver",
+			Port: LockServerPort,
+			Host: LockServerHost,
+		},
+	})
+
+	if ok && !reply.Error.IsFound {
+		json.NewEncoder(res).Encode(true)
+		return
+	}
+
+	if !ok {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
+
+	} else if reply.Error.IsFound {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Exe file from lockServer} -> error : %+v", reply.Error.Msg)
+	}
+	json.NewEncoder(res).Encode(false)
 }
 
 func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob interface{}) {
