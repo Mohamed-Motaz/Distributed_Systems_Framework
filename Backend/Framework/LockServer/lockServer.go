@@ -56,7 +56,7 @@ func getExeFileContent(exeFileName string, exeFolderName string) ([]byte, error)
 	files, err := ioutil.ReadDir(filepath.Join("./ExeFiles", exeFolderName))
 	var fileContent []byte
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from process exes folder %v", err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from %v exes folder %v", exeFolderName, err)
 		return fileContent, err
 	}
 	for _, file := range files {
@@ -64,7 +64,7 @@ func getExeFileContent(exeFileName string, exeFolderName string) ([]byte, error)
 			filePath := filepath.Join("./ExeFiles", exeFolderName, string(file.Name()))
 			fileContent, err = os.ReadFile(filePath)
 			if err != nil {
-				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get file %v from process exe folder %v", filePath, err)
+				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get file %v from %v exe folder %v", exeFileName, exeFolderName, err)
 				return fileContent, err
 			}
 		}
@@ -95,6 +95,31 @@ func getExeFiles(processExeName string, distributeExeName string, aggregateExeNa
 	reply.AggregateExe.Content = aggregateFileContent
 }
 
+func getOptionalFiles(OptionalFilesNames []string) ([]utils.File, error) {
+	files, err := ioutil.ReadDir("./OptionalFiles")
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %v", err)
+	}
+	var optionalFiles []utils.File
+	var optionalFile utils.File
+	for _, optionalFileName := range OptionalFilesNames {
+		for _, file := range files {
+			if file.Name() == optionalFileName {
+				filePath := filepath.Join("./OptionalFiles", optionalFileName)
+				fileContent, err := os.ReadFile(filePath)
+				if err != nil {
+					logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get file %v from optional files folder %v", optionalFileName, err)
+					return optionalFiles, err
+				}
+				optionalFile.Name = optionalFileName
+				optionalFile.Content = fileContent
+				optionalFiles = append(optionalFiles, optionalFile)
+			}
+
+		}
+	}
+	return optionalFiles, nil
+}
 func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) error {
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "A master request job", args)
 	reply.IsAccepted = false
@@ -116,6 +141,11 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		reply.ClientId = args.ClientId
 		reply.JobContent = args.JobContent
 		getExeFiles(args.ProcessExeName, args.DistributeExeName, args.AggregateExeName, reply)
+		optionalFiles, err := getOptionalFiles(args.OptionalFilesNames)
+		if err != nil {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %v", err)
+		}
+		reply.OptionalFiles = optionalFiles
 		// assign job to the master and update database
 		jobInfo := database.JobInfo{}
 		jobInfo.ClientId = args.ClientId
@@ -127,6 +157,7 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		jobInfo.ProcessExeName = args.ProcessExeName
 		jobInfo.DistributeExeName = args.DistributeExeName
 		jobInfo.AggregateExeName = args.AggregateExeName
+		jobInfo.OptionalFilesNames = args.OptionalFilesNames
 		// add job to database
 		err = lockServer.databaseWrapper.CreateJobsInfo(&jobInfo).Error
 		if err != nil {
@@ -167,6 +198,11 @@ func (lockServer *LockServer) getLateJob(args *RPC.GetJobArgs, reply *RPC.GetJob
 	reply.JobContent = lateJob.Content
 	reply.IsAccepted = false
 	getExeFiles(lateJob.ProcessExeName, lateJob.DistributeExeName, lateJob.AggregateExeName, reply)
+	optionalFiles, err := getOptionalFiles(lateJob.OptionalFilesNames)
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %v", err)
+	}
+	reply.OptionalFiles = optionalFiles
 	return true
 }
 
