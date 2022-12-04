@@ -5,19 +5,13 @@ type File struct {
 	Content []byte
 }
 
-type Folder struct {
-	Type  FolderType
-	Name  string
-	Files []File
-}
+type FileType string
 
-type FolderType string
+const ProcessExe FileType = "Process"
+const DistributeExe FileType = "Distribute"
+const AggregateExe FileType = "Aggregate"
 
-const ProcessExe FolderType = "Process"
-const DistributeExe FolderType = "Distribute"
-const AggregateExe FolderType = "Aggregate"
-
-type Error struct {
+type Error struct{
 	IsFound bool
 	Msg     string
 }

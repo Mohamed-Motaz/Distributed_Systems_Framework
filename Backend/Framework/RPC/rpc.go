@@ -78,7 +78,7 @@ type GetTaskArgs struct {
 type GetTaskReply struct {
 	TaskAvailable bool
 	TaskContent   string
-	ProcessFolder utils.Folder
+	ProcessExe    utils.File
 	OptionalFiles []utils.File
 	TaskId        string
 	JobId         string
@@ -104,31 +104,30 @@ type WorkerHeartBeatReply struct {
 //master-lockserver communication ---------
 
 type GetJobArgs struct {
-	JobId                string
-	ClientId             string
-	MasterId             string
-	JobContent           string
-	MQJobFound           bool
-	ProcessFolderName    string
-	DistributeFolderName string
-	AggregateFolderName  string
-	OptionalFilesNames   []string
+	JobId              string
+	ClientId           string
+	MasterId           string
+	JobContent         string
+	MQJobFound         bool
+	ProcessExeName     string
+	DistributeExeName  string
+	AggregateExeName   string
+	OptionalFilesNames []string
 }
 
 type GetJobReply struct {
-	IsAccepted       bool //lock server will answer whether it accepted my job request
-	JobId            string
-	ClientId         string
-	JobContent       string
-	ProcessFolder    utils.Folder
-	DistributeFolder utils.Folder
-	AggregateFolder  utils.Folder
-	OptionalFiles    []utils.File
+	IsAccepted    bool //lock server will answer whether it accepted my job request
+	JobId         string
+	ClientId      string
+	JobContent    string
+	ProcessExe    utils.File
+	DistributeExe utils.File
+	AggregateExe  utils.File
+	OptionalFiles []utils.File
 }
 
 type FinishedJobArgs struct {
 	JobId    string
-	ClientId string
 	MasterId string
 }
 
@@ -138,9 +137,9 @@ type FinishedJobReply struct {
 
 //websocketserver - lockserver communication --------------
 
-type ExeFolderUploadArgs struct {
-	FolderType utils.FolderType
-	Folder     utils.Folder
+type ExeUploadArgs struct {
+	FileType utils.FileType
+	File     utils.File
 }
 
 type OptionalFilesUploadArgs struct {
@@ -152,18 +151,18 @@ type FileUploadReply struct {
 	Error utils.Error
 }
 
-type GetExeFoldersReply struct {
-	ProcessFolderNames    []string
-	DistributeFolderNames []string
-	AggregateFolderNames  []string
-	Error                 utils.Error
+type GetExeFilesReply struct {
+	ProcessExeNames    []string
+	DistributeExeNames []string
+	AggregateExeNames  []string
+	Error              utils.Error
 }
 
-type DeleteExeFolderArgs struct {
-	FolderType utils.FolderType
-	FolderName string
+type DeleteExeFileArgs struct {
+	FileType utils.FileType
+	FileName string
 }
 
-type DeleteExeFolderReply struct {
-	Error utils.Error
+type DeleteExeFileReply struct {
+	FileUploadReply
 }
