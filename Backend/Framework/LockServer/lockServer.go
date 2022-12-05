@@ -219,8 +219,30 @@ func createFolderIfNotExist(path string) bool {
 
 func deleteFolder(path string) error {
 	err := os.Remove(path)
-	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete folder %+v", err)
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete folder at this path %+v", path, err)
+	}
 	return err
+}
+func deleteFile(path string) error {
+	err := os.Remove(path)
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete file at this path %+v", path, err)
+	}
+
+	return err
+}
+func (lockServer *LockServer) HandleDeleteExeFile(args *RPC.DeleteExeFileArgs, reply *RPC.DeleteExeFileReply) error {
+	reply.Error.IsFound = false
+	exeFolderName := string(args.FileType)
+	filePath := filepath.Join("./ExeFiles", exeFolderName, args.FileName)
+	err := deleteFile(filePath)
+	if err != nil {
+		reply.Error.IsFound = true
+		reply.Error.Msg = err.Error()
+		return nil
+	}
+	return nil
 }
 
 func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply *RPC.FinishedJobReply) error {
@@ -230,7 +252,7 @@ func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply
 	if err != nil {
 		reply.Error.IsFound = true
 		reply.Error.Msg = err.Error()
-		return err
+		return nil
 	}
 
 	DbErr := lockServer.databaseWrapper.DeleteJobById(args.JobId)
@@ -238,7 +260,7 @@ func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply
 		reply.Error.IsFound = true
 		reply.Error.Msg = DbErr.Error.Error()
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete job id from the database %+v", err)
-		return DbErr.Error
+		return nil
 	}
 
 	return nil
@@ -251,12 +273,14 @@ func (lockServer *LockServer) HandleAddExeFile(args *RPC.ExeUploadArgs, reply *R
 	if !isFound {
 		reply.Error.IsFound = true
 		reply.Error.Msg = "Cannot create folder with this exe file " + string(args.FileType)
+		return nil
 	}
 	fileOut, err := os.Create(filepath.Join(path, args.File.Name))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to add this exe file, fileName: %v", string(args.FileType), err)
 		reply.Error.IsFound = true
 		reply.Error.Msg = "Cannot add this file" + args.File.Name
+		return nil
 	}
 	defer fileOut.Close()
 	return nil
