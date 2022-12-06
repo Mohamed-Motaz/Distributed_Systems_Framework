@@ -5,8 +5,10 @@ import (
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
 	"Framework/RPC"
+	utils "Framework/Utils"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -15,13 +17,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func newClient(webSocketConn *websocket.Conn) (*Client, error) {
+func newClient(webSocketConn *websocket.Conn) *Client {
 	return &Client{
-		id:              uuid.NewString(),
-		finishedJobs:    make(chan string),
-		webSocketConn:   webSocketConn,
-		lastRequestTime: time.Now().Unix(),
-	}, nil
+		id:            uuid.NewString(),
+		finishedJobs:  make(chan string),
+		webSocketConn: webSocketConn,
+	}
 }
 
 func NewWebSocketServer() (*WebSocketServer, error) {
@@ -43,10 +44,11 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 
 	go webSocketServer.listenAndServe()
 	go webSocketServer.deliverJobs()
-	go webSocketServer.idleConnCloser()
 
 	return webSocketServer, nil
 }
+
+//todo ADD MIDDLEWARE TO LOG ALL REQUESTS
 
 func (webSocketServer *WebSocketServer) listenAndServe() {
 
@@ -66,18 +68,13 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 		return
 	}
 
-	client, err := newClient(upgradedConn)
-
-	if err != nil {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to create client} -> error : %v", err)
-		return
-	}
+	client := newClient(upgradedConn)
 
 	webSocketServer.mu.Lock()
 	webSocketServer.clients[client.id] = client
 	webSocketServer.mu.Unlock()
 
-	go webSocketServer.assignJobs(client)
+	go webSocketServer.listenForJobs(client)
 }
 
 func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWriter, req *http.Request) {
@@ -199,26 +196,59 @@ func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishe
 	client.webSocketConn.WriteJSON(finishedJob)
 }
 
-func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
+//todo
+//bool stands for whether to continue with processing the job request or not
+func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
+	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
+		JobId: newJobRequest.JobId,
+		Files: newJobRequest.OptionalFiles,
+	}
 
-	defer delete(webSocketServer.clients, client.id)
+	reply := &RPC.FileUploadReply{}
+
+	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+		Name:         "LockServer.HandleAddOptionalFiles",
+		Args:         optionalFilesUploadArgs,
+		Reply:        &reply,
+		SenderLogger: logger.WEBSOCKET_SERVER,
+		Reciever: RPC.Reciever{
+			Name: "Lockserver",
+			Port: LockServerPort,
+			Host: LockServerHost,
+		},
+	})
+
+	if !ok {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
+		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error")}) //send a message eshtem to client
+		return false
+	} else if reply.Err {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
+		//todo: send message to client informing him of possible duplicates or errors
+		return false
+	} else {
+		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
+	}
+	return true
+}
+
+//this is a thread the keeps listening on a websocket
+//when it returns, it means I have stopped communicating with the client
+func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
+
+	defer func() {
+		webSocketServer.mu.Lock()
+		delete(webSocketServer.clients, client.id)
+		webSocketServer.mu.Unlock()
+	}()
 	defer client.webSocketConn.Close()
 
 	for {
 
 		_, message, err := client.webSocketConn.ReadMessage()
 		if err != nil {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
-			return
-		}
-
-		//update client time
-		webSocketServer.mu.Lock()
-		client.lastRequestTime = time.Now().Unix() //lock this operation since cleaner is running
-		webSocketServer.mu.Unlock()                //and may check on c.connTime
-
-		if err != nil {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
+			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with client while reading the  %v\n%v", client.webSocketConn.RemoteAddr(), err)
+			webSocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Unable to read from the websocket with err: %+v", err)})
 			return
 		}
 
@@ -227,38 +257,18 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 		err = json.Unmarshal(message, newJobRequest)
 
 		if err != nil {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client %v\n%v", client.webSocketConn.RemoteAddr(), err)
-			return
+			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client while unmarshaling json %v\n%v", client.webSocketConn.RemoteAddr(), err)
+			webSocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Invalid format with err: %+v", err)})
+			continue
 		}
 
-		optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
-			JobId: newJobRequest.JobId,
-			Files: newJobRequest.OptionalFiles,
+		//immediately attempt to send the optional files to the lockserver
+
+		if len(newJobRequest.OptionalFiles) > 0 {
+			if !webSocketServer.sendOptionalFiles(client, newJobRequest) {
+				continue
+			}
 		}
-
-		reply := &RPC.FileUploadReply{}
-
-		ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-			Name:         "LockServer.HandleAddOptionalFiles",
-			Args:         optionalFilesUploadArgs,
-			Reply:        &reply,
-			SenderLogger: logger.WEBSOCKET_SERVER,
-			Reciever: RPC.Reciever{
-				Name: "Lockserver",
-				Port: LockServerPort,
-				Host: LockServerHost,
-			},
-		})
-
-		if !ok {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
-			return
-		} else if reply.Err {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
-			return
-		}
-
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
 
 		modifiedJobRequest := &mq.AssignedJob{}
 
@@ -277,13 +287,16 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with client %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
-			return
+			//server error, can't encode the job request at the moment
+			continue
 		}
+
 		//message is viable and isnt present in cache, can now send it over to mq
 		err = webSocketServer.queue.Enqueue(mq.ASSIGNED_JOBS_QUEUE, jobToAssign.Bytes())
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not Enqeue to jobs assigned queue} -> error : %+v", err)
+			//send to user telling him that mq is not available now
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully Enqeue to jobs assigned queue")
 		}
@@ -296,8 +309,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 	finishedJobsChan, err := webSocketServer.queue.Dequeue(mq.FINISHED_JOBS_QUEUE)
 
 	if err != nil {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Server can't consume finished Jobs} -> error : %v", err)
-		return
+		logger.FailOnError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Server can't consume finished Jobs} -> error : %v", err)
 	}
 
 	for {
@@ -325,32 +337,16 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 			} else {
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Connection with client may have been terminated}")
-				finishedJobObj.Nack(false, true) //handle this case
+				finishedJobObj.Nack(false, true) //requeue so another websocket server may use it, and the client may be with him
+				//todo: ADD A TTL FIELD SO A JOB IS PREVENTED FROM BEING REQUEUED FOR INFINITE
 			}
 
+			//todo: BEDO HAYE3MELHA HOWA W AGINA, W HAYEKNE3ONA GAMED AWY
 			webSocketServer.cache.Set(finishedJob.Content, finishedJob, MAX_IDLE_CACHE_TIME)
 		}
 
 		time.Sleep(time.Second * 5)
 	}
-}
-
-func (webSocketServer *WebSocketServer) idleConnCloser() {
-
-	for {
-
-		for clientId, client := range webSocketServer.clients {
-
-			if time.Now().Unix()-client.lastRequestTime > int64(time.Hour) {
-				webSocketServer.mu.Lock()
-				client.webSocketConn.Close()
-				delete(webSocketServer.clients, clientId)
-				webSocketServer.mu.Unlock()
-			}
-		}
-		time.Sleep(time.Second * 5)
-	}
-
 }
 
 func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest, modifiedJobRequest *mq.AssignedJob) {

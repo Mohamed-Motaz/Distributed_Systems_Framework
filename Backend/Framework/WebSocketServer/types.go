@@ -15,10 +15,9 @@ import (
 )
 
 type Client struct {
-	id              string
-	finishedJobs    chan string
-	webSocketConn   *websocket.Conn
-	lastRequestTime int64
+	id            string
+	finishedJobs  chan string
+	webSocketConn *websocket.Conn
 }
 
 type WebSocketServer struct {
