@@ -159,29 +159,29 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 
 // this function expects to hold a lock
 func (master *Master) addDumbJob() {
-	process, _ := os.ReadFile(PROCESS_EXE + ".exe")
-	distribute, _ := os.ReadFile(DISTRIBUTE_EXE + ".exe")
-	aggregate, _ := os.ReadFile(AGGREGATE_EXE + ".exe")
+	// process, _ := os.ReadFile(PROCESS_EXE + ".exe")
+	// distribute, _ := os.ReadFile(DISTRIBUTE_EXE + ".exe")
+	// aggregate, _ := os.ReadFile(AGGREGATE_EXE + ".exe")
 
-	reply := RPC.GetJobReply{
-		IsAccepted: true,
-		JobId:      "#1",
-		ClientId:   "clientId",
-		JobContent: "jobContent.txt",
-		ProcessExe: utils.File{
-			Name:    PROCESS_EXE + ".exe",
-			Content: process,
-		},
-		DistributeExe: utils.File{
-			Name:    DISTRIBUTE_EXE + ".exe",
-			Content: distribute,
-		},
-		AggregateExe: utils.File{
-			Name:    AGGREGATE_EXE + ".exe",
-			Content: aggregate,
-		},
-	}
-	master.setJobStatus(&reply)
+	// reply := RPC.GetJobReply{
+	// 	IsAccepted: true,
+	// 	JobId:      "#1",
+	// 	ClientId:   "clientId",
+	// 	JobContent: "jobContent.txt",
+	// 	ProcessExe: utils.File{
+	// 		Name:    PROCESS_EXE + ".exe",
+	// 		Content: process,
+	// 	},
+	// 	DistributeExe: utils.File{
+	// 		Name:    DISTRIBUTE_EXE + ".exe",
+	// 		Content: distribute,
+	// 	},
+	// 	AggregateExe: utils.File{
+	// 		Name:    AGGREGATE_EXE + ".exe",
+	// 		Content: aggregate,
+	// 	},
+	// }
+	// master.setJobStatus(&reply)
 }
 
 // start a thread that waits on a job from the message queue
@@ -217,6 +217,10 @@ func (master *Master) qConsumer() {
 				newJob.Ack(false) //probably should just ack so it doesnt sit around in the queue forever
 
 				//todo: should probably send an error in the finished jobs queue
+				fn := &mq.FinishedJob{}
+				fn.Err = true
+				fn.ErrMsg = fmt.Sprintf("unable to martial received job %+v with err %+v", string(body), err)
+
 				continue
 			}
 
@@ -302,33 +306,21 @@ func (master *Master) qConsumer() {
 }
 
 //
-// start a thread that listens for a finished job
-// and then publishes it to the message queue
-func (master *Master) qPublisher() {
+// publishes a finished job to the message queue
+// this function doesn't have to hold a lock
+func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 
-	for {
-		select {
-		case finishedJob := <-master.publishCh:
-
-			res, err := json.Marshal(finishedJob)
-			if err != nil {
-				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to convert finished job to string! Discarding...")
-				//todo publish an error to the queue
-			} else {
-				err = master.q.Enqueue(mq.FINISHED_JOBS_QUEUE, res)
-				if err != nil {
-					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Finished job not published to queue with err %v", err)
-				} else {
-					logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finishedJob.JobId, finishedJob.ClientId)
-				}
-			}
-
-			master.publishChAck <- err == nil
-
-		default:
-			time.Sleep(time.Second)
+	res, err := json.Marshal(finJob)
+	if err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to convert finished job to string! Discarding...")
+		//todo publish an error to the queue
+	} else {
+		err = master.q.Enqueue(mq.FINISHED_JOBS_QUEUE, res)
+		if err != nil {
+			logger.LogError(logger.MASTER, logger.ESSENTIAL, "Finished job not published to queue with err %v", err)
+		} else {
+			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finishedJob.JobId, finishedJob.ClientId)
 		}
-
 	}
 
 }
@@ -455,20 +447,14 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
 		master.currentJob.jobId, master.currentJob.clientId, string(finalResult))
 
-	//now need to push this to the mq
-	master.publishCh <- mq.FinishedJob{
+	master.publishFinJob(mq.FinishedJob{
 		ClientId: master.currentJob.clientId,
 		JobId:    master.currentJob.jobId,
 		Content:  master.currentJob.jobContent,
 		Result:   string(finalResult),
-	}
+	})
 
-	//todo then need to send this to the lockserver
-	success := <-master.publishChAck //block till Publisher sends the message to the queue or fails to do so
-
-	if success {
-		master.attemptSendFinishedJobToLockServer()
-	}
+	master.attemptSendFinishedJobToLockServer()
 
 	master.resetStatus()
 	return nil

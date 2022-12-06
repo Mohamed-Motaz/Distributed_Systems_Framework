@@ -107,7 +107,7 @@ func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWr
 		},
 	})
 
-	if ok && !reply.Error.IsFound {
+	if ok && !reply.Err {
 		json.NewEncoder(res).Encode(true)
 		return
 	}
@@ -115,8 +115,8 @@ func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWr
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
 
-	} else if reply.Error.IsFound {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Adding files to lockServer} -> error : %+v", reply.Error.Msg)
+	} else if reply.Err {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Adding files to lockServer} -> error : %+v", reply.ErrMsg)
 	}
 	json.NewEncoder(res).Encode(false)
 
@@ -140,7 +140,7 @@ func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.Respon
 		},
 	})
 
-	if ok && !reply.Error.IsFound {
+	if ok && !reply.Err {
 		json.NewEncoder(res).Encode(reply)
 		return
 	}
@@ -148,8 +148,8 @@ func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.Respon
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
 
-	} else if reply.Error.IsFound {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with recieving files from lockServer} -> error : %+v", reply.Error.Msg)
+	} else if reply.Err {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with recieving files from lockServer} -> error : %+v", reply.ErrMsg)
 	}
 	json.NewEncoder(res).Encode(false)
 
@@ -181,7 +181,7 @@ func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.Respons
 		},
 	})
 
-	if ok && !reply.Error.IsFound {
+	if ok && !reply.Err {
 		json.NewEncoder(res).Encode(true)
 		return
 	}
@@ -189,8 +189,8 @@ func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.Respons
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
 
-	} else if reply.Error.IsFound {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Exe file from lockServer} -> error : %+v", reply.Error.Msg)
+	} else if reply.Err {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Exe file from lockServer} -> error : %+v", reply.ErrMsg)
 	}
 	json.NewEncoder(res).Encode(false)
 }
@@ -253,8 +253,8 @@ func (webSocketServer *WebSocketServer) assignJobs(client *Client) {
 		if !ok {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
 			return
-		} else if reply.Error.IsFound {
-			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.Error.Msg)
+		} else if reply.Err {
+			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
 			return
 		}
 

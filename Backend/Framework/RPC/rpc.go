@@ -132,7 +132,7 @@ type FinishedJobArgs struct {
 }
 
 type FinishedJobReply struct {
-	Error utils.Error
+	utils.Error
 }
 
 //websocketserver - lockserver communication --------------
@@ -148,14 +148,14 @@ type OptionalFilesUploadArgs struct {
 }
 
 type FileUploadReply struct {
-	Error utils.Error
+	utils.Error
 }
 
 type GetExeFilesReply struct {
 	ProcessExeNames    []string
 	DistributeExeNames []string
 	AggregateExeNames  []string
-	Error              utils.Error
+	utils.Error
 }
 
 type DeleteExeFileArgs struct {
@@ -164,5 +164,5 @@ type DeleteExeFileArgs struct {
 }
 
 type DeleteExeFileReply struct {
-	Error utils.Error
+	utils.Error
 }

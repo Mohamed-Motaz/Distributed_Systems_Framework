@@ -13,6 +13,6 @@ const DistributeExe FileType = "Distribute"
 const AggregateExe FileType = "Aggregate"
 
 type Error struct {
-	IsFound bool
-	Msg     string
+	Err    bool   `json:"error"`
+	ErrMsg string `json:"errorMsg"`
 }
