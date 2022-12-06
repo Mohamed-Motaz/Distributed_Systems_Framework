@@ -233,32 +233,32 @@ func deleteFile(path string) error {
 	return err
 }
 func (lockServer *LockServer) HandleDeleteExeFile(args *RPC.DeleteExeFileArgs, reply *RPC.DeleteExeFileReply) error {
-	reply.Error.Error = false
+	reply.Err = false
 	exeFolderName := string(args.FileType)
 	filePath := filepath.Join("./ExeFiles", exeFolderName, args.FileName)
 	err := deleteFile(filePath)
 	if err != nil {
-		reply.Error.Error = true
-		reply.Error.Msg = err.Error()
+		reply.Err = true
+		reply.ErrMsg = err.Error()
 		return nil
 	}
 	return nil
 }
 
 func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply *RPC.FinishedJobReply) error {
-	reply.Error.Error = false
+	reply.Err = false
 	path := filepath.Join("./OptionalFiles", args.JobId)
 	err := deleteFolder(path)
 	if err != nil {
-		reply.Error.Error = true
-		reply.Error.Msg = err.Error()
+		reply.Err = true
+		reply.ErrMsg = err.Error()
 		return nil
 	}
 
-	DbErr := lockServer.databaseWrapper.DeleteJobById(args.JobId)
-	if DbErr != nil {
-		reply.Error.Error = true
-		reply.Error.Msg = DbErr.Error.Error()
+	err = lockServer.databaseWrapper.DeleteJobById(args.JobId).Error
+	if err != nil {
+		reply.Err = true
+		reply.ErrMsg = err.Error()
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete job id from the database %+v", err)
 		return nil
 	}
@@ -267,19 +267,19 @@ func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply
 }
 
 func (lockServer *LockServer) HandleAddExeFile(args *RPC.ExeUploadArgs, reply *RPC.FileUploadReply) error {
-	reply.Error.Error = false
+	reply.Err = false
 	path := filepath.Join("./ExeFiles", string(args.FileType))
 	isFound := createFolderIfNotExist(path)
 	if !isFound {
-		reply.Error.Error = true
-		reply.Error.Msg = "Cannot create folder with this exe file " + string(args.FileType)
+		reply.Err = true
+		reply.ErrMsg = "Cannot create folder with this exe file " + string(args.FileType)
 		return nil
 	}
 	fileOut, err := os.Create(filepath.Join(path, args.File.Name))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to add this exe file, fileName: %v", string(args.FileType), err)
-		reply.Error.Error = true
-		reply.Error.Msg = "Cannot add this file" + args.File.Name
+		reply.Err = true
+		reply.ErrMsg = "Cannot add this file" + args.File.Name
 		return nil
 	}
 	defer fileOut.Close()
@@ -287,20 +287,20 @@ func (lockServer *LockServer) HandleAddExeFile(args *RPC.ExeUploadArgs, reply *R
 }
 
 func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUploadArgs, reply *RPC.FileUploadReply) error {
-	reply.Error.Error = false
+	reply.Err = false
 	path := filepath.Join("./OptionalFiles", args.JobId)
 	isFound := createFolderIfNotExist(path)
 	if !isFound {
-		reply.Error.Error = true
-		reply.Error.Msg = "Cannot create folder with this JobId " + args.JobId
+		reply.Err = true
+		reply.ErrMsg = "Cannot create folder with this JobId " + args.JobId
 	}
 	for i := 0; i < len(args.Files); i++ {
 
 		fileOut, err := os.Create(filepath.Join(path, args.Files[i].Name))
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %v", args.Files[i].Name, err)
-			reply.Error.Error = true
-			reply.Error.Msg = "Cannot create this file" + args.Files[i].Name
+			reply.Err = true
+			reply.ErrMsg = "Cannot create this file" + args.Files[i].Name
 		}
 		defer fileOut.Close()
 	}
@@ -310,7 +310,7 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 func (lockServer *LockServer) HandleGetExeFiles(reply *RPC.GetExeFilesReply) error {
 	files, err := ioutil.ReadDir(filepath.Join("./ExeFiles", string(utils.ProcessExe)))
 	var foundError bool = false
-	reply.Error.Error = false
+	reply.Err = false
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from process exes folder %v", err)
 		foundError = true
@@ -335,8 +335,8 @@ func (lockServer *LockServer) HandleGetExeFiles(reply *RPC.GetExeFilesReply) err
 		reply.AggregateExeNames = append(reply.AggregateExeNames, file.Name())
 	}
 	if foundError {
-		reply.Error.Error = true
-		reply.Error.Msg = "There is an error while getting exe files."
+		reply.Err = true
+		reply.ErrMsg = "There is an error while getting exe files."
 	}
 	return nil
 }

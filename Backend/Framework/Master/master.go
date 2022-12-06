@@ -7,7 +7,6 @@ import (
 	utils "Framework/Utils"
 	"bytes"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 
 	"Framework/RPC"
@@ -29,10 +28,7 @@ func NewMaster() *Master {
 		id:                uuid.NewString(), //random id
 		q:                 mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
 		maxHeartBeatTimer: 30 * time.Second, //each heartbeat should be every 10 seconds but we allaow up to 2 failures
-		publishCh:         make(chan mq.FinishedJob),
-		publishChAck:      make(chan bool),
-
-		mu: sync.Mutex{},
+		mu:                sync.Mutex{},
 	}
 	master.resetStatus()
 	master.addDumbJob()
@@ -216,11 +212,8 @@ func (master *Master) qConsumer() {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to consume job with error %v\nWill discard it", err)
 				newJob.Ack(false) //probably should just ack so it doesnt sit around in the queue forever
 
-				//todo: should probably send an error in the finished jobs queue
-				fn := &mq.FinishedJob{}
-				fn.Err = true
-				fn.ErrMsg = fmt.Sprintf("unable to martial received job %+v with err %+v", string(body), err)
-
+				//send err to the mq
+				master.publishErrAsFinJob(fmt.Sprintf("unable to martial received job %+v with err %+v", string(body), err))
 				continue
 			}
 
@@ -247,7 +240,7 @@ func (master *Master) qConsumer() {
 			})
 			if !ok {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to contact lockserver to ask about job with error %v\nWill discard it", err)
-				newJob.Nack(false, true)
+				newJob.Nack(false, true) //requeue job, so maybe another master can contact the lock server
 				continue
 			}
 
@@ -255,18 +248,16 @@ func (master *Master) qConsumer() {
 				//use args that the lockserver has accepted
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer accepted job request %v for client %+v", args.JobId, args.ClientId)
 				newJob.Ack(false)
-				if err := master.setJobStatus(reply); err != nil {
-					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
-				}
+
 				continue
 			} else {
 				//use alternative provided by lockserver
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v for client %v instead of requested job %v", reply.JobId, reply.ClientId, args.JobId)
-				newJob.Nack(false, true)
-				if err := master.setJobStatus(reply); err != nil {
-					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
-				}
-				continue
+				newJob.Nack(false, true) //requeue job since lockserver provided another
+			}
+
+			if err := master.setJobStatus(reply); err != nil {
+				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
 			}
 
 		default: //I didn't find a job from the message queue
@@ -288,7 +279,7 @@ func (master *Master) qConsumer() {
 					Host: LockServerHost,
 				},
 			})
-			if ok && reply.IsAccepted {
+			if ok && reply.IsAccepted { //todo: make sure rawan and salma implemented it correctly
 				//there is indeed an outstanding job
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v", reply.JobId)
 				if err := master.setJobStatus(reply); err != nil {
@@ -323,6 +314,14 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 		}
 	}
 
+}
+
+func (master *Master) publishErrAsFinJob(err string) {
+	fn := mq.FinishedJob{}
+	fn.Err = true
+	fn.ErrMsg = err
+	master.publishFinJob(fn)
+	master.resetStatus()
 }
 
 //
@@ -370,7 +369,6 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 	}
 
 	reply.TaskAvailable = false
-
 	return nil
 }
 
@@ -387,8 +385,9 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 		return nil
 	}
 
-	if !args.IsSuccess {
-		//TODO: need to handle this failure
+	if args.Err {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Worker sent this error %+v", args.ErrMsg)
+		master.publishErrAsFinJob(fmt.Sprintf("Worker sent this error: %+v", args.ErrMsg))
 		return nil
 	}
 
@@ -398,12 +397,12 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	}
 
 	//now need to write the results to a file, and save this files location
-	filePath := "./" + args.TaskId + ".txt"
+	filePath := args.TaskId + ".txt"
 	err := utils.CreateAndWriteToFile(filePath, []byte(args.TaskResult))
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the task file locally on the master %+v", err)
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the task file %+v", err)
+		master.publishErrAsFinJob(fmt.Sprintf("Error while saving worker's task locally on the master: %+v", err))
 		return nil
-		//todo how should i handle this error
 	}
 
 	master.currentJob.tasks[taskIndex].isDone = true
@@ -420,28 +419,19 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	var finishedTasksBytes *bytes.Buffer
 	err = gob.NewEncoder(finishedTasksBytes).Encode(master.currentJob.finishedTasks)
 	if err != nil {
-		//TODO: send this in the mq somehow
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while encoding all tasks locally on the master: %+v", err)
+		master.publishErrAsFinJob(fmt.Sprintf("Error while encoding all tasks locally on the master: %+v", err))
 		return nil
 	}
 
-	fPath := "./aggregate.txt"
-	err = utils.CreateAndWriteToFile(fPath, finishedTasksBytes.Bytes())
+	//now, need to run aggregate
+	data, err := common.ExecuteProcess(logger.MASTER, utils.AggregateExe,
+		utils.File{Name: "aggregate.txt", Content: finishedTasksBytes.Bytes()},
+		master.currentJob.aggregateExe)
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the temporary file that contains the aggregate tasks locally on the master %+v", err)
-		//TODO: send this in the mq somehow
-	}
-
-	_, err = exec.Command("./" + master.currentJob.aggregateExe.Name).Output()
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while executing aggregate process %+v", err)
-		//TODO: send this in the mq somehow
-	}
-
-	//now need to read from this file the resulting data
-	finalResult, err := os.ReadFile(fPath)
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while reading from the aggregate process %+v", err)
-		//TODO: send this in the mq somehow
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while running aggregate process: %+v", err)
+		master.publishErrAsFinJob(fmt.Sprintf("Error while running aggregate process: %+v", err))
+		return nil
 	}
 
 	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
