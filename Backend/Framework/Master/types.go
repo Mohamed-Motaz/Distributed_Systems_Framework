@@ -11,12 +11,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const (
-	PROCESS_EXE    = "process_"
-	DISTRIBUTE_EXE = "distribute_"
-	AGGREGATE_EXE  = "aggregate_"
-)
-
 type Master struct {
 	id                string
 	currentJob        CurrentJob

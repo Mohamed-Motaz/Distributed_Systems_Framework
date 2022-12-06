@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 
 	"Framework/RPC"
 	"encoding/gob"
@@ -49,13 +50,14 @@ func CreateMasterAddress() string {
 }
 
 func (master *Master) removeOldJobFiles() {
+	//as optional files are always on my level as a master
 	for _, f := range master.currentJob.optionalFiles {
 		os.Remove(f.Name)
 	}
 
-	utils.RemoveFilesWithStartName(PROCESS_EXE)
-	utils.RemoveFilesWithStartName(DISTRIBUTE_EXE)
-	utils.RemoveFilesWithStartName(AGGREGATE_EXE)
+	myName := filepath.Base(os.Args[0])
+
+	utils.RemoveFilesThatDontMatchPrefix(myName)
 }
 
 // this function expects to hold a lock
@@ -86,6 +88,8 @@ func (master *Master) resetStatus() {
 
 // this function expects to hold a lock
 // this function is responsible for setting up the new job and running distribute
+
+// this function doesn't log. The caller is responsible for logging
 func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	master.isRunning = true
 
@@ -102,31 +106,24 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		aggregateExe:  reply.AggregateExe,
 		optionalFiles: reply.OptionalFiles,
 	}
-	//add the exe identitfiers next to their names
-	master.currentJob.processExe.Name = PROCESS_EXE + master.currentJob.processExe.Name
-	master.currentJob.distributeExe.Name = DISTRIBUTE_EXE + master.currentJob.distributeExe.Name
-	master.currentJob.aggregateExe.Name = AGGREGATE_EXE + master.currentJob.aggregateExe.Name
 
 	//todo, think about supporting different os exes
 	//todo any errors here should be propagated to client
 
-	exeLogs := []string{"process", "distribute", "aggregate"}
-	exeNames := []string{master.currentJob.processExe.Name, master.currentJob.distributeExe.Name, master.currentJob.aggregateExe.Name}
-	exeContents := [][]byte{master.currentJob.processExe.Content, master.currentJob.distributeExe.Content, master.currentJob.aggregateExe.Content}
+	//now write the distribute and aggregate folders to disk
 
-	for i := 0; i < len(exeNames); i++ {
-		err := utils.CreateAndWriteToFile(exeNames[i], exeContents[i])
-		if err != nil {
-			logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the %+v exe file locally on the master %+v", exeLogs[i], err)
-			return fmt.Errorf("error while creating the %+v exe file locally on the master", exeLogs[i])
-		}
+	if err := utils.UnzipSource(master.currentJob.distributeExe.Name, ""); err != nil {
+		return fmt.Errorf("error while unzipping distribute zip %+v", err)
+	}
+
+	if err := utils.UnzipSource(master.currentJob.aggregateExe.Name, ""); err != nil {
+		return fmt.Errorf("error while unzipping aggregate zip %+v", err)
 	}
 
 	for _, f := range master.currentJob.optionalFiles {
 		err := utils.CreateAndWriteToFile(f.Name, f.Content)
 		if err != nil {
-			logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the file %+v locally on the master %+v", f.Name, err)
-			return fmt.Errorf("error while creating the file %+v locally on the master", f.Name)
+			return fmt.Errorf("error while creating the file %+v locally on the master %+v", f.Name, err)
 		}
 	}
 
@@ -141,9 +138,9 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	var tasks *[]string
 	err = gob.NewDecoder(bytes.NewReader(data)).Decode(tasks)
 	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while decoding the tasks array created by the distribute exe %+v", err)
 		return fmt.Errorf("error while decoding the tasks array created by the distribute exe")
 	}
+	logger.LogInfo(logger.MASTER, logger.DEBUGGING, "These are the tasks for the job %+v\n: %+v", master.currentJob.jobId, tasks)
 
 	//now that I have the tasks, set the appropriate fields in the master
 	master.currentJob.tasks = make([]Task, len(*tasks))
@@ -254,13 +251,17 @@ func (master *Master) qConsumer() {
 				//use args that the lockserver has accepted
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer accepted job request %v for client %+v", args.JobId, args.ClientId)
 				newJob.Ack(false)
-				master.setJobStatus(reply)
+				if err := master.setJobStatus(reply); err != nil {
+					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
+				}
 				continue
 			} else {
 				//use alternative provided by lockserver
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v for client %v instead of requested job %v", reply.JobId, reply.ClientId, args.JobId)
 				newJob.Nack(false, true)
-				master.setJobStatus(reply)
+				if err := master.setJobStatus(reply); err != nil {
+					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
+				}
 				continue
 			}
 
@@ -286,7 +287,9 @@ func (master *Master) qConsumer() {
 			if ok && reply.IsAccepted {
 				//there is indeed an outstanding job
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v", reply.JobId)
-				master.setJobStatus(reply)
+				if err := master.setJobStatus(reply); err != nil {
+					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
+				}
 				continue
 			}
 
@@ -316,7 +319,7 @@ func (master *Master) qPublisher() {
 				if err != nil {
 					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Finished job not published to queue with err %v", err)
 				} else {
-					logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", fin.JobId, fin.ClientId)
+					logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finishedJob.JobId, finishedJob.ClientId)
 				}
 			}
 

@@ -164,5 +164,5 @@ type DeleteExeFileArgs struct {
 }
 
 type DeleteExeFileReply struct {
-	FileUploadReply
+	Error utils.Error
 }
