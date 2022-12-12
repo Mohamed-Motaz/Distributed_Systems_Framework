@@ -72,10 +72,11 @@ func getExeFileContent(exeFileName string, exeFolderName string) ([]byte, error)
 	return fileContent, nil
 }
 
-func getExeFiles(processExeName string, distributeExeName string, aggregateExeName string, reply *RPC.GetJobReply) {
+func getExeFiles(processExeName string, distributeExeName string, aggregateExeName string, reply *RPC.GetJobReply) error {
 	processFileContent, err := getExeFileContent(processExeName, string(utils.ProcessExe))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get exe file %v from process exes folder %v", processExeName, err)
+		return err
 	}
 	reply.ProcessExe.Name = processExeName
 	reply.ProcessExe.Content = processFileContent
@@ -83,6 +84,7 @@ func getExeFiles(processExeName string, distributeExeName string, aggregateExeNa
 	distributeFileContent, err := getExeFileContent(distributeExeName, string(utils.DistributeExe))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get exe file %v from distribute exes folder %v", distributeExeName, err)
+		return err
 	}
 	reply.DistributeExe.Name = distributeExeName
 	reply.DistributeExe.Content = distributeFileContent
@@ -90,9 +92,11 @@ func getExeFiles(processExeName string, distributeExeName string, aggregateExeNa
 	aggregateFileContent, err := getExeFileContent(aggregateExeName, string(utils.AggregateExe))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get exe file %v from aggregate exes folder %v", aggregateExeName, err)
+		return err
 	}
 	reply.AggregateExe.Name = aggregateExeName
 	reply.AggregateExe.Content = aggregateFileContent
+	return nil
 }
 
 func getOptionalFiles(OptionalFilesNames []string) ([]utils.File, error) {
@@ -120,6 +124,27 @@ func getOptionalFiles(OptionalFilesNames []string) ([]utils.File, error) {
 	}
 	return optionalFiles, nil
 }
+func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) {
+	// assign job to the master and update database
+	jobInfo := database.JobInfo{}
+	jobInfo.ClientId = args.ClientId
+	jobInfo.MasterId = args.MasterId
+	jobInfo.JobId = args.JobId
+	jobInfo.Content = args.JobContent
+	jobInfo.TimeAssigned = time.Now()
+	jobInfo.Status = database.IN_PROGRESS
+	jobInfo.ProcessExeName = args.ProcessExeName
+	jobInfo.DistributeExeName = args.DistributeExeName
+	jobInfo.AggregateExeName = args.AggregateExeName
+	jobInfo.OptionalFilesNames = args.OptionalFilesNames
+	// add job to database
+	err := lockServer.databaseWrapper.CreateJobsInfo(&jobInfo).Error
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a job in database", err)
+	}
+	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Job added successfully", args.JobId)
+
+}
 func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) error {
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "A master request job", args)
 	reply.IsAccepted = false
@@ -140,30 +165,34 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		reply.JobId = args.JobId
 		reply.ClientId = args.ClientId
 		reply.JobContent = args.JobContent
-		getExeFiles(args.ProcessExeName, args.DistributeExeName, args.AggregateExeName, reply)
+		err = getExeFiles(args.ProcessExeName, args.DistributeExeName, args.AggregateExeName, reply)
+		if err != nil {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get exe files %v", err)
+		}
 		optionalFiles, err := getOptionalFiles(args.OptionalFilesNames)
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %v", err)
 		}
 		reply.OptionalFiles = optionalFiles
 		// assign job to the master and update database
-		jobInfo := database.JobInfo{}
-		jobInfo.ClientId = args.ClientId
-		jobInfo.MasterId = args.MasterId
-		jobInfo.JobId = args.JobId
-		jobInfo.Content = args.JobContent
-		jobInfo.TimeAssigned = time.Now()
-		jobInfo.Status = database.IN_PROGRESS
-		jobInfo.ProcessExeName = args.ProcessExeName
-		jobInfo.DistributeExeName = args.DistributeExeName
-		jobInfo.AggregateExeName = args.AggregateExeName
-		jobInfo.OptionalFilesNames = args.OptionalFilesNames
-		// add job to database
-		err = lockServer.databaseWrapper.CreateJobsInfo(&jobInfo).Error
-		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while creating a job", err)
-		}
-		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Job added successfully", args.JobId)
+		// jobInfo := database.JobInfo{}
+		// jobInfo.ClientId = args.ClientId
+		// jobInfo.MasterId = args.MasterId
+		// jobInfo.JobId = args.JobId
+		// jobInfo.Content = args.JobContent
+		// jobInfo.TimeAssigned = time.Now()
+		// jobInfo.Status = database.IN_PROGRESS
+		// jobInfo.ProcessExeName = args.ProcessExeName
+		// jobInfo.DistributeExeName = args.DistributeExeName
+		// jobInfo.AggregateExeName = args.AggregateExeName
+		// jobInfo.OptionalFilesNames = args.OptionalFilesNames
+		// // add job to database
+		// err = lockServer.databaseWrapper.CreateJobsInfo(&jobInfo).Error
+		// if err != nil {
+		// 	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a job in database", err)
+		// }
+		// logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Job added successfully", args.JobId)
+		lockServer.addJobToDB(args)
 		return nil
 	}
 	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request rejected %v", args.JobId)
