@@ -129,6 +129,7 @@ type GetJobReply struct {
 type FinishedJobArgs struct {
 	JobId    string
 	MasterId string
+	ClientId string
 }
 
 type FinishedJobReply struct {

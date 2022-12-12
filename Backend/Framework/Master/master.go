@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"Framework/RPC"
 	"encoding/gob"
@@ -64,9 +65,9 @@ func (master *Master) resetStatus() {
 	master.removeOldJobFiles()
 
 	master.currentJob = CurrentJob{
-		tasks:         make([]Task, 0),
-		finishedTasks: make([]string, 0),
-		workersTimers: make([]WorkerAndHisTimer, 0),
+		tasks:                  make([]Task, 0),
+		finishedTasksFilePaths: make([]string, 0),
+		workersTimers:          make([]WorkerAndHisTimer, 0),
 		processExe: utils.File{
 			Content: make([]byte, 0),
 		},
@@ -94,13 +95,13 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		jobContent: reply.JobContent,
 		jobId:      reply.JobId,
 
-		tasks:         make([]Task, 0),
-		finishedTasks: make([]string, 0),
-		workersTimers: make([]WorkerAndHisTimer, 0),
-		processExe:    reply.ProcessExe,
-		distributeExe: reply.DistributeExe,
-		aggregateExe:  reply.AggregateExe,
-		optionalFiles: reply.OptionalFiles,
+		tasks:                  make([]Task, 0),
+		finishedTasksFilePaths: make([]string, 0),
+		workersTimers:          make([]WorkerAndHisTimer, 0),
+		processExe:             reply.ProcessExe,
+		distributeExe:          reply.DistributeExe,
+		aggregateExe:           reply.AggregateExe,
+		optionalFiles:          reply.OptionalFiles,
 	}
 
 	//todo, think about supporting different os exes
@@ -140,7 +141,7 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 
 	//now that I have the tasks, set the appropriate fields in the master
 	master.currentJob.tasks = make([]Task, len(*tasks))
-	master.currentJob.finishedTasks = make([]string, len(*tasks))
+	master.currentJob.finishedTasksFilePaths = make([]string, len(*tasks))
 	master.currentJob.workersTimers = make([]WorkerAndHisTimer, len(*tasks))
 
 	for i, task := range *tasks {
@@ -304,13 +305,13 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 	res, err := json.Marshal(finJob)
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to convert finished job to string! Discarding...")
-		//todo publish an error to the queue
+		master.publishErrAsFinJob("Unable to marshal finished job")
 	} else {
 		err = master.q.Enqueue(mq.FINISHED_JOBS_QUEUE, res)
 		if err != nil {
 			logger.LogError(logger.MASTER, logger.ESSENTIAL, "Finished job not published to queue with err %v", err)
 		} else {
-			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finishedJob.JobId, finishedJob.ClientId)
+			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finJob.JobId, finJob.ClientId)
 		}
 	}
 
@@ -406,7 +407,7 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	}
 
 	master.currentJob.tasks[taskIndex].isDone = true
-	master.currentJob.finishedTasks[taskIndex] = filePath
+	master.currentJob.finishedTasksFilePaths[taskIndex] = filePath
 	master.currentJob.workersTimers[taskIndex].lastHeartBeat = time.Now()
 
 	//check if all tasks are done and aggregate the results
@@ -416,22 +417,27 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	}
 
 	//all tasks have been finished!
-	var finishedTasksBytes *bytes.Buffer
-	err = gob.NewEncoder(finishedTasksBytes).Encode(master.currentJob.finishedTasks)
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while encoding all tasks locally on the master: %+v", err)
-		master.publishErrAsFinJob(fmt.Sprintf("Error while encoding all tasks locally on the master: %+v", err))
-		return nil
-	}
+	master.finishUpJob()
+	return nil
+}
+
+//this function expects to hold a lock
+//it runs aggregate binary and pushes the job
+//to the finJobs queue and notifies the lockserver
+func (master *Master) finishUpJob() {
+	//todo: aggregate.txt contains the paths of the finished tasks, each path in a newline
+
+	finishedTasks := strings.Join(master.currentJob.finishedTasksFilePaths, "\n")
 
 	//now, need to run aggregate
-	data, err := common.ExecuteProcess(logger.MASTER, utils.AggregateExe,
-		utils.File{Name: "aggregate.txt", Content: finishedTasksBytes.Bytes()},
+
+	finalResult, err := common.ExecuteProcess(logger.MASTER, utils.AggregateExe,
+		utils.File{Name: "aggregate.txt", Content: []byte(finishedTasks)},
 		master.currentJob.aggregateExe)
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while running aggregate process: %+v", err)
 		master.publishErrAsFinJob(fmt.Sprintf("Error while running aggregate process: %+v", err))
-		return nil
+		return
 	}
 
 	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
@@ -447,9 +453,9 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	master.attemptSendFinishedJobToLockServer()
 
 	master.resetStatus()
-	return nil
 }
 
+//this function expects to hold a lock
 func (master *Master) attemptSendFinishedJobToLockServer() bool {
 	ok := false
 	ctr := 1
@@ -457,21 +463,27 @@ func (master *Master) attemptSendFinishedJobToLockServer() bool {
 
 	for !ok && ctr < mxRetries {
 
-		master.mu.Lock()
 		if !master.isRunning {
-			master.mu.Unlock()
 			break
 		}
 
 		args := &RPC.FinishedJobArgs{
 			MasterId: master.id,
-			JobId:    master.jobId,
-			ClientId: master.clientId,
-			URL:      master.currentURL,
+			JobId:    master.currentJob.jobId,
+			ClientId: master.currentJob.clientId,
 		}
-		master.mu.Unlock()
-
-		ok := master.callLockServer("LockServer.HandleFinishedJobs", args, &RPC.FinishedJobReply{}) //send data to lockServer
+		reply := &RPC.FinishedJobReply{}
+		ok, _ := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+			Name:         "LockServer.HandleFinishedJobs",
+			Args:         &args,
+			Reply:        &reply,
+			SenderLogger: logger.MASTER,
+			Reciever: RPC.Reciever{
+				Name: "Lockserver",
+				Port: LockServerPort,
+				Host: LockServerHost,
+			},
+		})
 
 		if !ok {
 			logger.LogError(logger.MASTER, logger.ESSENTIAL, "Attempt number %v to send finished job to lockServer unsuccessfull", ctr)

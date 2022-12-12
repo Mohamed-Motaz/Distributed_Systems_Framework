@@ -1,7 +1,6 @@
 package common
 
 import (
-	logger "Framework/Logger"
 	utils "Framework/Utils"
 
 	"fmt"

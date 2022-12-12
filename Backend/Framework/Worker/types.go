@@ -19,9 +19,8 @@ const (
 )
 
 var (
-	MasterHost    string
-	MasterPort    string
-	ProcessExeCmd string
+	MasterHost string
+	MasterPort string
 )
 
 func init() {

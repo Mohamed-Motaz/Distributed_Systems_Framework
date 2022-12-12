@@ -21,16 +21,16 @@ type Master struct {
 }
 
 type CurrentJob struct {
-	clientId      string
-	jobContent    string
-	jobId         string
-	tasks         []Task
-	finishedTasks []string //this is an array of the filePaths of the finished tasks
-	workersTimers []WorkerAndHisTimer
-	processExe    utils.File
-	distributeExe utils.File
-	aggregateExe  utils.File
-	optionalFiles []utils.File
+	clientId               string
+	jobContent             string
+	jobId                  string
+	tasks                  []Task
+	finishedTasksFilePaths []string //this is an array of the filePaths of the finished tasks
+	workersTimers          []WorkerAndHisTimer
+	processExe             utils.File
+	distributeExe          utils.File
+	aggregateExe           utils.File
+	optionalFiles          []utils.File
 }
 
 type WorkerAndHisTimer struct {

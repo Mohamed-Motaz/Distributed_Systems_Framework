@@ -1,11 +1,10 @@
 package main
 
 import (
+	common "Framework/Common"
 	logger "Framework/Logger"
 	"Framework/RPC"
 	utils "Framework/Utils"
-	"os"
-	"os/exec"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,7 +44,7 @@ func (worker *Worker) work() {
 		}
 		ok, err := RPC.EstablishRpcConnection(rpcConn)
 		if !ok {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleGetTasks with error -> %v",err);
+			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleGetTasks with error -> %v", err)
 			continue
 		}
 
@@ -72,20 +71,14 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 	}()
 
 	//now, need to run process
-	fPath := "./process.txt"
-	err := utils.CreateAndWriteToFile(fPath, []byte(getTaskReply.TaskContent))
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the temporary file that contains the task contents for process locally on the worker %+v", err)
-		//return fmt.Errorf("error while creating the temporary file that contains the task contents for process locally on the worker")
-		//todo handle this error
-		return
-	}
+	data, err := common.ExecuteProcess(logger.MASTER, utils.ProcessExe,
+		utils.File{Name: "process.txt", Content: []byte(getTaskReply.TaskContent)},
+		getTaskReply.ProcessExe)
 
-	_, err = exec.Command("./" + getTaskReply.ProcessExe.Name).Output()
 	if err != nil {
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to excute the client process with err: %+v", err)
 
-		finishedTaskArgs := &RPC.FinishedTaskArgs{IsSuccess: false}
+		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while executing process binary on the worker"}}
 		finishedTaskReply := &RPC.FinishedTaskReply{}
 
 		rpcConn := &RPC.RpcConnection{
@@ -102,17 +95,8 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		ok, err := RPC.EstablishRpcConnection(rpcConn)
 
 		if !ok {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v",err)
+			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v", err)
 		}
-		return
-	}
-
-	//now need to read from this file the resulting data
-	data, err := os.ReadFile(fPath)
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while reading from the distribute process %+v", err)
-		//return fmt.Errorf("error while reading from the distribute process")
-		//todo handle this error
 		return
 	}
 
@@ -120,7 +104,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		TaskId:     getTaskReply.TaskId,
 		JobId:      getTaskReply.JobId,
 		TaskResult: string(data),
-		IsSuccess:  true,
+		Error:      utils.Error{Err: false},
 	}
 	finishedTaskReply := &RPC.FinishedTaskReply{}
 
@@ -137,7 +121,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 	}
 	ok, err := RPC.EstablishRpcConnection(rpcConn)
 	if !ok {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v",err)
+		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v", err)
 	}
 }
 
@@ -171,7 +155,7 @@ func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartB
 			}
 			ok, err := RPC.EstablishRpcConnection(rpcConn)
 			if !ok {
-				logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleWorkerHeartBeats with error -> %v",err)
+				logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleWorkerHeartBeats with error -> %v", err)
 			}
 		}
 	}
