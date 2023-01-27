@@ -36,6 +36,10 @@ func RemoveFilesThatDontMatchPrefix(prefix string) {
 }
 
 func CreateAndWriteToFile(name string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
+		return nil
+	}
+
 	f, err := os.Create(name)
 	if err != nil {
 		return err
