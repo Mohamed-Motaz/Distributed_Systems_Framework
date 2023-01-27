@@ -59,7 +59,22 @@ func applyMigrations(db *gorm.DB) {
 	}
 
 	err = db.Exec(`
-	CREATE TABLE IF NOT EXISTS jobs.jobsinfo (id bigint AUTO_INCREMENT,clientId longtext,masterId longtext,jobId longtext,content longtext,timeAssigned datetime(3) NULL,status longtext,processExeName longtext,distributeExeName longtext,aggregateExeName longtext,optionalFilesNames longtext,PRIMARY KEY (id))
+	CREATE TABLE IF NOT EXISTS jobs.jobsinfo 
+	(id bigint AUTO_INCREMENT,
+	clientId longtext,
+	masterId longtext,
+	jobId longtext,
+	content longtext,
+	timeAssigned datetime(3) NULL,
+	status longtext,
+	processBinaryName longtext,
+	distributeBinaryName longtext,
+	aggregateBinaryName longtext,
+	processBinaryRunCmd longtext,
+	distributeBinaryRunCmd longtext,
+	aggregateBinaryRunCmd longtext,
+	optionalFilesNames longtext,
+		PRIMARY KEY (id))
 	`).Error
 
 	if err != nil {
