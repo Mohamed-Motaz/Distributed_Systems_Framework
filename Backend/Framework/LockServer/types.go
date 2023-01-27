@@ -5,17 +5,17 @@ import (
 	utils "Framework/Utils"
 	"log"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type LockServer struct {
-	id              string
-	databaseWrapper *database.DBWrapper
-	address         string // to enable master connect with the lock server
-	mu              sync.Mutex
+	id            string
+	db            *database.DBWrapper
+	mxLateJobTime time.Duration
 }
+type FolderName string
 
 const (
 	_MY_HOST string = "MY_HOST"
@@ -29,6 +29,13 @@ const (
 	_DB_SETTINGS string = "DB_SETTINGS"
 
 	_LOCAL_HOST string = "127.0.0.1"
+
+	PROCESS_BINARY_FOLDER_NAME FolderName = "Process"
+
+	DISTRIBUTE_BINARY_FOLDER_NAME FolderName = "Distribute"
+	AGGREGATE_BINARY_FOLDER_NAME  FolderName = "Aggregate"
+	BINARY_FILES_FOLDER_NAME      FolderName = "BinaryFiles"
+	OPTIONAL_FILES_FOLDER_NAME    FolderName = "OptionalFiles"
 )
 
 var (
