@@ -27,9 +27,9 @@ type CurrentJob struct {
 	tasks                  []Task
 	finishedTasksFilePaths []string //this is an array of the filePaths of the finished tasks
 	workersTimers          []WorkerAndHisTimer
-	processExe             utils.File
-	distributeExe          utils.File
-	aggregateExe           utils.File
+	processBinary          utils.File
+	distributeBinary       utils.File
+	aggregateBinary        utils.File
 	optionalFiles          []utils.File
 }
 

@@ -68,13 +68,13 @@ func (master *Master) resetStatus() {
 		tasks:                  make([]Task, 0),
 		finishedTasksFilePaths: make([]string, 0),
 		workersTimers:          make([]WorkerAndHisTimer, 0),
-		processExe: utils.File{
+		processBinary: utils.File{
 			Content: make([]byte, 0),
 		},
-		distributeExe: utils.File{
+		distributeBinary: utils.File{
 			Content: make([]byte, 0),
 		},
-		aggregateExe: utils.File{
+		aggregateBinary: utils.File{
 			Content: make([]byte, 0),
 		},
 		optionalFiles: make([]utils.File, 0),
@@ -98,22 +98,22 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		tasks:                  make([]Task, 0),
 		finishedTasksFilePaths: make([]string, 0),
 		workersTimers:          make([]WorkerAndHisTimer, 0),
-		processExe:             reply.ProcessExe,
-		distributeExe:          reply.DistributeExe,
-		aggregateExe:           reply.AggregateExe,
+		processBinary:          reply.ProcessBinary,
+		distributeBinary:       reply.DistributeBinary,
+		aggregateBinary:        reply.AggregateBinary,
 		optionalFiles:          reply.OptionalFiles,
 	}
 
-	//todo, think about supporting different os exes
+	//todo, think about supporting different os binaries
 	//todo any errors here should be propagated to client
 
 	//now write the distribute and aggregate folders to disk
 
-	if err := utils.UnzipSource(master.currentJob.distributeExe.Name, ""); err != nil {
+	if err := utils.UnzipSource(master.currentJob.distributeBinary.Name, ""); err != nil {
 		return fmt.Errorf("error while unzipping distribute zip %+v", err)
 	}
 
-	if err := utils.UnzipSource(master.currentJob.aggregateExe.Name, ""); err != nil {
+	if err := utils.UnzipSource(master.currentJob.aggregateBinary.Name, ""); err != nil {
 		return fmt.Errorf("error while unzipping aggregate zip %+v", err)
 	}
 
@@ -125,9 +125,9 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	}
 
 	//now, need to run distribute
-	data, err := common.ExecuteProcess(logger.MASTER, utils.DistributeExe,
+	data, err := common.BinarycuteProcess(logger.MASTER, utils.DistributeBinary,
 		utils.File{Name: "distribute.txt", Content: []byte(master.currentJob.jobContent)},
-		master.currentJob.distributeExe)
+		master.currentJob.distributeBinary)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	var tasks *[]string
 	err = gob.NewDecoder(bytes.NewReader(data)).Decode(tasks)
 	if err != nil {
-		return fmt.Errorf("error while decoding the tasks array created by the distribute exe")
+		return fmt.Errorf("error while decoding the tasks array created by the distribute binary")
 	}
 	logger.LogInfo(logger.MASTER, logger.DEBUGGING, "These are the tasks for the job %+v\n: %+v", master.currentJob.jobId, tasks)
 
@@ -156,25 +156,25 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 
 // this function expects to hold a lock
 func (master *Master) addDumbJob() {
-	// process, _ := os.ReadFile(PROCESS_EXE + ".exe")
-	// distribute, _ := os.ReadFile(DISTRIBUTE_EXE + ".exe")
-	// aggregate, _ := os.ReadFile(AGGREGATE_EXE + ".exe")
+	// process, _ := os.ReadFile(PROCESS_EXE + ".binary")
+	// distribute, _ := os.ReadFile(DISTRIBUTE_EXE + ".binary")
+	// aggregate, _ := os.ReadFile(AGGREGATE_EXE + ".binary")
 
 	// reply := RPC.GetJobReply{
 	// 	IsAccepted: true,
 	// 	JobId:      "#1",
 	// 	ClientId:   "clientId",
 	// 	JobContent: "jobContent.txt",
-	// 	ProcessExe: utils.File{
-	// 		Name:    PROCESS_EXE + ".exe",
+	// 	ProcessBinary: utils.File{
+	// 		Name:    PROCESS_EXE + ".binary",
 	// 		Content: process,
 	// 	},
-	// 	DistributeExe: utils.File{
-	// 		Name:    DISTRIBUTE_EXE + ".exe",
+	// 	DistributeBinary: utils.File{
+	// 		Name:    DISTRIBUTE_EXE + ".binary",
 	// 		Content: distribute,
 	// 	},
-	// 	AggregateExe: utils.File{
-	// 		Name:    AGGREGATE_EXE + ".exe",
+	// 	AggregateBinary: utils.File{
+	// 		Name:    AGGREGATE_EXE + ".binary",
 	// 		Content: aggregate,
 	// 	},
 	// }
@@ -219,13 +219,16 @@ func (master *Master) qConsumer() {
 			}
 
 			//ask lockserver if i can get it
-
+			//todo fill the mq properly
 			args := &RPC.GetJobArgs{
-				JobId:      data.JobId,
-				ClientId:   data.ClientId,
-				MasterId:   master.id,
-				JobContent: data.JobContent,
-				MQJobFound: true,
+				JobId:            data.JobId,
+				ClientId:         data.ClientId,
+				MasterId:         master.id,
+				JobContent:       data.JobContent,
+				MQJobFound:       true,
+				ProcessBinary:    data.ProcessBinary,
+				DistributeBinary: data.DistributeBinary,
+				AggregateBinary:  data.AggregateBinary,
 			}
 			reply := &RPC.GetJobReply{}
 			ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
@@ -356,7 +359,7 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 			reply.TaskContent = currentTask.content
 			reply.TaskId = currentTask.id
 			reply.JobId = master.currentJob.jobId
-			reply.ProcessExe = master.currentJob.processExe
+			reply.ProcessBinary = master.currentJob.processBinary
 
 			//now as a master, need to mark this job as given to a worker
 			master.currentJob.workersTimers[i] = WorkerAndHisTimer{
@@ -431,9 +434,9 @@ func (master *Master) finishUpJob() {
 
 	//now, need to run aggregate
 
-	finalResult, err := common.ExecuteProcess(logger.MASTER, utils.AggregateExe,
+	finalResult, err := common.BinarycuteProcess(logger.MASTER, utils.AggregateBinary,
 		utils.File{Name: "aggregate.txt", Content: []byte(finishedTasks)},
-		master.currentJob.aggregateExe)
+		master.currentJob.aggregateBinary)
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while running aggregate process: %+v", err)
 		master.publishErrAsFinJob(fmt.Sprintf("Error while running aggregate process: %+v", err))
@@ -456,7 +459,7 @@ func (master *Master) finishUpJob() {
 }
 
 //this function expects to hold a lock
-func (master *Master) attemptSendFinishedJobToLockServer() bool {
+func (master *Master) attemptSendFinishedJobToLockServer() {
 	ok := false
 	ctr := 1
 	mxRetries := 3
@@ -474,7 +477,7 @@ func (master *Master) attemptSendFinishedJobToLockServer() bool {
 		}
 		reply := &RPC.FinishedJobReply{}
 		ok, _ := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-			Name:         "LockServer.HandleFinishedJobs",
+			Name:         "LockServer.HandleFinishedJob",
 			Args:         &args,
 			Reply:        &reply,
 			SenderLogger: logger.MASTER,
@@ -489,12 +492,12 @@ func (master *Master) attemptSendFinishedJobToLockServer() bool {
 			logger.LogError(logger.MASTER, logger.ESSENTIAL, "Attempt number %v to send finished job to lockServer unsuccessfull", ctr)
 		} else {
 			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Attempt number %v to send finished job to lockServer successfull", ctr)
-			return true
+			return
 		}
 		ctr++
 		time.Sleep(10 * time.Second)
 	}
-	return ok
+	return
 }
 
 func (master *Master) HandleWorkerHeartBeats(args *RPC.WorkerHeartBeatArgs, reply *RPC.WorkerHeartBeatReply) error {

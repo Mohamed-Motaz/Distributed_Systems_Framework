@@ -24,13 +24,12 @@ type MQ struct {
 	mu   sync.Mutex
 }
 type AssignedJob struct {
-	ClientId           string   `json:"clientId"`
-	JobId              string   `json:"jobId"`
-	JobContent         string   `json:"jobContent"`
-	OptionalfilesNames []string `json:"optionalfilesNames"`
-	DistributeExeName  string   `json:"distributeExeName"`
-	ProcessExeName     string   `json:"processExeName"`
-	AggregateExeName   string   `json:"aggregateExeName"`
+	ClientId         string     `json:"clientId"`
+	JobId            string     `json:"jobId"`
+	JobContent       string     `json:"jobContent"`
+	DistributeBinary utils.File `json:"distributeBinary"` //the content is not passed in the mq
+	ProcessBinary    utils.File `json:"processBinary"`    //the content is not passed in the mq
+	AggregateBinary  utils.File `json:"aggregateBinary"`  //the content is not passed in the mq
 }
 type FinishedJob struct {
 	ClientId string `json:"clientId"`

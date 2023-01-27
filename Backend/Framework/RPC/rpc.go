@@ -78,7 +78,7 @@ type GetTaskArgs struct {
 type GetTaskReply struct {
 	TaskAvailable bool
 	TaskContent   string
-	ProcessExe    utils.File
+	ProcessBinary utils.File
 	OptionalFiles []utils.File
 	TaskId        string
 	JobId         string
@@ -109,21 +109,21 @@ type GetJobArgs struct {
 	MasterId           string
 	JobContent         string
 	MQJobFound         bool
-	ProcessExeName     string
-	DistributeExeName  string
-	AggregateExeName   string
+	ProcessBinary      utils.File //required only when the lock server adds this job to the db
+	DistributeBinary   utils.File //required only when the lock server adds this job to the db
+	AggregateBinary    utils.File //required only when the lock server adds this job to the db
 	OptionalFilesNames []string
 }
 
 type GetJobReply struct {
-	IsAccepted    bool //lock server will answer whether it accepted my job request
-	JobId         string
-	ClientId      string
-	JobContent    string
-	ProcessExe    utils.File
-	DistributeExe utils.File
-	AggregateExe  utils.File
-	OptionalFiles []utils.File
+	IsAccepted       bool //lock server will answer whether it accepted my job request
+	JobId            string
+	ClientId         string
+	JobContent       string
+	ProcessBinary    utils.File
+	DistributeBinary utils.File
+	AggregateBinary  utils.File
+	OptionalFiles    []utils.File
 }
 
 type FinishedJobArgs struct {
@@ -133,12 +133,11 @@ type FinishedJobArgs struct {
 }
 
 type FinishedJobReply struct {
-	utils.Error
 }
 
 //websocketserver - lockserver communication --------------
 
-type ExeUploadArgs struct {
+type BinaryUploadArgs struct {
 	FileType utils.FileType
 	File     utils.File
 }
@@ -152,18 +151,21 @@ type FileUploadReply struct {
 	utils.Error
 }
 
-type GetExeFilesReply struct {
-	ProcessExeNames    []string
-	DistributeExeNames []string
-	AggregateExeNames  []string
+type GetBinaryFilesArgs struct {
+}
+
+type GetBinaryFilesReply struct {
+	ProcessBinaryNames    []string
+	DistributeBinaryNames []string
+	AggregateBinaryNames  []string
 	utils.Error
 }
 
-type DeleteExeFileArgs struct {
+type DeleteBinaryFileArgs struct {
 	FileType utils.FileType
 	FileName string
 }
 
-type DeleteExeFileReply struct {
+type DeleteBinaryFileReply struct {
 	utils.Error
 }

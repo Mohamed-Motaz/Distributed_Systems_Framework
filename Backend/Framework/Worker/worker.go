@@ -71,14 +71,14 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 	}()
 
 	//now, need to run process
-	data, err := common.ExecuteProcess(logger.MASTER, utils.ProcessExe,
+	data, err := common.BinarycuteProcess(logger.MASTER, utils.ProcessBinary,
 		utils.File{Name: "process.txt", Content: []byte(getTaskReply.TaskContent)},
-		getTaskReply.ProcessExe)
+		getTaskReply.ProcessBinary)
 
 	if err != nil {
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to excute the client process with err: %+v", err)
 
-		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while executing process binary on the worker"}}
+		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while binarycuting process binary on the worker"}}
 		finishedTaskReply := &RPC.FinishedTaskReply{}
 
 		rpcConn := &RPC.RpcConnection{

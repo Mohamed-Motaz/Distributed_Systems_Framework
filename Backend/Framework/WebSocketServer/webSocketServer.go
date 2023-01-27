@@ -36,9 +36,9 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 
 	serveMux := http.NewServeMux()
 	serveMux.HandleFunc("/submitJob", webSocketServer.handleJobRequests)
-	serveMux.HandleFunc("/addExe", webSocketServer.handleAddExeRequests)
-	serveMux.HandleFunc("/getAllExes", webSocketServer.handleGetAllExesRequests)
-	serveMux.HandleFunc("/deleteExe", webSocketServer.handleDeleteExeRequests)
+	serveMux.HandleFunc("/addBinary", webSocketServer.handleAddBinaryRequests)
+	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests)
+	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests)
 
 	webSocketServer.requestHandler = serveMux
 
@@ -77,15 +77,15 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 	go webSocketServer.listenForJobs(client)
 }
 
-func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWriter, req *http.Request) {
+func (webSocketServer *WebSocketServer) handleAddBinaryRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 
-	addExeRequestArgs := RPC.ExeUploadArgs{}
+	addBinaryRequestArgs := RPC.BinaryUploadArgs{}
 
 	reply := &RPC.FileUploadReply{}
 
-	err := json.NewDecoder(req.Body).Decode(&addExeRequestArgs)
+	err := json.NewDecoder(req.Body).Decode(&addBinaryRequestArgs)
 
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -93,8 +93,8 @@ func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWr
 	}
 
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleAddExeFile",
-		Args:         addExeRequestArgs,
+		Name:         "LockServer.HandleAddBinaryFile",
+		Args:         addBinaryRequestArgs,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
 		Reciever: RPC.Reciever{
@@ -119,14 +119,14 @@ func (webSocketServer *WebSocketServer) handleAddExeRequests(res http.ResponseWr
 
 }
 
-func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.ResponseWriter, req *http.Request) {
+func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 
-	reply := &RPC.GetExeFilesReply{}
+	reply := &RPC.GetBinaryFilesReply{}
 
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleGetExeFiles",
+		Name:         "LockServer.HandleGetBinaryFiles",
 		Args:         nil,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
@@ -151,15 +151,15 @@ func (webSocketServer *WebSocketServer) handleGetAllExesRequests(res http.Respon
 	json.NewEncoder(res).Encode(false)
 
 }
-func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.ResponseWriter, req *http.Request) {
+func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 
-	deleteExeRequestArgs := RPC.DeleteExeFileArgs{}
+	deleteBinaryRequestArgs := RPC.DeleteBinaryFileArgs{}
 
-	reply := &RPC.DeleteExeFileReply{}
+	reply := &RPC.DeleteBinaryFileReply{}
 
-	err := json.NewDecoder(req.Body).Decode(&deleteExeRequestArgs)
+	err := json.NewDecoder(req.Body).Decode(&deleteBinaryRequestArgs)
 
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -167,8 +167,8 @@ func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.Respons
 	}
 
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleDeleteExeFile",
-		Args:         deleteExeRequestArgs,
+		Name:         "LockServer.HandleDeleteBinaryFile",
+		Args:         deleteBinaryRequestArgs,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
 		Reciever: RPC.Reciever{
@@ -187,7 +187,7 @@ func (webSocketServer *WebSocketServer) handleDeleteExeRequests(res http.Respons
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
 
 	} else if reply.Err {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Exe file from lockServer} -> error : %+v", reply.ErrMsg)
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Binary file from lockServer} -> error : %+v", reply.ErrMsg)
 	}
 	json.NewEncoder(res).Encode(false)
 }
@@ -357,7 +357,7 @@ func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest,
 	for _, optionalFile := range jobRequest.OptionalFiles {
 		modifiedJobRequest.OptionalfilesNames = append(modifiedJobRequest.OptionalfilesNames, optionalFile.Name)
 	}
-	modifiedJobRequest.DistributeExeName = jobRequest.DistributeExeName
-	modifiedJobRequest.ProcessExeName = jobRequest.ProcessExeName
-	modifiedJobRequest.AggregateExeName = jobRequest.AggregateExeName
+	modifiedJobRequest.DistributeBinaryName = jobRequest.DistributeBinaryName
+	modifiedJobRequest.ProcessBinaryName = jobRequest.ProcessBinaryName
+	modifiedJobRequest.AggregateBinaryName = jobRequest.AggregateBinaryName
 }

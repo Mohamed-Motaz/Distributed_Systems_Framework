@@ -8,9 +8,9 @@ type File struct {
 
 type FileType string
 
-const ProcessExe FileType = "Process"
-const DistributeExe FileType = "Distribute"
-const AggregateExe FileType = "Aggregate"
+const ProcessBinary FileType = "Process"
+const DistributeBinary FileType = "Distribute"
+const AggregateBinary FileType = "Aggregate"
 
 type Error struct {
 	Err    bool   `json:"error"`
