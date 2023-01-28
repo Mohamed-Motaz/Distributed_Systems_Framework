@@ -94,13 +94,13 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		reply.JobContent = args.JobContent
 		err = lockServer.setBinaryFiles(reply, args.ProcessBinary, args.DistributeBinary, args.AggregateBinary)
 		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary files %v", err)
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary files %+v", err)
 			*reply = RPC.GetJobReply{} //not accepted
 			return nil
 		}
 		optionalFiles, err := lockServer.getOptionalFiles(args.JobId)
 		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %v", err)
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %+v", err)
 			*reply = RPC.GetJobReply{} //not accepted
 			return nil
 		}
@@ -108,7 +108,7 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		lockServer.addJobToDB(args)
 		return nil
 	}
-	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request rejected %v", args.JobId)
+	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request rejected %+v", args.JobId)
 	return nil
 }
 
@@ -172,7 +172,7 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 	for _, f := range args.Files {
 		err := utils.CreateAndWriteToFile(filepath.Join(folderPath, f.Name), f.Content)
 		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %v", f.Name, err)
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %+v", f.Name, err)
 			reply.Err = true
 			reply.ErrMsg = "Cannot create this file" + f.Name
 			return nil
@@ -188,7 +188,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 
 	files, err := ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(PROCESS_BINARY_FOLDER_NAME)))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from process binaries folder %v", err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from process binaries folder %+v", err)
 		foundError = true
 	}
 	for _, file := range files {
@@ -197,7 +197,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(utils.DistributeBinary)))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from distribute binary folder %v", err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from distribute binary folder %+v", err)
 		foundError = true
 	}
 	for _, file := range files {
@@ -206,7 +206,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(utils.AggregateBinary)))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from aggregate binary folder %v", err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from aggregate binary folder %+v", err)
 		foundError = true
 	}
 	for _, file := range files {
@@ -253,13 +253,13 @@ func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.Get
 	reply.JobContent = lateJob.Content
 	err = lockServer.setBinaryFiles(reply, args.ProcessBinary, args.DistributeBinary, args.AggregateBinary)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from binary files folder %v", err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from binary files folder %+v", err)
 		*reply = RPC.GetJobReply{} //not accepted
 		return false
 	}
 	optionalFiles, err := lockServer.getOptionalFiles(lateJob.JobId)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %v", err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %+v", err)
 		*reply = RPC.GetJobReply{} //not accepted
 		return false
 	}
@@ -279,7 +279,7 @@ func (lockServer *LockServer) setBinaryFiles(reply *RPC.GetJobReply, processBina
 	processFileContent, err := os.ReadFile(
 		lockServer.getBinaryFilePath(PROCESS_BINARY_FOLDER_NAME, processBinary.Name))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %v from process folder %v", processBinary.Name, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from process folder %+v", processBinary.Name, err)
 		return err
 	}
 	reply.ProcessBinary = utils.File{
@@ -291,7 +291,7 @@ func (lockServer *LockServer) setBinaryFiles(reply *RPC.GetJobReply, processBina
 	distributeFileContent, err := os.ReadFile(
 		lockServer.getBinaryFilePath(DISTRIBUTE_BINARY_FOLDER_NAME, distributeBinary.Name))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %v from distribute folder %v", distributeBinary.Name, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from distribute folder %+v", distributeBinary.Name, err)
 		return err
 	}
 	reply.DistributeBinary = utils.File{
@@ -303,7 +303,7 @@ func (lockServer *LockServer) setBinaryFiles(reply *RPC.GetJobReply, processBina
 	aggregateFileContent, err := os.ReadFile(
 		lockServer.getBinaryFilePath(AGGREGATE_BINARY_FOLDER_NAME, aggregateBinary.Name))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %v from aggregate folder %v", aggregateBinary.Name, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from aggregate folder %+v", aggregateBinary.Name, err)
 		return err
 	}
 	reply.AggregateBinary = utils.File{
@@ -323,7 +323,7 @@ func (lockServer *LockServer) getOptionalFiles(jobId string) ([]utils.File, erro
 	optionalFilesFolderPath := lockServer.getOptionalFilesFolderPath(jobId)
 	files, err := ioutil.ReadDir(optionalFilesFolderPath)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %v", err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %+v", err)
 		return nil, err
 	}
 
@@ -332,7 +332,7 @@ func (lockServer *LockServer) getOptionalFiles(jobId string) ([]utils.File, erro
 		content, err := os.ReadFile(filepath.Join(optionalFilesFolderPath, f.Name()))
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL,
-				"Cannot get file %v from optional files folder with err %v", filepath.Join(optionalFilesFolderPath, f.Name()), err)
+				"Cannot get file %+v from optional files folder with err %+v", filepath.Join(optionalFilesFolderPath, f.Name()), err)
 			return nil, err //todo should I actually return the remaining files or not
 		}
 		optionalFiles = append(optionalFiles, utils.File{
@@ -364,10 +364,10 @@ func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) {
 	err := lockServer.db.CreateJobsInfo(jobInfo, args.OptionalFilesNames).Error
 	if err != nil {
 		//todo should there be an error returned to the master?
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a job in database", err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a job in database %+v", err)
 		return
 	}
-	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Job added successfully", args.JobId)
+	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Job added successfully %+v", args.JobId)
 
 }
 
