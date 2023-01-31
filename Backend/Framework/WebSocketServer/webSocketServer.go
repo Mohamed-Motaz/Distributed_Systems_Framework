@@ -105,6 +105,7 @@ func (webSocketServer *WebSocketServer) handleAddBinaryRequests(res http.Respons
 	})
 
 	if ok && !reply.Err {
+		res.WriteHeader(http.StatusOK)
 		json.NewEncoder(res).Encode(true)
 		return
 	}
@@ -115,6 +116,7 @@ func (webSocketServer *WebSocketServer) handleAddBinaryRequests(res http.Respons
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Adding files to lockServer} -> error : %+v", reply.ErrMsg)
 	}
+	res.WriteHeader(http.StatusInternalServerError)
 	json.NewEncoder(res).Encode(false)
 
 }
@@ -196,8 +198,7 @@ func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishe
 	client.webSocketConn.WriteJSON(finishedJob)
 }
 
-//todo
-//bool stands for whether to continue with processing the job request or not
+// bool stands for whether to continue with processing the job request or not
 func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
 	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
 		JobId: newJobRequest.JobId,
@@ -219,12 +220,13 @@ func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJob
 	})
 
 	if !ok {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
-		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error")}) //send a message eshtem to client
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
+		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with connecting lockServer")}) //send a message eshtem to client
 		return false
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
-		//todo: send message to client informing him of possible duplicates or errors
+		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with uploading files to lockServer")})
+		//send message to client informing him of possible duplicates or errors
 		return false
 	} else {
 		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
@@ -232,8 +234,8 @@ func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJob
 	return true
 }
 
-//this is a thread the keeps listening on a websocket
-//when it returns, it means I have stopped communicating with the client
+// this is a thread the keeps listening on a websocket
+// when it returns, it means I have stopped communicating with the client
 func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 	defer func() {
@@ -296,6 +298,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not Enqeue to jobs assigned queue} -> error : %+v", err)
+			webSocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Message queue is not available")})
 			//send to user telling him that mq is not available now
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully Enqeue to jobs assigned queue")
@@ -338,7 +341,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			} else {
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Connection with client may have been terminated}")
 				finishedJobObj.Nack(false, true) //requeue so another websocket server may use it, and the client may be with him
-				//todo: ADD A TTL FIELD SO A JOB IS PREVENTED FROM BEING REQUEUED FOR INFINITE
+				time.Sleep(time.Second * 10)
 			}
 
 			//todo: BEDO HAYE3MELHA HOWA W AGINA, W HAYEKNE3ONA GAMED AWY
@@ -354,10 +357,7 @@ func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest,
 	modifiedJobRequest.ClientId = jobRequest.ClientId
 	modifiedJobRequest.JobId = jobRequest.JobId
 	modifiedJobRequest.JobContent = jobRequest.JobContent
-	for _, optionalFile := range jobRequest.OptionalFiles {
-		modifiedJobRequest.OptionalfilesNames = append(modifiedJobRequest.OptionalfilesNames, optionalFile.Name)
-	}
-	modifiedJobRequest.DistributeBinaryName = jobRequest.DistributeBinaryName
-	modifiedJobRequest.ProcessBinaryName = jobRequest.ProcessBinaryName
-	modifiedJobRequest.AggregateBinaryName = jobRequest.AggregateBinaryName
+	modifiedJobRequest.DistributeBinary.Name = jobRequest.DistributeBinaryName
+	modifiedJobRequest.ProcessBinary.Name = jobRequest.ProcessBinaryName
+	modifiedJobRequest.AggregateBinary.Name = jobRequest.AggregateBinaryName
 }
