@@ -14,7 +14,7 @@ export default function UploadFile(props) {
         console.log(fileUploaded);
     };
 
-    return <>
+    return <button className='m-2'>
         <Button onClick={handleClick}>
             {title}
         </Button>
@@ -24,6 +24,6 @@ export default function UploadFile(props) {
             onChange={handleChange}
             className='hidden'
         />
-    </>
+    </button>
 }
 
