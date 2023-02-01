@@ -1,7 +1,7 @@
 import { Button } from 'flowbite-react';
 import React, { useRef } from 'react'
 
-export default function UploadFile(props) {
+export default function UploadFileButton(props) {
     const { title } = props;
     const hiddenFileInput = useRef(null);
 

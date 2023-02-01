@@ -1,15 +1,14 @@
-import { Accordion } from 'flowbite-react'
 import React from 'react'
-import UploadFile from '../components/UploadFile.jsx'
+import UploadFileButton from '../components/UploadFileButton.jsx'
 
 export default function Home() {
   return <>
     <main className='pt-8'>
 
       <section className='m-8'>
-        <UploadFile title='Process' />
-        <UploadFile title='Distribute' />
-        <UploadFile title='Aggregate' />
+        <UploadFileButton title='Process' />
+        <UploadFileButton title='Distribute' />
+        <UploadFileButton title='Aggregate' />
 
       </section>
 
