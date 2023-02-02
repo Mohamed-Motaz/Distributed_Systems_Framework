@@ -28,7 +28,7 @@ func NewMaster() *Master {
 	master := &Master{
 		id:                uuid.NewString(), //random id
 		q:                 mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
-		maxHeartBeatTimer: 30 * time.Second, //each heartbeat should be every 10 seconds but we allaow up to 2 failures
+		maxHeartBeatTimer: 30 * time.Second, //each heartbeat should be every 10 seconds but we allow up to 2 failures
 		mu:                sync.Mutex{},
 	}
 	master.resetStatus()
@@ -47,13 +47,7 @@ func CreateMasterAddress() string {
 }
 
 func (master *Master) removeOldJobFiles() {
-	//as optional files are always on my level as a master
-	for _, f := range master.currentJob.optionalFiles {
-		os.Remove(f.Name)
-	}
-
 	myName := filepath.Base(os.Args[0])
-
 	utils.RemoveFilesThatDontMatchPrefix(myName)
 }
 
@@ -68,16 +62,24 @@ func (master *Master) resetStatus() {
 		tasks:                  make([]Task, 0),
 		finishedTasksFilePaths: make([]string, 0),
 		workersTimers:          make([]WorkerAndHisTimer, 0),
-		processBinary: utils.File{
+		processBinary: utils.RunnableFile{
+			File: utils.File{
+				Content: make([]byte, 0),
+			},
+		},
+		distributeBinary: utils.RunnableFile{
+			File: utils.File{
+				Content: make([]byte, 0),
+			},
+		},
+		aggregateBinary: utils.RunnableFile{
+			File: utils.File{
+				Content: make([]byte, 0),
+			},
+		},
+		optionalFilesZip: utils.File{
 			Content: make([]byte, 0),
 		},
-		distributeBinary: utils.File{
-			Content: make([]byte, 0),
-		},
-		aggregateBinary: utils.File{
-			Content: make([]byte, 0),
-		},
-		optionalFiles: make([]utils.File, 0),
 	}
 	master.isRunning = false
 
@@ -101,7 +103,6 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		processBinary:          reply.ProcessBinary,
 		distributeBinary:       reply.DistributeBinary,
 		aggregateBinary:        reply.AggregateBinary,
-		optionalFiles:          reply.OptionalFiles,
 	}
 
 	//todo, think about supporting different os binaries
@@ -117,15 +118,12 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		return fmt.Errorf("error while unzipping aggregate zip %+v", err)
 	}
 
-	for _, f := range master.currentJob.optionalFiles {
-		err := utils.CreateAndWriteToFile(f.Name, f.Content)
-		if err != nil {
-			return fmt.Errorf("error while creating the file %+v locally on the master %+v", f.Name, err)
-		}
+	if err := utils.UnzipSource(master.currentJob.optionalFilesZip.Name, ""); err != nil {
+		return fmt.Errorf("error while unzipping optional files zip %+v", err)
 	}
 
 	//now, need to run distribute
-	data, err := common.BinarycuteProcess(logger.MASTER, utils.DistributeBinary,
+	data, err := common.ExecuteProcess(logger.MASTER, utils.DistributeBinary,
 		utils.File{Name: "distribute.txt", Content: []byte(master.currentJob.jobContent)},
 		master.currentJob.distributeBinary)
 	if err != nil {
@@ -434,7 +432,7 @@ func (master *Master) finishUpJob() {
 
 	//now, need to run aggregate
 
-	finalResult, err := common.BinarycuteProcess(logger.MASTER, utils.AggregateBinary,
+	finalResult, err := common.ExecuteProcess(logger.MASTER, utils.AggregateBinary,
 		utils.File{Name: "aggregate.txt", Content: []byte(finishedTasks)},
 		master.currentJob.aggregateBinary)
 	if err != nil {

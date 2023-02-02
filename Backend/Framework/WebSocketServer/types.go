@@ -29,18 +29,19 @@ type WebSocketServer struct {
 }
 
 type JobRequest struct {
-	ClientId             string       `json:"clientId"`
-	JobId                string       `json:"jobId"`
-	JobContent           string       `json:"jobContent"`
-	OptionalFiles        []utils.File `json:"optionalFiles"`
-	DistributeBinaryName string       `json:"distributeBinaryName"`
-	ProcessBinaryName    string       `json:"processBinaryName"`
-	AggregateBinaryName  string       `json:"aggregateBinaryName"`
+	ClientId             string     `json:"clientId"`
+	JobId                string     `json:"jobId"`
+	JobContent           string     `json:"jobContent"`
+	OptionalFilesZip     utils.File `json:"optionalFilesZip"`
+	DistributeBinaryName string     `json:"distributeBinaryName"`
+	ProcessBinaryName    string     `json:"processBinaryName"`
+	AggregateBinaryName  string     `json:"aggregateBinaryName"`
 }
 
 type AddBinaryRequest struct {
 	FileType utils.FileType
 	File     utils.File
+	RunCmd   string
 }
 
 const (

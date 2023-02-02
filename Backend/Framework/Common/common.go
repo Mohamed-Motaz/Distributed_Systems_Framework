@@ -13,7 +13,7 @@ import (
 //if all goes well, it returns the result written by the exe into the tmpFile
 
 // this function doesn't log. The caller is responsible for logging
-func ExecuteProcess(loggerRole int, processType utils.FileType, tmpFile utils.File, exeFile utils.File) ([]byte, error) {
+func ExecuteProcess(loggerRole int, processType utils.FileType, tmpFile utils.File, exeFile utils.RunnableFile) ([]byte, error) {
 	err := utils.CreateAndWriteToFile(tmpFile.Name, tmpFile.Content)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating the temporary file that contains the job contents for %+v process", processType)

@@ -1,7 +1,6 @@
 package Database
 
 import (
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -21,20 +20,10 @@ type JobInfo struct {
 	ProcessBinaryRunCmd    string    `gorm:"column:processBinaryRunCmd"       json:"processBinaryRunCmd"`
 	DistributeBinaryRunCmd string    `gorm:"column:distributeBinaryRunCmd"    json:"distributeBinaryRunCmd"`
 	AggregateBinaryRunCmd  string    `gorm:"column:aggregateBinaryRunCmd"     json:"aggregateBinaryRunCmd"`
-	OptionalFilesNames     string    `gorm:"column:optionalFilesNames"   json:"-"`
 }
 
 func (JobInfo) TableName() string {
 	return "jobs.jobsinfo"
-}
-
-//optionalFilesNames is now a string, but it represents an array
-func (ji *JobInfo) OptionalFilesStrToArr() []string {
-	return strings.Split(ji.OptionalFilesNames, ",")
-}
-
-func OptionalFilesArrToStr(optionalFiles []string) string {
-	return strings.Join(optionalFiles, ",")
 }
 
 type JobStatus string
@@ -73,6 +62,5 @@ func (dBWrapper *DBWrapper) DeleteJobById(jobId string) *gorm.DB {
 
 // assign job to master
 func (dBWrapper *DBWrapper) CreateJobsInfo(jobInfo *JobInfo, optionalFiles []string) *gorm.DB {
-	jobInfo.OptionalFilesNames = OptionalFilesArrToStr(optionalFiles)
 	return dBWrapper.Db.Create(jobInfo)
 }

@@ -27,10 +27,10 @@ type CurrentJob struct {
 	tasks                  []Task
 	finishedTasksFilePaths []string //this is an array of the filePaths of the finished tasks
 	workersTimers          []WorkerAndHisTimer
-	processBinary          utils.File
-	distributeBinary       utils.File
-	aggregateBinary        utils.File
-	optionalFiles          []utils.File
+	processBinary          utils.RunnableFile
+	distributeBinary       utils.RunnableFile
+	aggregateBinary        utils.RunnableFile
+	optionalFilesZip       utils.File
 }
 
 type WorkerAndHisTimer struct {

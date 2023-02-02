@@ -73,7 +73,6 @@ func applyMigrations(db *gorm.DB) {
 	processBinaryRunCmd longtext,
 	distributeBinaryRunCmd longtext,
 	aggregateBinaryRunCmd longtext,
-	optionalFilesNames longtext,
 		PRIMARY KEY (id))
 	`).Error
 

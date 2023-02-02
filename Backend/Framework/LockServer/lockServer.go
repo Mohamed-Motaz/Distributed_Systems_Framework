@@ -26,9 +26,7 @@ import (
 //--Aggregate
 //-OptionalFiles
 //--JobId
-//---actualFiles
-//---actualFiles
-//---actualFiles
+//---zipFile
 
 func NewLockServer() *LockServer {
 
@@ -104,7 +102,7 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 			*reply = RPC.GetJobReply{} //not accepted
 			return nil
 		}
-		reply.OptionalFiles = optionalFiles
+		reply.OptionalFilesZip = optionalFiles
 		lockServer.addJobToDB(args)
 		return nil
 	}
@@ -275,17 +273,19 @@ func deleteFolder(path string) error {
 	return err
 }
 
-func (lockServer *LockServer) setBinaryFiles(reply *RPC.GetJobReply, processBinary, distributeBinary, aggregateBinary utils.File) error {
+func (lockServer *LockServer) setBinaryFiles(reply *RPC.GetJobReply, processBinary, distributeBinary, aggregateBinary utils.RunnableFile) error {
 	processFileContent, err := os.ReadFile(
 		lockServer.getBinaryFilePath(PROCESS_BINARY_FOLDER_NAME, processBinary.Name))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from process folder %+v", processBinary.Name, err)
 		return err
 	}
-	reply.ProcessBinary = utils.File{
-		Name:    processBinary.Name,
-		Content: processFileContent,
-		RunCmd:  processBinary.RunCmd,
+	reply.ProcessBinary = utils.RunnableFile{
+		File: utils.File{
+			Name:    processBinary.Name,
+			Content: processFileContent,
+		},
+		RunCmd: processBinary.RunCmd,
 	}
 
 	distributeFileContent, err := os.ReadFile(
@@ -294,10 +294,12 @@ func (lockServer *LockServer) setBinaryFiles(reply *RPC.GetJobReply, processBina
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from distribute folder %+v", distributeBinary.Name, err)
 		return err
 	}
-	reply.DistributeBinary = utils.File{
-		Name:    distributeBinary.Name,
-		Content: distributeFileContent,
-		RunCmd:  distributeBinary.RunCmd,
+	reply.DistributeBinary = utils.RunnableFile{
+		File: utils.File{
+			Name:    distributeBinary.Name,
+			Content: distributeFileContent,
+		},
+		RunCmd: distributeBinary.RunCmd,
 	}
 
 	aggregateFileContent, err := os.ReadFile(
@@ -306,10 +308,12 @@ func (lockServer *LockServer) setBinaryFiles(reply *RPC.GetJobReply, processBina
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from aggregate folder %+v", aggregateBinary.Name, err)
 		return err
 	}
-	reply.AggregateBinary = utils.File{
-		Name:    aggregateBinary.Name,
-		Content: aggregateFileContent,
-		RunCmd:  aggregateBinary.RunCmd,
+	reply.AggregateBinary = utils.RunnableFile{
+		File: utils.File{
+			Name:    aggregateBinary.Name,
+			Content: aggregateFileContent,
+		},
+		RunCmd: aggregateBinary.RunCmd,
 	}
 	return nil
 }
@@ -355,8 +359,8 @@ func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) {
 		ProcessBinaryName:      args.ProcessBinary.Name,
 		DistributeBinaryName:   args.DistributeBinary.Name,
 		AggregateBinaryName:    args.AggregateBinary.Name,
-		ProcessBinaryRunCmd:    args.ProcessBinary.RunCmd,
-		DistributeBinaryRunCmd: args.DistributeBinary.RunCmd,
+		ProcessBinaryRunCmd:    args.ProcessBinary.RunCmd,    //you need to create a new table, that maps each process name, to its run cmd.
+		DistributeBinaryRunCmd: args.DistributeBinary.RunCmd, //You will receive the run cmd from the ws server when uploading a binary
 		AggregateBinaryRunCmd:  args.AggregateBinary.RunCmd,
 	}
 

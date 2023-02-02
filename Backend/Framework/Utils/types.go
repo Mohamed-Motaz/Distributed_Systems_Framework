@@ -3,7 +3,11 @@ package utils
 type File struct {
 	Name    string
 	Content []byte
-	RunCmd  string //cmd to run the file
+}
+
+type RunnableFile struct {
+	File
+	RunCmd string //cmd to run the file
 }
 
 type FileType string

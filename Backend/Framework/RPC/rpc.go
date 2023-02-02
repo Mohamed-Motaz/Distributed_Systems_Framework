@@ -9,8 +9,132 @@ import (
 
 /*
 This package contains all the RPC definitions
-for any inter-servers communication
+for any inter-server communication
 */
+
+// master-worker communication ---------
+type GetTaskArgs struct {
+	WorkerId string
+}
+type GetTaskReply struct {
+	TaskAvailable    bool
+	TaskContent      string
+	ProcessBinary    utils.RunnableFile
+	OptionalFilesZip utils.File
+	TaskId           string
+	JobId            string
+}
+
+type FinishedTaskArgs struct {
+	TaskId     string
+	JobId      string
+	TaskResult string
+	utils.Error
+}
+type FinishedTaskReply struct {
+}
+
+type WorkerHeartBeatArgs struct {
+	WorkerId string
+	TaskId   string
+	JobId    string
+}
+type WorkerHeartBeatReply struct {
+}
+
+//master-lockserver communication ---------
+
+type GetJobArgs struct {
+	JobId            string
+	ClientId         string
+	MasterId         string
+	JobContent       string
+	MQJobFound       bool
+	ProcessBinary    utils.File //required only when the lock server adds this job to the db
+	DistributeBinary utils.File //required only when the lock server adds this job to the db
+	AggregateBinary  utils.File //required only when the lock server adds this job to the db
+}
+
+type GetJobReply struct {
+	IsAccepted       bool //lock server will answer whether it accepted my job request
+	JobId            string
+	ClientId         string
+	JobContent       string
+	ProcessBinary    utils.RunnableFile
+	DistributeBinary utils.RunnableFile
+	AggregateBinary  utils.RunnableFile
+	OptionalFilesZip utils.File
+}
+
+type FinishedJobArgs struct {
+	JobId    string
+	MasterId string
+	ClientId string
+}
+
+type FinishedJobReply struct {
+}
+
+//internal map for the lock server
+// {masterId, value is this struct}
+//flow -- Master continuously (every x sec) calls the lockServer (if the master has a current job)
+//ws server will continuously call the lockserver to ask for results -- [of the structs]
+
+type CurrentJobProgress string
+
+const (
+	DISTRIBUTING = "Distributing"
+	PROCESSING   = "Processing"
+	AGGREGATING  = "Aggregating"
+)
+
+type CurrentJobProgressArgs struct {
+	MasterId string
+	JobId    string
+	ClientId string
+	Progress float32
+	Status   CurrentJobProgress
+}
+
+type CurrentJobProgressReply struct {
+}
+
+//websocketserver - lockserver communication --------------
+
+type BinaryUploadArgs struct {
+	FileType utils.FileType
+	File     utils.RunnableFile
+}
+
+type OptionalFilesUploadArgs struct {
+	JobId    string
+	FilesZip utils.File
+}
+
+type FileUploadReply struct {
+	utils.Error
+}
+
+type GetBinaryFilesArgs struct {
+}
+
+type GetBinaryFilesReply struct {
+	ProcessBinaryNames    []string
+	DistributeBinaryNames []string
+	AggregateBinaryNames  []string
+	utils.Error
+}
+
+type DeleteBinaryFileArgs struct {
+	FileType utils.FileType
+	FileName string
+}
+
+type DeleteBinaryFileReply struct {
+	utils.Error
+}
+
+//actual helper functions
 func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 	successfullConnection := false
 	var client *rpc.Client
@@ -69,103 +193,4 @@ type RpcConnection struct {
 	Reply        interface{}
 	SenderLogger int
 	Reciever     Reciever
-}
-
-// master-worker communication ---------
-type GetTaskArgs struct {
-	WorkerId string
-}
-type GetTaskReply struct {
-	TaskAvailable bool
-	TaskContent   string
-	ProcessBinary utils.File
-	OptionalFiles []utils.File
-	TaskId        string
-	JobId         string
-}
-
-type FinishedTaskArgs struct {
-	TaskId     string
-	JobId      string
-	TaskResult string
-	utils.Error
-}
-type FinishedTaskReply struct {
-}
-
-type WorkerHeartBeatArgs struct {
-	WorkerId string
-	TaskId   string
-	JobId    string
-}
-type WorkerHeartBeatReply struct {
-}
-
-//master-lockserver communication ---------
-
-type GetJobArgs struct {
-	JobId              string
-	ClientId           string
-	MasterId           string
-	JobContent         string
-	MQJobFound         bool
-	ProcessBinary      utils.File //required only when the lock server adds this job to the db
-	DistributeBinary   utils.File //required only when the lock server adds this job to the db
-	AggregateBinary    utils.File //required only when the lock server adds this job to the db
-	OptionalFilesNames []string
-}
-
-type GetJobReply struct {
-	IsAccepted       bool //lock server will answer whether it accepted my job request
-	JobId            string
-	ClientId         string
-	JobContent       string
-	ProcessBinary    utils.File
-	DistributeBinary utils.File
-	AggregateBinary  utils.File
-	OptionalFiles    []utils.File
-}
-
-type FinishedJobArgs struct {
-	JobId    string
-	MasterId string
-	ClientId string
-}
-
-type FinishedJobReply struct {
-}
-
-//websocketserver - lockserver communication --------------
-
-type BinaryUploadArgs struct {
-	FileType utils.FileType
-	File     utils.File
-}
-
-type OptionalFilesUploadArgs struct {
-	JobId string
-	Files []utils.File
-}
-
-type FileUploadReply struct {
-	utils.Error
-}
-
-type GetBinaryFilesArgs struct {
-}
-
-type GetBinaryFilesReply struct {
-	ProcessBinaryNames    []string
-	DistributeBinaryNames []string
-	AggregateBinaryNames  []string
-	utils.Error
-}
-
-type DeleteBinaryFileArgs struct {
-	FileType utils.FileType
-	FileName string
-}
-
-type DeleteBinaryFileReply struct {
-	utils.Error
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+//TODO don't forget to set this
 const IN_DOCKER bool = false
 
 func GetEnv(key, fallback string) string {
@@ -29,8 +30,8 @@ func RemoveFilesThatDontMatchPrefix(prefix string) {
 		if strings.HasPrefix(f, prefix) {
 			continue
 		}
-		if err := os.Remove(f); err != nil {
-			log.Printf("Error while removing file %+v \n", f)
+		if err := os.RemoveAll(f); err != nil {
+			log.Printf("Error while removing file %+v with err %+v\n", f, err)
 		}
 	}
 }

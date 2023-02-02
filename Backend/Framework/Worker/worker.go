@@ -70,8 +70,10 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		stopHeartBeatsCh <- true
 	}()
 
+	//write the optionalFiles to disk now
+
 	//now, need to run process
-	data, err := common.BinarycuteProcess(logger.MASTER, utils.ProcessBinary,
+	data, err := common.ExecuteProcess(logger.MASTER, utils.ProcessBinary,
 		utils.File{Name: "process.txt", Content: []byte(getTaskReply.TaskContent)},
 		getTaskReply.ProcessBinary)
 
