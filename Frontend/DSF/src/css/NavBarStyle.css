@@ -1,0 +1,41 @@
+nav .nav-link,
+nav i {
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: normal;
+    transition: 0.3s;
+}
+
+nav .nav-link li {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: normal;
+    transition: 0.3s;
+}
+
+nav .nav-link:hover,
+nav i:hover,
+nav .nav-link.active {
+    color: #1744e1 !important;
+    font-weight: bold;
+}
+
+@media screen and (min-width: 701px) {
+    nav .nav-link:hover,
+    nav i:hover,
+    nav .nav-link.active {
+        padding-left: 0.9rem;
+        padding-right: 0.9rem;
+    }
+}
+
+nav .nav-link li:hover,
+nav .nav-link.active li {
+    color: #1744e1 !important;
+    font-weight: bold;
+}
+
+nav .nav-link:focus,
+nav .nav-link li:focus {
+    color: white;
+}

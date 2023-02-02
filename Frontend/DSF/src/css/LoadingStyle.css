@@ -1,0 +1,16 @@
+#loading{
+    height: 50vh;
+}
+
+.spin-fast{
+    border-radius: 50%;
+    border: 2rem solid yellow;
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+    animation: fa-spin 0.8s infinite linear;
+}
+
+@keyframes fa-spin {
+    from{transform:rotate(0deg);}
+    to{transform:rotate(360deg);} 
+}
