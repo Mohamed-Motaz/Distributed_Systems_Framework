@@ -88,15 +88,20 @@ const (
 	AGGREGATING  = "Aggregating"
 )
 
-type CurrentJobProgressArgs struct {
+type CJP struct {
 	MasterId string
 	JobId    string
 	ClientId string
 	Progress float32
 	Status   CurrentJobProgress
 }
+type CurrentJobProgressArgs struct {
+	WebSocketServerCalling bool
+	CJP
+}
 
 type CurrentJobProgressReply struct {
+	Progress []CJP
 }
 
 //websocketserver - lockserver communication --------------

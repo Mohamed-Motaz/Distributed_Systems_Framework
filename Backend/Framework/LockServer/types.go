@@ -2,6 +2,7 @@ package main
 
 import (
 	database "Framework/Database"
+	"Framework/RPC"
 	utils "Framework/Utils"
 	"log"
 	"strings"
@@ -14,6 +15,7 @@ type LockServer struct {
 	id            string
 	db            *database.DBWrapper
 	mxLateJobTime time.Duration
+	mastersState  map[string]RPC.CJP // key -> masterId, value -> CJP 
 }
 type FolderName string
 
