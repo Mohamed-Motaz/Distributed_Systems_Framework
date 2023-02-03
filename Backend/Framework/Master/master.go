@@ -219,14 +219,14 @@ func (master *Master) qConsumer() {
 			//ask lockserver if i can get it
 			//todo fill the mq properly
 			args := &RPC.GetJobArgs{
-				JobId:            data.JobId,
-				ClientId:         data.ClientId,
-				MasterId:         master.id,
-				JobContent:       data.JobContent,
-				MQJobFound:       true,
-				ProcessBinary:    data.ProcessBinary,
-				DistributeBinary: data.DistributeBinary,
-				AggregateBinary:  data.AggregateBinary,
+				JobId:                data.JobId,
+				ClientId:             data.ClientId,
+				MasterId:             master.id,
+				JobContent:           data.JobContent,
+				MQJobFound:           true,
+				ProcessBinaryName:    data.ProcessBinary,
+				DistributeBinaryName: data.DistributeBinary,
+				AggregateBinaryName:  data.AggregateBinary,
 			}
 			reply := &RPC.GetJobReply{}
 			ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
