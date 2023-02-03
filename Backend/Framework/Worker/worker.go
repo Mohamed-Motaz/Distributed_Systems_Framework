@@ -70,7 +70,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		stopHeartBeatsCh <- true
 	}()
 
-	//write the optionalFiles to disk now
+	//todo
 
 	//now, need to run process
 	data, err := common.ExecuteProcess(logger.MASTER, utils.ProcessBinary,

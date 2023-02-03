@@ -1,7 +1,6 @@
 package main
 
 import (
-	common "Framework/Common"
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
 	utils "Framework/Utils"
@@ -55,7 +54,6 @@ func (master *Master) removeOldJobFiles() {
 // this function expects to hold a lock
 // it resets the currentJob of the master
 func (master *Master) resetStatus() {
-	//todo support other oss
 
 	master.removeOldJobFiles()
 
@@ -87,8 +85,7 @@ func (master *Master) resetStatus() {
 }
 
 // this function expects to hold a lock
-// this function is responsible for setting up the new job and running distribute
-
+// this function is responsible for setting up the new job and running distribute binary
 // this function doesn't log. The caller is responsible for logging
 func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	master.isRunning = true
@@ -104,12 +101,10 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		processBinary:          reply.ProcessBinary,
 		distributeBinary:       reply.DistributeBinary,
 		aggregateBinary:        reply.AggregateBinary,
+		optionalFilesZip:       reply.OptionalFilesZip,
 	}
 
-	//todo, think about supporting different os binaries
-	//todo any errors here should be propagated to client
-
-	//now write the distribute and aggregate folders to disk
+	//now write the distribute, aggregate, and optionalFilesZip  to disk
 
 	if err := utils.UnzipSource(master.currentJob.distributeBinary.Name, ""); err != nil {
 		return fmt.Errorf("error while unzipping distribute zip %+v", err)
@@ -124,7 +119,7 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	}
 
 	//now, need to run distribute
-	data, err := common.ExecuteProcess(logger.MASTER, utils.DistributeBinary,
+	data, err := utils.ExecuteProcess(logger.MASTER, utils.DistributeBinary,
 		utils.File{Name: "distribute.txt", Content: []byte(master.currentJob.jobContent)},
 		master.currentJob.distributeBinary)
 	if err != nil {
@@ -257,6 +252,7 @@ func (master *Master) qConsumer() {
 				newJob.Ack(false) //probably should just ack so it doesnt sit around in the queue forever
 
 				//send err to the mq
+				//todo should i really send an error back if i cant decode it?
 				master.mu.Lock()
 				master.publishErrAsFinJob(fmt.Sprintf("unable to martial received job %+v with err %+v", string(body), err))
 				master.mu.Unlock()
@@ -264,16 +260,15 @@ func (master *Master) qConsumer() {
 			}
 
 			//ask lockserver if i can get it
-			//todo fill the mq properly
 			args := &RPC.GetJobArgs{
 				JobId:                data.JobId,
 				ClientId:             data.ClientId,
 				MasterId:             master.id,
 				JobContent:           data.JobContent,
 				MQJobFound:           true,
-				ProcessBinaryName:    data.ProcessBinary,
-				DistributeBinaryName: data.DistributeBinary,
-				AggregateBinaryName:  data.AggregateBinary,
+				ProcessBinaryName:    data.ProcessBinaryName,
+				DistributeBinaryName: data.DistributeBinaryName,
+				AggregateBinaryName:  data.AggregateBinaryName,
 			}
 			reply := &RPC.GetJobReply{}
 			ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
@@ -289,7 +284,8 @@ func (master *Master) qConsumer() {
 			})
 			if !ok {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to contact lockserver to ask about job with error %v\nWill discard it", err)
-				newJob.Nack(false, true) //requeue job, so maybe another master can contact the lock server
+				time.Sleep(1 * time.Minute) //sleep so maybe if the lockserver is asleep now, he can would have woken up by then
+				newJob.Nack(false, true)    //requeue job, so maybe another master can contact the lock server
 				continue
 			}
 
@@ -297,8 +293,6 @@ func (master *Master) qConsumer() {
 				//use args that the lockserver has accepted
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer accepted job request %v for client %+v", args.JobId, args.ClientId)
 				newJob.Ack(false)
-
-				continue
 			} else {
 				//use alternative provided by lockserver
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v for client %v instead of requested job %v", reply.JobId, reply.ClientId, args.JobId)
@@ -307,6 +301,7 @@ func (master *Master) qConsumer() {
 
 			if err := master.setJobStatus(reply); err != nil {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
+				master.publishErrAsFinJob(err.Error())
 			}
 
 		default: //I didn't find a job from the message queue
@@ -333,6 +328,7 @@ func (master *Master) qConsumer() {
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v", reply.JobId)
 				if err := master.setJobStatus(reply); err != nil {
 					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
+					master.publishErrAsFinJob(err.Error())
 				}
 				continue
 			}
@@ -347,13 +343,25 @@ func (master *Master) qConsumer() {
 
 //
 // publishes a finished job to the message queue
-// this  doesn't have to hold a lock
+// this has to hold a lock
 func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 
 	res, err := json.Marshal(finJob)
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to convert finished job to string! Discarding...")
-		master.publishErrAsFinJob("Unable to marshal finished job")
+		fn := mq.FinishedJob{
+			Error: utils.Error{
+				Err:    true,
+				ErrMsg: "Unable to marshal finished job",
+			},
+		}
+		res, _ = json.Marshal(fn)
+		err = master.q.Enqueue(mq.FINISHED_JOBS_QUEUE, res)
+		if err != nil {
+			logger.LogError(logger.MASTER, logger.ESSENTIAL, "Finished job not published to queue with err %v", err)
+		} else {
+			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finJob.JobId, finJob.ClientId)
+		}
 	} else {
 		err = master.q.Enqueue(mq.FINISHED_JOBS_QUEUE, res)
 		if err != nil {
@@ -362,16 +370,16 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finJob.JobId, finJob.ClientId)
 		}
 	}
-
+	master.resetStatus()
 }
 
-//this function expects to hold a lock because it calls master.resetStatus
+//this function expects to hold a lock because master.publishFinJob needs to hold a lock
+//it resets the job status completely
 func (master *Master) publishErrAsFinJob(err string) {
 	fn := mq.FinishedJob{}
 	fn.Err = true
 	fn.ErrMsg = err
 	master.publishFinJob(fn)
-	master.resetStatus()
 }
 
 //
@@ -403,9 +411,10 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 			//the other worker is probably dead, so give this worker this job
 			reply.TaskAvailable = true
 			reply.TaskContent = currentTask.content
+			reply.ProcessBinary = master.currentJob.processBinary
+			reply.OptionalFilesZip = master.currentJob.optionalFilesZip
 			reply.TaskId = currentTask.id
 			reply.JobId = master.currentJob.jobId
-			reply.ProcessBinary = master.currentJob.processBinary
 
 			//now as a master, need to mark this job as given to a worker
 			master.currentJob.workersTimers[i] = WorkerAndHisTimer{
@@ -470,17 +479,15 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	return nil
 }
 
-//this function expects to hold a lock
+//this function expects to hold a lock because it calls publishErrAsFinJob & publishFinJob
 //it runs aggregate binary and pushes the job
 //to the finJobs queue and notifies the lockserver
 func (master *Master) finishUpJob() {
-	//todo: aggregate.txt contains the paths of the finished tasks, each path in a newline
-
+	//aggregate.txt contains the paths of the finished tasks, each path in a newline
 	finishedTasks := strings.Join(master.currentJob.finishedTasksFilePaths, "\n")
 
 	//now, need to run aggregate
-
-	finalResult, err := common.ExecuteProcess(logger.MASTER, utils.AggregateBinary,
+	finalResult, err := utils.ExecuteProcess(logger.MASTER, utils.AggregateBinary,
 		utils.File{Name: "aggregate.txt", Content: []byte(finishedTasks)},
 		master.currentJob.aggregateBinary)
 	if err != nil {
@@ -615,7 +622,7 @@ func (master *Master) getTaskIndexByTaskId(taskId string) int {
 // this function expects to hold a lock
 func (master *Master) allTasksDone() bool {
 	if !master.isRunning {
-		return false //no tasks in the first plac
+		return false //no tasks in the first place
 	}
 
 	for _, t := range master.currentJob.tasks {
