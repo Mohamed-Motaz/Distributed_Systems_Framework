@@ -38,12 +38,6 @@ type JobRequest struct {
 	AggregateBinaryName  string     `json:"aggregateBinaryName"`
 }
 
-type AddBinaryRequest struct {
-	FileType utils.FileType
-	File     utils.File
-	RunCmd   string
-}
-
 const (
 	_MY_HOST            string        = "MY_HOST"
 	_MY_PORT            string        = "MY_PORT"

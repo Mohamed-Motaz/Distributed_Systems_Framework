@@ -78,19 +78,29 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 }
 
 func (webSocketServer *WebSocketServer) handleAddBinaryRequests(res http.ResponseWriter, req *http.Request) {
-
 	res.Header().Set("Content-Type", "application/json")
 
-	addBinaryRequestArgs := RPC.BinaryUploadArgs{}
+	reqData := AddBinaryRequest{}
 
-	reply := &RPC.FileUploadReply{}
-
-	err := json.NewDecoder(req.Body).Decode(&addBinaryRequestArgs)
-
+	err := json.NewDecoder(req.Body).Decode(&reqData)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	//map the dto to rpc args
+	addBinaryRequestArgs := RPC.BinaryUploadArgs{
+		FileType: utils.FileType(reqData.FileType),
+		File: utils.RunnableFile{
+			RunCmd: reqData.RunCmd,
+			File: utils.File{
+				Name:    reqData.Name,
+				Content: reqData.Content,
+			},
+		},
+	}
+
+	reply := &RPC.FileUploadReply{}
 
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 		Name:         "LockServer.HandleAddBinaryFile",
@@ -357,7 +367,7 @@ func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest,
 	modifiedJobRequest.ClientId = jobRequest.ClientId
 	modifiedJobRequest.JobId = jobRequest.JobId
 	modifiedJobRequest.JobContent = jobRequest.JobContent
-	modifiedJobRequest.DistributeBinary.Name = jobRequest.DistributeBinaryName
-	modifiedJobRequest.ProcessBinary.Name = jobRequest.ProcessBinaryName
-	modifiedJobRequest.AggregateBinary.Name = jobRequest.AggregateBinaryName
+	modifiedJobRequest.DistributeBinaryName.Name = jobRequest.DistributeBinaryName
+	modifiedJobRequest.ProcessBinaryName.Name = jobRequest.ProcessBinaryName
+	modifiedJobRequest.AggregateBinaryName.Name = jobRequest.AggregateBinaryName
 }

@@ -1,8 +1,8 @@
 package utils
 
 type File struct {
-	Name    string
-	Content []byte
+	Name    string `json:"name"`
+	Content []byte `json:"content"`
 }
 
 type RunnableFile struct {
