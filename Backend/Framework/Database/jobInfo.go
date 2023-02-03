@@ -61,6 +61,6 @@ func (dBWrapper *DBWrapper) DeleteJobById(jobId string) *gorm.DB {
 }
 
 // assign job to master
-func (dBWrapper *DBWrapper) CreateJobsInfo(jobInfo *JobInfo, optionalFiles []string) *gorm.DB {
+func (dBWrapper *DBWrapper) CreateJobsInfo(jobInfo *JobInfo) *gorm.DB {
 	return dBWrapper.Db.Create(jobInfo)
 }
