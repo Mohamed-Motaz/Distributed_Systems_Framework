@@ -70,13 +70,27 @@ func applyMigrations(db *gorm.DB) {
 	processBinaryName longtext,
 	distributeBinaryName longtext,
 	aggregateBinaryName longtext,
-	processBinaryRunCmd longtext,
-	distributeBinaryRunCmd longtext,
-	aggregateBinaryRunCmd longtext,
 		PRIMARY KEY (id))
 	`).Error
 
 	if err != nil {
-		logger.FailOnError(logger.DATABASE, logger.ESSENTIAL, "Unable to create the db with this error %v", err)
+		logger.FailOnError(logger.DATABASE, logger.ESSENTIAL, "Unable to create the jobsinfo table in the db with this error %v", err)
+	}
+
+	err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS jobs.runnableFiles
+	(id bigint AUTO_INCREMENT,
+		binaryName longtext,
+		binaryType longtext,
+		binaryRunCmd longtext,
+			PRIMARY KEY (id)) 
+	`).Error
+	// todo create unique index
+
+	if err != nil {
+		logger.FailOnError(logger.DATABASE, logger.ESSENTIAL, "Unable to create the runnableFiles table in the db with this error %v", err)
 	}
 }
+
+
+

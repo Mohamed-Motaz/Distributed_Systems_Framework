@@ -45,14 +45,14 @@ type WorkerHeartBeatReply struct {
 //master-lockserver communication ---------
 
 type GetJobArgs struct {
-	JobId            string
-	ClientId         string
-	MasterId         string
-	JobContent       string
-	MQJobFound       bool
-	ProcessBinary    utils.File //required only when the lock server adds this job to the db
-	DistributeBinary utils.File //required only when the lock server adds this job to the db
-	AggregateBinary  utils.File //required only when the lock server adds this job to the db
+	JobId                string
+	ClientId             string
+	MasterId             string
+	JobContent           string
+	MQJobFound           bool
+	ProcessBinaryName    string //required only when the lock server adds this job to the db
+	DistributeBinaryName string //required only when the lock server adds this job to the db
+	AggregateBinaryName  string //required only when the lock server adds this job to the db
 }
 
 type GetJobReply struct {

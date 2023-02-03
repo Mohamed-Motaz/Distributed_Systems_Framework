@@ -5,6 +5,7 @@ import (
 	logger "Framework/Logger"
 	"Framework/RPC"
 	utils "Framework/Utils"
+	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -90,18 +91,22 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		reply.JobId = args.JobId
 		reply.ClientId = args.ClientId
 		reply.JobContent = args.JobContent
-		err = lockServer.setBinaryFiles(reply, args.ProcessBinary, args.DistributeBinary, args.AggregateBinary)
+		processBinary, distributeBinary, aggregateBinary, err := lockServer.setBinaryFiles(args.ProcessBinaryName, args.DistributeBinaryName, args.AggregateBinaryName)
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary files %+v", err)
 			*reply = RPC.GetJobReply{} //not accepted
 			return nil
 		}
+		reply.ProcessBinary = processBinary
+		reply.DistributeBinary = distributeBinary
+		reply.AggregateBinary = aggregateBinary
 		optionalFiles, err := lockServer.getOptionalFiles(args.JobId)
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %+v", err)
 			*reply = RPC.GetJobReply{} //not accepted
 			return nil
 		}
+		// receive the optionalFiles from the ws server as a zip file
 		reply.OptionalFilesZip = optionalFiles
 		lockServer.addJobToDB(args)
 		return nil
@@ -157,6 +162,18 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 		reply.ErrMsg = "Cannot add this file " + args.File.Name
 		return nil
 	}
+	runnableFile := &database.RunnableFiles{
+		BinaryName:   args.File.Name,
+		BinaryType:   string(args.FileType),
+		BinaryRunCmd: args.File.RunCmd,
+	}
+	// add runnableFile to database
+	err = lockServer.db.CreateRunnableFile(runnableFile).Error
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a runnableFile in the database %+v", err)
+		return err
+	}
+	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "RunnableFile added successfully %+v", args.File.Name)
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done adding binary file %+v", args.File.Name)
 	return nil
@@ -167,15 +184,14 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 
 	reply.Err = false
 	folderPath := lockServer.getOptionalFilesFolderPath(args.JobId)
-	for _, f := range args.Files {
-		err := utils.CreateAndWriteToFile(filepath.Join(folderPath, f.Name), f.Content)
-		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %+v", f.Name, err)
-			reply.Err = true
-			reply.ErrMsg = "Cannot create this file" + f.Name
-			return nil
-		}
+	err := utils.CreateAndWriteToFile(filepath.Join(folderPath, args.FilesZip.Name), args.FilesZip.Content)
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %+v", args.FilesZip.Name, err)
+		reply.Err = true
+		reply.ErrMsg = "Cannot create this file" + args.FilesZip.Name
+		return nil
 	}
+
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done adding optional files")
 	return nil
 }
@@ -249,19 +265,23 @@ func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.Get
 	reply.JobId = lateJob.JobId
 	reply.ClientId = lateJob.ClientId
 	reply.JobContent = lateJob.Content
-	err = lockServer.setBinaryFiles(reply, args.ProcessBinary, args.DistributeBinary, args.AggregateBinary)
+	processBinary, distributeBinary, aggregateBinary, err := lockServer.setBinaryFiles(args.ProcessBinaryName, args.DistributeBinaryName, args.AggregateBinaryName)
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from binary files folder %+v", err)
 		*reply = RPC.GetJobReply{} //not accepted
 		return false
 	}
+	reply.ProcessBinary = processBinary
+	reply.DistributeBinary = distributeBinary
+	reply.AggregateBinary = aggregateBinary
 	optionalFiles, err := lockServer.getOptionalFiles(lateJob.JobId)
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %+v", err)
 		*reply = RPC.GetJobReply{} //not accepted
 		return false
 	}
-	reply.OptionalFiles = optionalFiles
+	// receive the optionalFiles from the ws server as a zip file
+	reply.OptionalFilesZip = optionalFiles
 	return true
 }
 
@@ -273,99 +293,143 @@ func deleteFolder(path string) error {
 	return err
 }
 
-func (lockServer *LockServer) setBinaryFiles(reply *RPC.GetJobReply, processBinary, distributeBinary, aggregateBinary utils.RunnableFile) error {
-	processFileContent, err := os.ReadFile(
-		lockServer.getBinaryFilePath(PROCESS_BINARY_FOLDER_NAME, processBinary.Name))
-	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from process folder %+v", processBinary.Name, err)
-		return err
-	}
-	reply.ProcessBinary = utils.RunnableFile{
+func (lockServer *LockServer) setBinaryFiles(processBinary, distributeBinary, aggregateBinary string) (utils.RunnableFile, utils.RunnableFile, utils.RunnableFile, error) {
+	ProcessBinary := utils.RunnableFile{
 		File: utils.File{
-			Name:    processBinary.Name,
-			Content: processFileContent,
+			Content: make([]byte, 0),
 		},
-		RunCmd: processBinary.RunCmd,
 	}
+	DistributeBinary := utils.RunnableFile{
+		File: utils.File{
+			Content: make([]byte, 0),
+		},
+	}
+	AggregateBinary := utils.RunnableFile{
+		File: utils.File{
+			Content: make([]byte, 0),
+		},
+	}
+
+	runnableFile := &database.RunnableFiles{}
+
+	processFileContent, err := os.ReadFile(
+		lockServer.getBinaryFilePath(PROCESS_BINARY_FOLDER_NAME, processBinary))
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from process folder %+v", processBinary, err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
+	}
+	err = lockServer.db.GetRunCmdOfBinary(runnableFile, processBinary, string(utils.ProcessBinary)).Error
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in runCmd of processBinary %+v", err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
+	}
+	if runnableFile.Id == 0 {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no process binary file with this name %+v in db %+v", processBinary, err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
+	}
+	ProcessBinary.File = utils.File{
+		Name:    processBinary,
+		Content: processFileContent,
+	}
+	ProcessBinary.RunCmd = runnableFile.BinaryRunCmd
 
 	distributeFileContent, err := os.ReadFile(
-		lockServer.getBinaryFilePath(DISTRIBUTE_BINARY_FOLDER_NAME, distributeBinary.Name))
+		lockServer.getBinaryFilePath(DISTRIBUTE_BINARY_FOLDER_NAME, distributeBinary))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from distribute folder %+v", distributeBinary.Name, err)
-		return err
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from distribute folder %+v", distributeBinary, err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
-	reply.DistributeBinary = utils.RunnableFile{
-		File: utils.File{
-			Name:    distributeBinary.Name,
-			Content: distributeFileContent,
-		},
-		RunCmd: distributeBinary.RunCmd,
+	err = lockServer.db.GetRunCmdOfBinary(runnableFile, distributeBinary, string(utils.DistributeBinary)).Error
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in runCmd of distributeBinary %+v", err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
+	if runnableFile.Id == 0 {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no distribute binary file with this name %+v in db %+v", distributeBinary, err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
+	}
+	DistributeBinary.File = utils.File{
+		Name:    distributeBinary,
+		Content: distributeFileContent,
+	}
+	DistributeBinary.RunCmd = runnableFile.BinaryRunCmd
 
 	aggregateFileContent, err := os.ReadFile(
-		lockServer.getBinaryFilePath(AGGREGATE_BINARY_FOLDER_NAME, aggregateBinary.Name))
+		lockServer.getBinaryFilePath(AGGREGATE_BINARY_FOLDER_NAME, aggregateBinary))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from aggregate folder %+v", aggregateBinary.Name, err)
-		return err
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from aggregate folder %+v", aggregateBinary, err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
-	reply.AggregateBinary = utils.RunnableFile{
-		File: utils.File{
-			Name:    aggregateBinary.Name,
-			Content: aggregateFileContent,
-		},
-		RunCmd: aggregateBinary.RunCmd,
+	err = lockServer.db.GetRunCmdOfBinary(runnableFile, aggregateBinary, string(utils.AggregateBinary)).Error
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in runCmd of aggregateBinary %+v", err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
-	return nil
+	if runnableFile.Id == 0 {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no Aggregate binary file with this name %+v in db %+v", aggregateBinary, err)
+		return ProcessBinary, DistributeBinary, AggregateBinary, err
+	}
+	AggregateBinary.File = utils.File{
+		Name:    aggregateBinary,
+		Content: aggregateFileContent,
+	}
+	AggregateBinary.RunCmd = runnableFile.BinaryRunCmd
+
+	return ProcessBinary, DistributeBinary, AggregateBinary, nil
 }
 
-func (lockServer *LockServer) getOptionalFiles(jobId string) ([]utils.File, error) {
+func (lockServer *LockServer) getOptionalFiles(jobId string) (utils.File, error) {
 	//-OptionalFiles
 	//--JobId
 	//---actualFiles
 	//---actualFiles
 	//---actualFiles
+	optionalFilesZip := utils.File{
+		Content: make([]byte, 0),
+	}
 	optionalFilesFolderPath := lockServer.getOptionalFilesFolderPath(jobId)
-	files, err := ioutil.ReadDir(optionalFilesFolderPath)
+	if _, err := os.Stat(optionalFilesFolderPath); errors.Is(err, os.ErrNotExist) {
+		return optionalFilesZip, err
+	}
+
+	file, err := ioutil.ReadDir(optionalFilesFolderPath)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %+v", err)
-		return nil, err
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get optional zip file %+v", err)
+		return optionalFilesZip, err
 	}
 
-	var optionalFiles []utils.File
-	for _, f := range files {
-		content, err := os.ReadFile(filepath.Join(optionalFilesFolderPath, f.Name()))
-		if err != nil {
-			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL,
-				"Cannot get file %+v from optional files folder with err %+v", filepath.Join(optionalFilesFolderPath, f.Name()), err)
-			return nil, err //todo should I actually return the remaining files or not
-		}
-		optionalFiles = append(optionalFiles, utils.File{
-			Name:    f.Name(),
-			Content: content,
-		})
+	optionalFiles, err := os.ReadFile(filepath.Join(optionalFilesFolderPath, file[0].Name()))
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL,
+			"Cannot get file %+v from optional files folder with err %+v", filepath.Join(optionalFilesFolderPath, file[0].Name()), err)
+		return optionalFilesZip, err //todo should I actually return the remaining files or not
 	}
+	optionalFilesZip = utils.File{
+		Name:    file[0].Name(),
+		Content: optionalFiles,
+	}
+	return optionalFilesZip, nil
 
-	return optionalFiles, nil
 }
+
 func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) {
 	// assign job to the master and update database
 	jobInfo := &database.JobInfo{
-		ClientId:               args.ClientId,
-		MasterId:               args.MasterId,
-		JobId:                  args.JobId,
-		Content:                args.JobContent,
-		TimeAssigned:           time.Now(),
-		Status:                 database.IN_PROGRESS,
-		ProcessBinaryName:      args.ProcessBinary.Name,
-		DistributeBinaryName:   args.DistributeBinary.Name,
-		AggregateBinaryName:    args.AggregateBinary.Name,
-		ProcessBinaryRunCmd:    args.ProcessBinary.RunCmd,    //you need to create a new table, that maps each process name, to its run cmd.
-		DistributeBinaryRunCmd: args.DistributeBinary.RunCmd, //You will receive the run cmd from the ws server when uploading a binary
-		AggregateBinaryRunCmd:  args.AggregateBinary.RunCmd,
+		ClientId:             args.ClientId,
+		MasterId:             args.MasterId,
+		JobId:                args.JobId,
+		Content:              args.JobContent,
+		TimeAssigned:         time.Now(),
+		Status:               database.IN_PROGRESS,
+		ProcessBinaryName:    args.ProcessBinaryName,
+		DistributeBinaryName: args.DistributeBinaryName,
+		AggregateBinaryName:  args.AggregateBinaryName, 
+		//You need to create a new table, that maps each process name, to its run cmd.
+		 //You will receive the run cmd from the ws server when uploading a binary
 	}
 
 	// add job to database
-	err := lockServer.db.CreateJobsInfo(jobInfo, args.OptionalFilesNames).Error
+	err := lockServer.db.CreateJobsInfo(jobInfo).Error
 	if err != nil {
 		//todo should there be an error returned to the master?
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a job in database %+v", err)
