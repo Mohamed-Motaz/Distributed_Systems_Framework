@@ -36,6 +36,7 @@ func NewMaster() *Master {
 
 	go master.server()
 	go master.qConsumer()
+	go master.sendPeriodicProgress()
 
 	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master is now alive")
 
@@ -179,6 +180,50 @@ func (master *Master) addDumbJob() {
 	// master.setJobStatus(&reply)
 }
 
+// start a thread that periodically sends my progress
+func (master *Master) sendPeriodicProgress() {
+	for {
+		time.Sleep(time.Second * 1)
+
+		master.mu.Lock()
+		if !master.isRunning {
+			master.mu.Unlock()
+			continue
+		}
+
+		var progress float32 = 0
+		for _, t := range master.currentJob.tasks {
+			if t.isDone {
+				progress++
+			}
+		}
+		progress /= float32(len(master.currentJob.tasks))
+
+		args := &RPC.CurrentJobProgressArgs{
+			MasterId: master.id,
+			JobId:    master.currentJob.jobId,
+			ClientId: master.currentJob.clientId,
+			Progress: progress,
+			Status:   RPC.PROCESSING, //todo this will probably change in the future
+		}
+
+		master.mu.Unlock()
+		reply := &RPC.CurrentJobProgressReply{}
+		RPC.EstablishRpcConnection(&RPC.RpcConnection{
+			Name:         "LockServer.HandleGetJob", //todo ask rawan for the name
+			Args:         &args,
+			Reply:        &reply,
+			SenderLogger: logger.MASTER,
+			Reciever: RPC.Reciever{
+				Name: "Lockserver",
+				Port: LockServerPort,
+				Host: LockServerHost,
+			},
+		})
+
+	}
+}
+
 // start a thread that waits on a job from the message queue
 func (master *Master) qConsumer() {
 	ch, err := master.q.Dequeue(mq.ASSIGNED_JOBS_QUEUE)
@@ -212,7 +257,9 @@ func (master *Master) qConsumer() {
 				newJob.Ack(false) //probably should just ack so it doesnt sit around in the queue forever
 
 				//send err to the mq
+				master.mu.Lock()
 				master.publishErrAsFinJob(fmt.Sprintf("unable to martial received job %+v with err %+v", string(body), err))
+				master.mu.Unlock()
 				continue
 			}
 
@@ -300,7 +347,7 @@ func (master *Master) qConsumer() {
 
 //
 // publishes a finished job to the message queue
-// this function doesn't have to hold a lock
+// this  doesn't have to hold a lock
 func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 
 	res, err := json.Marshal(finJob)
@@ -318,6 +365,7 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 
 }
 
+//this function expects to hold a lock because it calls master.resetStatus
 func (master *Master) publishErrAsFinJob(err string) {
 	fn := mq.FinishedJob{}
 	fn.Err = true

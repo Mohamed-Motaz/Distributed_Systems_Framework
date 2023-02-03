@@ -134,7 +134,7 @@ type DeleteBinaryFileReply struct {
 	utils.Error
 }
 
-//actual helper functions
+//actual helper functions ----------------------------------------------------------------------------------------------------------------------------------------
 func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 	successfullConnection := false
 	var client *rpc.Client
