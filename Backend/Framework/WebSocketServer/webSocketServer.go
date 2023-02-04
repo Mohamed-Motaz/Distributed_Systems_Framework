@@ -396,7 +396,7 @@ func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest,
 	modifiedJobRequest.ClientId = jobRequest.ClientId
 	modifiedJobRequest.JobId = jobRequest.JobId
 	modifiedJobRequest.JobContent = jobRequest.JobContent
-	modifiedJobRequest.DistributeBinaryName.Name = jobRequest.DistributeBinaryName
-	modifiedJobRequest.ProcessBinaryName.Name = jobRequest.ProcessBinaryName
-	modifiedJobRequest.AggregateBinaryName.Name = jobRequest.AggregateBinaryName
+	modifiedJobRequest.DistributeBinaryName = jobRequest.DistributeBinaryName
+	modifiedJobRequest.ProcessBinaryName = jobRequest.ProcessBinaryName
+	modifiedJobRequest.AggregateBinaryName = jobRequest.AggregateBinaryName
 }
