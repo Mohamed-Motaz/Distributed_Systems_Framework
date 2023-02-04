@@ -204,21 +204,25 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				continue
 			}
 
-			webSocketServer.mu.Lock()
-			client, ok := webSocketServer.clients[finishedJob.ClientId]
-			webSocketServer.mu.Unlock()
-
-			if ok {
-				go webSocketServer.writeFinishedJob(client, finishedJob)
-				logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Job sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), finishedJob)
-			} 
-			
 			if clientData.ServerID == webSocketServer.id {
+
 				clientData.FinishedJobsResults = append(clientData.FinishedJobsResults, finishedJob.Content)
 				webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+
+				webSocketServer.mu.Lock()
+				client, ok := webSocketServer.clients[finishedJob.ClientId]
+				webSocketServer.mu.Unlock()
+
+				if ok {
+					go webSocketServer.writeFinishedJob(client, finishedJob)
+					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Job sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), finishedJob)
+				} else {
+					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Connection with client may have been terminated}")
+				}
+
 				finishedJobObj.Ack(false)
 
-			}else {
+			} else {
 				finishedJobObj.Nack(false, true)
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Client is currently connecting to another server}")
 			}
