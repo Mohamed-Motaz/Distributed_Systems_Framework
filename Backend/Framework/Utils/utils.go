@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-//TODO don't forget to set this
+// TODO don't forget to set this
 const IN_DOCKER bool = false
 
 func GetEnv(key, fallback string) string {
@@ -62,8 +62,9 @@ func ExecuteProcess(loggerRole int, processType FileType, tmpFile File, exeFile 
 }
 
 func CreateAndWriteToFile(name string, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
-		return nil
+	fmt.Printf(filepath.Dir(name))
+	if err := os.MkdirAll("./"+filepath.Dir(name), os.ModePerm); err != nil {
+		return err
 	}
 
 	f, err := os.Create(name)
