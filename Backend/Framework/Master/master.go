@@ -195,11 +195,13 @@ func (master *Master) sendPeriodicProgress() {
 		progress /= float32(len(master.currentJob.tasks))
 
 		args := &RPC.CurrentJobProgressArgs{
-			MasterId: master.id,
-			JobId:    master.currentJob.jobId,
-			ClientId: master.currentJob.clientId,
-			Progress: progress,
-			Status:   RPC.PROCESSING, //todo this will probably change in the future
+			RPC.CurrentJobProgress{
+				MasterId: master.id,
+				JobId:    master.currentJob.jobId,
+				ClientId: master.currentJob.clientId,
+				Progress: progress,
+				Status:   RPC.PROCESSING, //todo this will probably change in the future
+			},
 		}
 
 		master.mu.Unlock()
@@ -341,7 +343,6 @@ func (master *Master) qConsumer() {
 
 }
 
-//
 // publishes a finished job to the message queue
 // this has to hold a lock
 func (master *Master) publishFinJob(finJob mq.FinishedJob) {
@@ -373,8 +374,8 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 	master.resetStatus()
 }
 
-//this function expects to hold a lock because master.publishFinJob needs to hold a lock
-//it resets the job status completely
+// this function expects to hold a lock because master.publishFinJob needs to hold a lock
+// it resets the job status completely
 func (master *Master) publishErrAsFinJob(err string) {
 	fn := mq.FinishedJob{}
 	fn.Err = true
@@ -479,9 +480,9 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	return nil
 }
 
-//this function expects to hold a lock because it calls publishErrAsFinJob & publishFinJob
-//it runs aggregate binary and pushes the job
-//to the finJobs queue and notifies the lockserver
+// this function expects to hold a lock because it calls publishErrAsFinJob & publishFinJob
+// it runs aggregate binary and pushes the job
+// to the finJobs queue and notifies the lockserver
 func (master *Master) finishUpJob() {
 	//aggregate.txt contains the paths of the finished tasks, each path in a newline
 	finishedTasks := strings.Join(master.currentJob.finishedTasksFilePaths, "\n")
@@ -511,7 +512,7 @@ func (master *Master) finishUpJob() {
 	master.resetStatus()
 }
 
-//this function expects to hold a lock
+// this function expects to hold a lock
 func (master *Master) attemptSendFinishedJobToLockServer() {
 	ok := false
 	ctr := 1

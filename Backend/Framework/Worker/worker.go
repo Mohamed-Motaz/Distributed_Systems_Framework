@@ -1,7 +1,6 @@
 package main
 
 import (
-	common "Framework/Common"
 	logger "Framework/Logger"
 	"Framework/RPC"
 	utils "Framework/Utils"
@@ -73,7 +72,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 	//todo
 
 	//now, need to run process
-	data, err := common.ExecuteProcess(logger.MASTER, utils.ProcessBinary,
+	data, err := utils.ExecuteProcess(logger.MASTER, utils.ProcessBinary,
 		utils.File{Name: "process.txt", Content: []byte(getTaskReply.TaskContent)},
 		getTaskReply.ProcessBinary)
 
