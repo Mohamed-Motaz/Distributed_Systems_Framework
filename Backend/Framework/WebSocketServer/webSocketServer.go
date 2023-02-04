@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -28,6 +29,7 @@ func newClient(webSocketConn *websocket.Conn) *Client {
 func NewWebSocketServer() (*WebSocketServer, error) {
 
 	webSocketServer := &WebSocketServer{
+		id:      uuid.NewString(),
 		cache:   cache.NewCache(cache.CreateCacheAddress(CacheHost, CachePort)),
 		queue:   mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
 		clients: make(map[string]*Client),
@@ -70,7 +72,18 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 
 	client := newClient(upgradedConn)
 
+	clientData := &cache.CacheValue{}
+	clientData, err = webSocketServer.cache.Get(client.id)
+
 	webSocketServer.mu.Lock()
+	if err != nil && err != redis.Nil {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+		webSocketServer.mu.Unlock()
+		client.webSocketConn.Close()
+		return
+	}
+	clientData.ServerID = webSocketServer.id
+	webSocketServer.cache.Set(client.id, clientData, MAX_IDLE_CACHE_TIME)
 	webSocketServer.clients[client.id] = client
 	webSocketServer.mu.Unlock()
 
@@ -210,9 +223,14 @@ func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishe
 
 // bool stands for whether to continue with processing the job request or not
 func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
+
+	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
+		return true
+	}
+
 	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
-		JobId: newJobRequest.JobId,
-		Files: newJobRequest.OptionalFiles,
+		JobId:    newJobRequest.JobId,
+		FilesZip: newJobRequest.OptionalFilesZip,
 	}
 
 	reply := &RPC.FileUploadReply{}
@@ -276,10 +294,8 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		//immediately attempt to send the optional files to the lockserver
 
-		if len(newJobRequest.OptionalFiles) > 0 {
-			if !webSocketServer.sendOptionalFiles(client, newJobRequest) {
-				continue
-			}
+		if !webSocketServer.sendOptionalFiles(client, newJobRequest) {
+			continue
 		}
 
 		modifiedJobRequest := &mq.AssignedJob{}
@@ -337,25 +353,38 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				continue
 			}
 
-			webSocketServer.mu.Lock()
+			clientData := &cache.CacheValue{}
+			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
 
-			if client, ok := webSocketServer.clients[finishedJob.ClientId]; ok {
-
-				webSocketServer.mu.Unlock()
-
-				go webSocketServer.writeFinishedJob(client, finishedJob)
-
-				finishedJobObj.Ack(false)
-				logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Job sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), finishedJob)
-
-			} else {
-				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Connection with client may have been terminated}")
-				finishedJobObj.Nack(false, true) //requeue so another websocket server may use it, and the client may be with him
-				time.Sleep(time.Second * 10)
+			if err != nil && err != redis.Nil {
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+				finishedJobObj.Nack(false, true)
+				continue
 			}
 
-			//todo: BEDO HAYE3MELHA HOWA W AGINA, W HAYEKNE3ONA GAMED AWY
-			webSocketServer.cache.Set(finishedJob.Content, finishedJob, MAX_IDLE_CACHE_TIME)
+			if clientData.ServerID == webSocketServer.id {
+
+				clientData.FinishedJobsResults = append(clientData.FinishedJobsResults, finishedJob.Content)
+				webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+
+				webSocketServer.mu.Lock()
+				client, ok := webSocketServer.clients[finishedJob.ClientId]
+				webSocketServer.mu.Unlock()
+
+				if ok {
+					go webSocketServer.writeFinishedJob(client, finishedJob)
+					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Job sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), finishedJob)
+				} else {
+					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Connection with client may have been terminated}")
+				}
+
+				finishedJobObj.Ack(false)
+
+			} else {
+				finishedJobObj.Nack(false, true)
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Client is currently connecting to another server}")
+			}
+
 		}
 
 		time.Sleep(time.Second * 5)

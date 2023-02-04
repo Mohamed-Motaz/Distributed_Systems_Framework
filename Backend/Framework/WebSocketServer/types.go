@@ -21,6 +21,7 @@ type Client struct {
 }
 
 type WebSocketServer struct {
+	id             string
 	requestHandler http.Handler
 	cache          *cache.Cache
 	queue          *mq.MQ
