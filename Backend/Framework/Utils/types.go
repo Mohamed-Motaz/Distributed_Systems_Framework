@@ -20,3 +20,7 @@ type Error struct {
 	Err    bool   `json:"error"`
 	ErrMsg string `json:"errorMsg"`
 }
+
+type Success struct {
+	Success bool `json:"success"`
+}
