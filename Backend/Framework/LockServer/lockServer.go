@@ -6,6 +6,7 @@ import (
 	"Framework/RPC"
 	utils "Framework/Utils"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -36,6 +37,9 @@ func NewLockServer() *LockServer {
 		db:            database.NewDbWrapper(database.CreateDBAddress(DbUser, DbPassword, DbProtocol, "", DbHost, DbPort, DbSettings)),
 		mxLateJobTime: time.Duration(-60) * time.Second,
 	}
+	if err := lockServer.initDir(); err != nil {
+		logger.FailOnError(logger.LOCK_SERVER, logger.ESSENTIAL, "Error while initializing Files: %v", err)
+	}
 	go lockServer.server()
 	return lockServer
 }
@@ -54,12 +58,28 @@ func (lockServer *LockServer) server() error {
 	listener, err := net.Listen("tcp", addrToListen)
 
 	if err != nil {
-		logger.FailOnError(logger.MASTER, logger.ESSENTIAL, "Error while listening on socket: %v", err)
+		logger.FailOnError(logger.LOCK_SERVER, logger.ESSENTIAL, "Error while listening on socket: %v", err)
 	} else {
-		logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Listening on socket: %v", addrToListen)
+		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Listening on socket: %v", addrToListen)
 	}
 
 	go http.Serve(listener, nil)
+	return nil
+}
+
+func (lockServer *LockServer) initDir() error {
+	if err := os.MkdirAll("./"+filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(PROCESS_BINARY_FOLDER_NAME)), os.ModePerm); err != nil {
+		return err
+	}
+	if err := os.MkdirAll("./"+filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(AGGREGATE_BINARY_FOLDER_NAME)), os.ModePerm); err != nil {
+		return err
+	}
+	if err := os.MkdirAll("./"+filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(DISTRIBUTE_BINARY_FOLDER_NAME)), os.ModePerm); err != nil {
+		return err
+	}
+	if err := os.MkdirAll("./"+string(OPTIONAL_FILES_FOLDER_NAME), os.ModePerm); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -155,7 +175,15 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 	binaryFilePath := lockServer.getBinaryFilePath(
 		lockServer.convertFileTypeToFolderType(args.FileType), args.File.Name)
 
-	err := utils.CreateAndWriteToFile(binaryFilePath, args.File.Content)
+	file, err := os.OpenFile("./"+binaryFilePath, os.O_RDONLY, os.ModePerm)
+	if errors.Is(err, os.ErrNotExist) {
+		// handle the case where the file doesn't exist
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "The binary file name %+v already exists", args.File.Name)
+		return fmt.Errorf("The binary file name %+v already exists", args.File.Name)
+	}
+	file.Close()
+
+	err = utils.CreateAndWriteToFile(binaryFilePath, args.File.Content)
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to add this binary file, fileName: %v with err %+v", args.File.Name, err)
 		reply.Err = true
@@ -173,9 +201,8 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a runnableFile in the database %+v", err)
 		return err
 	}
-	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "RunnableFile added successfully %+v", args.File.Name)
 
-	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done adding binary file %+v", args.File.Name)
+	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Done adding binary file %+v", args.File.Name)
 	return nil
 }
 
@@ -199,6 +226,9 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs, reply *RPC.GetBinaryFilesReply) error {
 	var foundError bool = false
 	reply.Err = false
+	reply.AggregateBinaryNames = make([]string, 0)
+	reply.DistributeBinaryNames = make([]string, 0)
+	reply.ProcessBinaryNames = make([]string, 0)
 
 	files, err := ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(PROCESS_BINARY_FOLDER_NAME)))
 	if err != nil {
@@ -234,7 +264,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	return nil
 }
 func (lockServer *LockServer) HandleGetJobProgress(args *RPC.GetJobProgressArgs, reply *RPC.GetJobProgressReply) error {
-	
+
 	return nil
 }
 
