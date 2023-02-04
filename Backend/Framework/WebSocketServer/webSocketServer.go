@@ -93,7 +93,7 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 }
 
 func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.ResponseWriter, req *http.Request) {
-	
+
 	res.Header().Set("Content-Type", "application/json")
 
 	uploadBinaryRequest := UploadBinaryRequest{}
@@ -224,14 +224,52 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 }
 
 func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.ResponseWriter, req *http.Request) {
+	GetJobRequest := GetJobProgressRequests{}
 
+	err := json.NewDecoder(req.Body).Decode(&GetJobRequest)
+
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	GetjobRequestArgs := RPC.GetJobProgressArgs{
+		JobId:    GetJobRequest.JobId,
+		ClientId: GetJobRequest.ClientId,
+	}
+
+	reply := RPC.GetJobProgressReply{
+		Progress: GetJobRequest.Progress,
+		Status:   RPC.JobProgress(GetJobRequest.StatusJobProgress),
+	}
+	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+		Name:         "LockServer.HandleGetJobProgress",
+		Args:         GetjobRequestArgs,
+		Reply:        &reply,
+		SenderLogger: logger.WEBSOCKET_SERVER,
+		Reciever: RPC.Reciever{
+			Name: "Lockserver",
+			Port: LockServerPort,
+			Host: LockServerHost,
+		},
+	})
+
+	if ok {
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(true)
+		return
+	}
+
+	if !ok {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
+	}
+	res.WriteHeader(http.StatusInternalServerError)
+	json.NewEncoder(res).Encode(false)
 }
 
 func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res http.ResponseWriter, req *http.Request) {
 
 }
-
-
 
 func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob interface{}) {
 	client.webSocketConn.WriteJSON(finishedJob)
