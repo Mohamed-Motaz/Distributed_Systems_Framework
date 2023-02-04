@@ -38,9 +38,11 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 
 	serveMux := http.NewServeMux()
 	serveMux.HandleFunc("/submitJob", webSocketServer.handleJobRequests)
-	serveMux.HandleFunc("/addBinary", webSocketServer.handleAddBinaryRequests)
+	serveMux.HandleFunc("/uploadBinary", webSocketServer.handleUploadBinaryRequests)
 	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests)
 	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests)
+	serveMux.HandleFunc("/getJobProgress", webSocketServer.handleGetJobProgressRequests)
+	serveMux.HandleFunc("/getAllFinishedJobs", webSocketServer.handleGetAllFinishedJobsRequests)
 
 	webSocketServer.requestHandler = serveMux
 
@@ -90,25 +92,26 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 	go webSocketServer.listenForJobs(client)
 }
 
-func (webSocketServer *WebSocketServer) handleAddBinaryRequests(res http.ResponseWriter, req *http.Request) {
+func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.ResponseWriter, req *http.Request) {
+	
 	res.Header().Set("Content-Type", "application/json")
 
-	reqData := AddBinaryRequest{}
+	uploadBinaryRequest := UploadBinaryRequest{}
 
-	err := json.NewDecoder(req.Body).Decode(&reqData)
+	err := json.NewDecoder(req.Body).Decode(&uploadBinaryRequest)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	//map the dto to rpc args
-	addBinaryRequestArgs := RPC.BinaryUploadArgs{
-		FileType: utils.FileType(reqData.FileType),
+	uploadBinaryRequestArgs := RPC.BinaryUploadArgs{
+		FileType: utils.FileType(uploadBinaryRequest.FileType),
 		File: utils.RunnableFile{
-			RunCmd: reqData.RunCmd,
+			RunCmd: uploadBinaryRequest.RunCmd,
 			File: utils.File{
-				Name:    reqData.Name,
-				Content: reqData.Content,
+				Name:    uploadBinaryRequest.Name,
+				Content: uploadBinaryRequest.Content,
 			},
 		},
 	}
@@ -117,7 +120,7 @@ func (webSocketServer *WebSocketServer) handleAddBinaryRequests(res http.Respons
 
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 		Name:         "LockServer.HandleAddBinaryFile",
-		Args:         addBinaryRequestArgs,
+		Args:         uploadBinaryRequestArgs,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
 		Reciever: RPC.Reciever{
@@ -141,7 +144,6 @@ func (webSocketServer *WebSocketServer) handleAddBinaryRequests(res http.Respons
 	}
 	res.WriteHeader(http.StatusInternalServerError)
 	json.NewEncoder(res).Encode(false)
-
 }
 
 func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.ResponseWriter, req *http.Request) {
@@ -174,21 +176,25 @@ func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.Re
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with recieving files from lockServer} -> error : %+v", reply.ErrMsg)
 	}
 	json.NewEncoder(res).Encode(false)
-
 }
+
 func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 
-	deleteBinaryRequestArgs := RPC.DeleteBinaryFileArgs{}
+	deleteBinaryRequest := DeleteBinaryRequest{}
 
 	reply := &RPC.DeleteBinaryFileReply{}
 
-	err := json.NewDecoder(req.Body).Decode(&deleteBinaryRequestArgs)
-
+	err := json.NewDecoder(req.Body).Decode(&deleteBinaryRequest)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	deleteBinaryRequestArgs := RPC.DeleteBinaryFileArgs{
+		FileType: utils.FileType(deleteBinaryRequest.FileType),
+		FileName: deleteBinaryRequest.FileName,
 	}
 
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
@@ -216,6 +222,16 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 	}
 	json.NewEncoder(res).Encode(false)
 }
+
+func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.ResponseWriter, req *http.Request) {
+
+}
+
+func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res http.ResponseWriter, req *http.Request) {
+
+}
+
+
 
 func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob interface{}) {
 	client.webSocketConn.WriteJSON(finishedJob)
@@ -302,13 +318,6 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		webSocketServer.modifyJobRequest(newJobRequest, modifiedJobRequest)
 
-		cachedJob, err := webSocketServer.cache.Get(modifiedJobRequest.JobContent)
-
-		if err == nil {
-			go webSocketServer.writeFinishedJob(client, cachedJob)
-			continue
-		}
-
 		jobToAssign := new(bytes.Buffer)
 
 		err = json.NewEncoder(jobToAssign).Encode(modifiedJobRequest)
@@ -319,7 +328,6 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			continue
 		}
 
-		//message is viable and isnt present in cache, can now send it over to mq
 		err = webSocketServer.queue.Enqueue(mq.ASSIGNED_JOBS_QUEUE, jobToAssign.Bytes())
 
 		if err != nil {

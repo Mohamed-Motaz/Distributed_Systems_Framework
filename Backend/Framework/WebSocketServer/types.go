@@ -39,6 +39,18 @@ type JobRequest struct {
 	AggregateBinaryName  string     `json:"aggregateBinaryName"`
 }
 
+type UploadBinaryRequest struct {
+	FileType string `json:"fileType"`
+	Name     string `json:"name"`
+	Content  []byte `json:"content"`
+	RunCmd   string `json:"runCmd"`
+}
+
+type DeleteBinaryRequest struct{
+	FileType string  `json:"fileType"`
+	FileName string	 `json:"fileName"`
+}
+
 const (
 	_MY_HOST            string        = "MY_HOST"
 	_MY_PORT            string        = "MY_PORT"
