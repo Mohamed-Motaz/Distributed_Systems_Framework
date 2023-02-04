@@ -17,8 +17,14 @@ type LockServer struct {
 	db            *database.DBWrapper
 	mxLateJobTime time.Duration
 	mu            sync.Mutex
-	mastersState  map[string]RPC.CurrentJobProgress // key -> masterId, value -> CJP 
+	mastersState  map[string]privCJP // key -> masterId, value -> privCJP
 }
+
+type privCJP struct {
+	RPC.CurrentJobProgress
+	lastHeartBeat time.Time
+}
+
 type FolderName string
 
 const (

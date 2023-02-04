@@ -96,13 +96,11 @@ type CurrentJobProgress struct {
 	Progress float32
 	Status   JobProgress
 }
-type CurrentJobProgressArgs struct {
+type SetJobProgressArgs struct {
 	CurrentJobProgress
-	IsWebSocketServerCalling bool
 }
 
-type CurrentJobProgressReply struct {
-	Progress []CurrentJobProgress
+type SetJobProgressReply struct {
 }
 
 //websocketserver - lockserver communication --------------
@@ -138,6 +136,13 @@ type DeleteBinaryFileArgs struct {
 
 type DeleteBinaryFileReply struct {
 	utils.Error
+}
+
+type GetSystemProgressArgs struct {
+}
+
+type GetSystemProgressReply struct {
+	Progress []CurrentJobProgress
 }
 
 // actual helper functions ----------------------------------------------------------------------------------------------------------------------------------------

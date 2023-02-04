@@ -237,16 +237,24 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	}
 	return nil
 }
-func (lockServer *LockServer) HandleGetJobProgress(args *RPC.CurrentJobProgressArgs, reply *RPC.CurrentJobProgressReply) error {
+
+func (lockServer *LockServer) HandleSetJobProgress(args *RPC.SetJobProgressArgs, reply *RPC.SetJobProgressReply) error {
 	lockServer.mu.Lock()
 	defer lockServer.mu.Unlock()
-	if !args.IsWebSocketServerCalling {
-		lockServer.mastersState[args.MasterId] = args.CurrentJobProgress
-		return nil
+	lockServer.mastersState[args.MasterId] = privCJP{
+		lastHeartBeat:      time.Now(),
+		CurrentJobProgress: args.CurrentJobProgress,
 	}
+	return nil
+}
+
+func (lockServer *LockServer) HandleGetSystemProgress(args *RPC.GetSystemProgressArgs, reply *RPC.GetSystemProgressReply) error {
+	lockServer.mu.Lock()
+	defer lockServer.mu.Unlock()
+
 	progress := make([]RPC.CurrentJobProgress, 0)
 	for _, v := range lockServer.mastersState {
-		progress = append(progress, v)
+		progress = append(progress, v.CurrentJobProgress)
 	}
 	reply.Progress = progress
 	return nil
@@ -256,7 +264,6 @@ func (lockServer *LockServer) HandleGetJobProgress(args *RPC.CurrentJobProgressA
 func (lockServer *LockServer) checkIsMasterAlive() {
 	for {
 		time.Sleep(time.Second * 5)
-		
 
 	}
 }

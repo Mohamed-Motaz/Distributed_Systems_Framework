@@ -195,13 +195,12 @@ func (master *Master) sendPeriodicProgress() {
 		progress /= float32(len(master.currentJob.tasks))
 
 		args := &RPC.CurrentJobProgressArgs{
-			RPC.CurrentJobProgress{
-				MasterId: master.id,
-				JobId:    master.currentJob.jobId,
-				ClientId: master.currentJob.clientId,
-				Progress: progress,
-				Status:   RPC.PROCESSING, //todo this will probably change in the future
-			},
+			MasterId: master.id,
+			JobId:    master.currentJob.jobId,
+			ClientId: master.currentJob.clientId,
+			Progress: progress,
+			Status:   RPC.PROCESSING, //todo this will probably change in the future
+
 		}
 
 		master.mu.Unlock()
