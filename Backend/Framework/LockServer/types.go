@@ -6,6 +6,7 @@ import (
 	utils "Framework/Utils"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -15,6 +16,7 @@ type LockServer struct {
 	id            string
 	db            *database.DBWrapper
 	mxLateJobTime time.Duration
+	mu            sync.Mutex
 	mastersState  map[string]RPC.CurrentJobProgress // key -> masterId, value -> CJP 
 }
 type FolderName string
