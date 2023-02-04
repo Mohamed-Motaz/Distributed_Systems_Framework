@@ -194,17 +194,18 @@ func (master *Master) sendPeriodicProgress() {
 		}
 		progress /= float32(len(master.currentJob.tasks))
 
-		args := &RPC.CurrentJobProgressArgs{
+		args := &RPC.SetJobProgressArgs{
+			RPC.CurrentJobProgress{ 
 			MasterId: master.id,
 			JobId:    master.currentJob.jobId,
 			ClientId: master.currentJob.clientId,
 			Progress: progress,
 			Status:   RPC.PROCESSING, //todo this will probably change in the future
-
+			},
 		}
 
 		master.mu.Unlock()
-		reply := &RPC.CurrentJobProgressReply{}
+		reply := &RPC.SetJobProgressReply{}
 		RPC.EstablishRpcConnection(&RPC.RpcConnection{
 			Name:         "LockServer.HandleGetJob", //todo ask rawan for the name
 			Args:         &args,
