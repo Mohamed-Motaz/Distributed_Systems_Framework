@@ -11,7 +11,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-//create a new Cache object
+// create a new Cache object
 func NewCache(address string) *Cache {
 	cache := &Cache{
 		client: redis.NewClient(&redis.Options{
@@ -26,7 +26,8 @@ func NewCache(address string) *Cache {
 	var err error = fmt.Errorf("error")
 	ctr := 0
 	for ctr < 3 && err != nil {
-		_, err := cache.client.Ping(cache.ctx).Result()
+		logger.LogInfo(logger.CACHE, logger.ESSENTIAL, "Attempting to connect cache %+v", cache.client.Options().Addr)
+		_, err = cache.client.Ping(cache.ctx).Result()
 		ctr++
 		if err != nil {
 			time.Sleep(time.Second * 10)
@@ -51,28 +52,28 @@ func CreateCacheAddress(host string, port string) string {
 	return host + ":" + port
 }
 
-//gets the value of a key
+// gets the value of a key
 func (c *Cache) Get(key string) (*CacheValue, error) {
 
-	valueAsBytes, err := c.client.Get(c.ctx, key).Bytes();
+	valueAsBytes, err := c.client.Get(c.ctx, key).Bytes()
 
-	if err == redis.Nil{
-		return nil,err;
+	if err == redis.Nil {
+		return nil, err
 	}
 
-	value := &CacheValue{};
+	value := &CacheValue{}
 
 	err = json.Unmarshal(valueAsBytes, value)
 
-	return value, err;
+	return value, err
 }
 
-//sets the value of a key
+// sets the value of a key
 func (c *Cache) Set(key string, value *CacheValue, expiration time.Duration) error {
 	return c.client.Set(c.ctx, key, value, expiration).Err()
 }
 
-//prints out all cache contents every x amount of seconds
+// prints out all cache contents every x amount of seconds
 func (cache *Cache) debug() {
 	time.Sleep(10 * time.Second)
 	for {
