@@ -173,42 +173,38 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 
 func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.ResponseWriter, req *http.Request) {
 
-	// GetJobRequest := GetJobProgressRequest{}
+	GetJobRequest := GetJobProgressRequest{}
 
-	// err := json.NewDecoder(req.Body).Decode(&GetJobRequest)
+	err := json.NewDecoder(req.Body).Decode(&GetJobRequest)
 
-	// if err != nil {
-	// 	http.Error(res, err.Error(), http.StatusBadRequest)
-	// 	return
-	// }
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	// GetjobRequestArgs := RPC.GetJobProgressArgs{
-	// 	JobId: GetJobRequest.JobId,
-	// }
+	reply := &RPC.GetSystemProgressReply{}
 
-	// reply := &RPC.GetJobProgressReply{}
+	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+		Name:         "LockServer.HandleGetJobProgress",
+		Args:         &RPC.GetSystemProgressArgs{},
+		Reply:        &reply,
+		SenderLogger: logger.WEBSOCKET_SERVER,
+		Reciever: RPC.Reciever{
+			Name: "Lockserver",
+			Port: LockServerPort,
+			Host: LockServerHost,
+		},
+	})
 
-	// ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-	// 	Name:         "LockServer.HandleGetJobProgress",
-	// 	Args:         GetjobRequestArgs,
-	// 	Reply:        &reply,
-	// 	SenderLogger: logger.WEBSOCKET_SERVER,
-	// 	Reciever: RPC.Reciever{
-	// 		Name: "Lockserver",
-	// 		Port: LockServerPort,
-	// 		Host: LockServerHost,
-	// 	},
-	// })
-
-	// if ok {
-	// 	res.WriteHeader(http.StatusOK)
-	// 	json.NewEncoder(res).Encode(reply)
-	// 	return
-	// } else {
-	// 	logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
-	// }
-	// res.WriteHeader(http.StatusInternalServerError)
-	// json.NewEncoder(res).Encode(false)
+	if ok {
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(reply)
+		return
+	} else {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
+	}
+	res.WriteHeader(http.StatusInternalServerError)
+	json.NewEncoder(res).Encode(false)
 }
 
 func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res http.ResponseWriter, req *http.Request) {
