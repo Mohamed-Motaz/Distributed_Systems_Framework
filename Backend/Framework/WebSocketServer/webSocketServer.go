@@ -39,7 +39,7 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	}
 
 	serveMux := mux.NewRouter()
-	serveMux.HandleFunc("/submitJob", webSocketServer.handleJobRequests)
+	serveMux.HandleFunc("/openWS", webSocketServer.handleJobRequests)
 	serveMux.HandleFunc("/uploadBinary", webSocketServer.handleUploadBinaryRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests).Methods("POST")
 	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests).Methods("POST")
@@ -57,7 +57,7 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 //Middleware to log all incoming requests
 func middlewareLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.LogRequest(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Request received from %v to %v with body %+v", r.RemoteAddr, r.RequestURI)
+		logger.LogRequest(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Request received from %v to %v", r.RemoteAddr, r.RequestURI)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -161,7 +161,7 @@ func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.Re
 
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 		Name:         "LockServer.HandleGetBinaryFiles",
-		Args:         nil,
+		Args:         &RPC.GetBinaryFilesArgs{},
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
 		Reciever: RPC.Reciever{
