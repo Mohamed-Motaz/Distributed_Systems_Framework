@@ -20,9 +20,9 @@ import (
 	"github.com/rs/cors"
 )
 
-func newClient(webSocketConn *websocket.Conn) *Client {
+func newClient(id string, webSocketConn *websocket.Conn) *Client {
 	return &Client{
-		id:            uuid.NewString(),
+		id:            id,
 		finishedJobs:  make(chan string),
 		webSocketConn: webSocketConn,
 	}
@@ -61,6 +61,7 @@ func middlewareLogger(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
 func (webSocketServer *WebSocketServer) listenAndServe() {
 
 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Listening on %v:%v", MyHost, MyPort)
@@ -199,7 +200,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 			if err != nil && err != redis.Nil {
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-				finishedJobObj.Nack(false, true)
+				finishedJobObj.Ack(false) //todo: send the appropriate response to the user
 				continue
 			}
 

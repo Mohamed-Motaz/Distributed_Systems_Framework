@@ -11,7 +11,9 @@ type Cache struct {
 	ctx    context.Context
 }
 
-type CacheValue struct{
-	ServerID string
+//Cache is a map of {ClientID, CacheValue}
+
+type CacheValue struct {
+	ServerID            string
 	FinishedJobsResults []string
 }
