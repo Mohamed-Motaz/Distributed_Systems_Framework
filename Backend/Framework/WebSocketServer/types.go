@@ -46,9 +46,17 @@ type UploadBinaryRequest struct {
 	RunCmd   string `json:"runCmd"`
 }
 
-type DeleteBinaryRequest struct{
-	FileType string  `json:"fileType"`
-	FileName string	 `json:"fileName"`
+type GetJobProgressRequest struct {
+	JobId    string  `json:"jobId"`
+}
+
+type GetAllFinishedJobsRequest struct {
+	ClientId  string  `json:clientId`
+}
+
+type DeleteBinaryRequest struct {
+	FileType string `json:"fileType"`
+	FileName string `json:"fileName"`
 }
 
 const (

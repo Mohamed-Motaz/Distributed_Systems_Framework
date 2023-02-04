@@ -224,7 +224,8 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 }
 
 func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.ResponseWriter, req *http.Request) {
-	GetJobRequest := GetJobProgressRequests{}
+
+	GetJobRequest := GetJobProgressRequest{}
 
 	err := json.NewDecoder(req.Body).Decode(&GetJobRequest)
 
@@ -234,14 +235,11 @@ func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.Re
 	}
 
 	GetjobRequestArgs := RPC.GetJobProgressArgs{
-		JobId:    GetJobRequest.JobId,
-		ClientId: GetJobRequest.ClientId,
+		JobId: GetJobRequest.JobId,
 	}
 
-	reply := RPC.GetJobProgressReply{
-		Progress: GetJobRequest.Progress,
-		Status:   RPC.JobProgress(GetJobRequest.StatusJobProgress),
-	}
+	reply := &RPC.GetJobProgressReply{}
+
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 		Name:         "LockServer.HandleGetJobProgress",
 		Args:         GetjobRequestArgs,
@@ -256,12 +254,10 @@ func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.Re
 
 	if ok {
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(true)
+		json.NewEncoder(res).Encode(reply)
 		return
-	}
-
-	if !ok {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
+	} else {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
 	}
 	res.WriteHeader(http.StatusInternalServerError)
 	json.NewEncoder(res).Encode(false)
@@ -269,13 +265,36 @@ func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.Re
 
 func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res http.ResponseWriter, req *http.Request) {
 
+	GetAllFinishedJobsRequest := GetAllFinishedJobsRequest{}
+
+	err := json.NewDecoder(req.Body).Decode(&GetAllFinishedJobsRequest)
+
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	finishedJobs := &cache.CacheValue{}
+	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsRequest.ClientId)
+
+	if err == nil {
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(finishedJobs)
+
+	} else if err == redis.Nil {
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode("No jobs Found")
+
+	} else {
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(false)
+	}
 }
 
 func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob interface{}) {
 	client.webSocketConn.WriteJSON(finishedJob)
 }
 
-// bool stands for whether to continue with processing the job request or not
 func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
 
 	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
@@ -308,7 +327,6 @@ func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJob
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
 		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with uploading files to lockServer")})
-		//send message to client informing him of possible duplicates or errors
 		return false
 	} else {
 		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
@@ -316,8 +334,7 @@ func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJob
 	return true
 }
 
-// this is a thread the keeps listening on a websocket
-// when it returns, it means I have stopped communicating with the client
+
 func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 	defer func() {
