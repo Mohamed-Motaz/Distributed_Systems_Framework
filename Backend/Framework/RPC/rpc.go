@@ -80,7 +80,7 @@ type FinishedJobReply struct {
 //flow -- Master continuously (every x sec) calls the lockServer (if the master has a current job)
 //ws server will continuously call the lockserver to ask for results -- [of the structs]
 
-type CurrentJobProgress string
+type JobProgress string
 
 const (
 	DISTRIBUTING = "Distributing"
@@ -88,20 +88,19 @@ const (
 	AGGREGATING  = "Aggregating"
 )
 
-type CJP struct {
+type CurrentJobProgress struct {
 	MasterId string
 	JobId    string
 	ClientId string
 	Progress float32
-	Status   CurrentJobProgress
+	Status   JobProgress
 }
 type CurrentJobProgressArgs struct {
-	WebSocketServerCalling bool
-	CJP
+	CurrentJobProgress
 }
 
 type CurrentJobProgressReply struct {
-	Progress []CJP
+	Progress []CurrentJobProgress
 }
 
 //websocketserver - lockserver communication --------------
@@ -139,7 +138,18 @@ type DeleteBinaryFileReply struct {
 	utils.Error
 }
 
-//actual helper functions ----------------------------------------------------------------------------------------------------------------------------------------
+type GetJobProgressArgs struct{
+	JobId    string
+	ClientId string
+}
+
+type GetJobProgressReply struct{
+	Progress float32
+	Status   JobProgress
+}
+
+
+// actual helper functions ----------------------------------------------------------------------------------------------------------------------------------------
 func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 	successfullConnection := false
 	var client *rpc.Client

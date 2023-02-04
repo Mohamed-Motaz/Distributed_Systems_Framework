@@ -233,11 +233,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	}
 	return nil
 }
-func (lockServer *LockServer) HandleGetJobProgress(args *RPC.CurrentJobProgressArgs, reply *RPC.CurrentJobProgressReply) error {
-
-	// if !args.WebSocketServerCalling {
-
-	// }
+func (lockServer *LockServer) HandleGetJobProgress(args *RPC.GetJobProgressArgs, reply *RPC.GetJobProgressReply) error {
 	
 	return nil
 }

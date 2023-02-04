@@ -15,7 +15,7 @@ type LockServer struct {
 	id            string
 	db            *database.DBWrapper
 	mxLateJobTime time.Duration
-	mastersState  map[string]RPC.CJP // key -> masterId, value -> CJP 
+	mastersState  map[string]RPC.CurrentJobProgress // key -> masterId, value -> CJP 
 }
 type FolderName string
 
