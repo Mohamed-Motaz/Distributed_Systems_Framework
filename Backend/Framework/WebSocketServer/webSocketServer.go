@@ -322,11 +322,11 @@ func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJob
 
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
-		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with connecting lockServer")}) //send a message eshtem to client
+		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: "Error with connecting lockServer"}) //send a message eshtem to client
 		return false
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
-		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with uploading files to lockServer")})
+		websocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: "Error with uploading files to lockServer"})
 		return false
 	} else {
 		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
@@ -387,7 +387,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not Enqeue to jobs assigned queue} -> error : %+v", err)
-			webSocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Message queue is not available")})
+			webSocketServer.writeFinishedJob(client, utils.Error{Err: true, ErrMsg: "Message queue is not available"})
 			//send to user telling him that mq is not available now
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully Enqeue to jobs assigned queue")

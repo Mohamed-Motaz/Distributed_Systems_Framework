@@ -51,7 +51,7 @@ type GetJobProgressRequest struct {
 }
 
 type GetAllFinishedJobsRequest struct {
-	ClientId  string  `json:clientId`
+	ClientId  string  `json:"clientId"`
 }
 
 type DeleteBinaryRequest struct {
