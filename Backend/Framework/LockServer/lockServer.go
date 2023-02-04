@@ -36,7 +36,7 @@ func NewLockServer() *LockServer {
 	lockServer := &LockServer{
 		id:            uuid.NewString(), // random id
 		db:            database.NewDbWrapper(database.CreateDBAddress(DbUser, DbPassword, DbProtocol, "", DbHost, DbPort, DbSettings)),
-		mxLateJobTime: time.Duration(-60) * time.Second,
+		mxLateJobTime: time.Duration(-31) * time.Minute,
 		mu:            sync.Mutex{},
 		mastersState:  make(map[string]privCJP),
 	}
@@ -298,7 +298,15 @@ func (lockServer *LockServer) HandleGetSystemProgress(args *RPC.GetSystemProgres
 func (lockServer *LockServer) checkIsMasterAlive() {
 	for {
 		time.Sleep(time.Second * 5)
-
+		lockServer.mu.Lock()
+		for k, v := range lockServer.mastersState {
+			if time.Since(v.lastHeartBeat) > 30*time.Minute {
+				delete(lockServer.mastersState, k)
+			} else if time.Since(v.lastHeartBeat) > 5*time.Second {
+				v.Status = RPC.UNRESPONSIVE
+			}
+		}
+		lockServer.mu.Unlock()
 	}
 }
 
