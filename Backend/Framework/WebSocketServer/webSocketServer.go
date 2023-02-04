@@ -15,7 +15,9 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/rs/cors"
 )
 
 func newClient(webSocketConn *websocket.Conn) *Client {
@@ -36,15 +38,15 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 		mu:      sync.Mutex{},
 	}
 
-	serveMux := http.NewServeMux()
+	serveMux := mux.NewRouter()
 	serveMux.HandleFunc("/submitJob", webSocketServer.handleJobRequests)
-	serveMux.HandleFunc("/uploadBinary", webSocketServer.handleUploadBinaryRequests)
-	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests)
-	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests)
-	serveMux.HandleFunc("/getJobProgress", webSocketServer.handleGetJobProgressRequests)
-	serveMux.HandleFunc("/getAllFinishedJobs", webSocketServer.handleGetAllFinishedJobsRequests)
+	serveMux.HandleFunc("/uploadBinary", webSocketServer.handleUploadBinaryRequests).Methods("POST")
+	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests).Methods("POST")
+	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests).Methods("POST")
+	serveMux.HandleFunc("/getJobProgress", webSocketServer.handleGetJobProgressRequests).Methods("POST")
+	serveMux.HandleFunc("/getAllFinishedJobs", webSocketServer.handleGetAllFinishedJobsRequests).Methods("POST")
 
-	webSocketServer.requestHandler = serveMux
+	webSocketServer.requestHandler = cors.AllowAll().Handler(middlewareLogger(serveMux))
 
 	go webSocketServer.listenAndServe()
 	go webSocketServer.deliverJobs()
@@ -52,8 +54,13 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	return webSocketServer, nil
 }
 
-//todo ADD MIDDLEWARE TO LOG ALL REQUESTS
-
+//Middleware to log all incoming requests
+func middlewareLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.LogRequest(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Request received from %v to %v with body %+v", r.RemoteAddr, r.RequestURI)
+		next.ServeHTTP(w, r)
+	})
+}
 func (webSocketServer *WebSocketServer) listenAndServe() {
 
 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Listening on %v:%v", MyHost, MyPort)
@@ -333,7 +340,6 @@ func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJob
 	}
 	return true
 }
-
 
 func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
