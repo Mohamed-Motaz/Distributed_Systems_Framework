@@ -12,6 +12,7 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,8 +36,11 @@ func NewLockServer() *LockServer {
 		id:            uuid.NewString(), // random id
 		db:            database.NewDbWrapper(database.CreateDBAddress(DbUser, DbPassword, DbProtocol, "", DbHost, DbPort, DbSettings)),
 		mxLateJobTime: time.Duration(-60) * time.Second,
+		mu:            sync.Mutex{},
+		mastersState:  make(map[string]RPC.CurrentJobProgress),
 	}
 	go lockServer.server()
+	go lockServer.checkIsMasterAlive()
 	return lockServer
 }
 
@@ -233,12 +237,29 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	}
 	return nil
 }
-func (lockServer *LockServer) HandleGetJobProgress(args *RPC.GetJobProgressArgs, reply *RPC.GetJobProgressReply) error {
-	
+func (lockServer *LockServer) HandleGetJobProgress(args *RPC.CurrentJobProgressArgs, reply *RPC.CurrentJobProgressReply) error {
+	lockServer.mu.Lock()
+	defer lockServer.mu.Unlock()
+	if !args.IsWebSocketServerCalling {
+		lockServer.mastersState[args.MasterId] = args.CurrentJobProgress
+		return nil
+	}
+	progress := make([]RPC.CurrentJobProgress, 0)
+	for _, v := range lockServer.mastersState {
+		progress = append(progress, v)
+	}
+	reply.Progress = progress
 	return nil
 }
 
 // helper functions
+func (lockServer *LockServer) checkIsMasterAlive() {
+	for {
+		time.Sleep(time.Second * 5)
+		
+
+	}
+}
 
 // return true if there is a late job else false
 func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) bool {

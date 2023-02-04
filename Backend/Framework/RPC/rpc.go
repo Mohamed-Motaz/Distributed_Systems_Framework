@@ -83,9 +83,10 @@ type FinishedJobReply struct {
 type JobProgress string
 
 const (
-	DISTRIBUTING = "Distributing"
-	PROCESSING   = "Processing"
-	AGGREGATING  = "Aggregating"
+	DISTRIBUTING JobProgress = "Distributing"
+	PROCESSING   JobProgress = "Processing"
+	AGGREGATING  JobProgress = "Aggregating"
+	UNRESPONSIVE JobProgress = "Unresponsive"
 )
 
 type CurrentJobProgress struct {
@@ -97,6 +98,7 @@ type CurrentJobProgress struct {
 }
 type CurrentJobProgressArgs struct {
 	CurrentJobProgress
+	IsWebSocketServerCalling bool
 }
 
 type CurrentJobProgressReply struct {
@@ -137,17 +139,6 @@ type DeleteBinaryFileArgs struct {
 type DeleteBinaryFileReply struct {
 	utils.Error
 }
-
-type GetJobProgressArgs struct{
-	JobId    string
-	ClientId string
-}
-
-type GetJobProgressReply struct{
-	Progress float32
-	Status   JobProgress
-}
-
 
 // actual helper functions ----------------------------------------------------------------------------------------------------------------------------------------
 func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
