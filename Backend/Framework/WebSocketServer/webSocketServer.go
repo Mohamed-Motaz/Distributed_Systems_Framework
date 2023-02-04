@@ -54,7 +54,7 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	return webSocketServer, nil
 }
 
-//Middleware to log all incoming requests
+// Middleware to log all incoming requests
 func middlewareLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.LogRequest(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Request received from %v to %v", r.RemoteAddr, r.RequestURI)
@@ -81,8 +81,7 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 
 	client := newClient(upgradedConn)
 
-	clientData := &cache.CacheValue{}
-	clientData, err = webSocketServer.cache.Get(client.id)
+	clientData, err := webSocketServer.cache.Get(client.id)
 
 	webSocketServer.mu.Lock()
 	if err != nil && err != redis.Nil {
@@ -91,7 +90,8 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 		client.webSocketConn.Close()
 		return
 	}
-	clientData.ServerID = webSocketServer.id
+	clientData = &cache.CacheValue{ServerID: webSocketServer.id}
+
 	webSocketServer.cache.Set(client.id, clientData, MAX_IDLE_CACHE_TIME)
 	webSocketServer.clients[client.id] = client
 	webSocketServer.mu.Unlock()
