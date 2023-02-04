@@ -4,6 +4,7 @@ import (
 	logger "Framework/Logger"
 	utils "Framework/Utils"
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -51,12 +52,23 @@ func CreateCacheAddress(host string, port string) string {
 }
 
 //gets the value of a key
-func (c *Cache) Get(key string) (string, error) {
-	return c.client.Get(c.ctx, key).Result();
+func (c *Cache) Get(key string) (*CacheValue, error) {
+
+	valueAsBytes, err := c.client.Get(c.ctx, key).Bytes();
+
+	if err == redis.Nil{
+		return nil,err;
+	}
+
+	value := &CacheValue{};
+
+	err = json.Unmarshal(valueAsBytes, value)
+
+	return value, err;
 }
 
 //sets the value of a key
-func (c *Cache) Set(key string, value interface{}, expiration time.Duration) error {
+func (c *Cache) Set(key string, value *CacheValue, expiration time.Duration) error {
 	return c.client.Set(c.ctx, key, value, expiration).Err()
 }
 

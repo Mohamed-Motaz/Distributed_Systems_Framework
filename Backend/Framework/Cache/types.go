@@ -10,3 +10,8 @@ type Cache struct {
 	client *redis.Client
 	ctx    context.Context
 }
+
+type CacheValue struct{
+	ServerID string
+	FinishedJobsResults []string
+}
