@@ -38,7 +38,7 @@ func NewLockServer() *LockServer {
 		db:            database.NewDbWrapper(database.CreateDBAddress(DbUser, DbPassword, DbProtocol, "", DbHost, DbPort, DbSettings)),
 		mxLateJobTime: time.Duration(-60) * time.Second,
 		mu:            sync.Mutex{},
-		mastersState:  make(map[string]RPC.CurrentJobProgress),
+		mastersState:  make(map[string]privCJP),
 	}
 	if err := lockServer.initDir(); err != nil {
 		logger.FailOnError(logger.LOCK_SERVER, logger.ESSENTIAL, "Error while initializing Files: %v", err)
@@ -179,11 +179,13 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 	binaryFilePath := lockServer.getBinaryFilePath(
 		lockServer.convertFileTypeToFolderType(args.FileType), args.File.Name)
 
-	file, err := os.OpenFile("./"+binaryFilePath, os.O_RDONLY, os.ModePerm)
-	if errors.Is(err, os.ErrNotExist) {
-		// handle the case where the file doesn't exist
+	file, err := os.OpenFile(binaryFilePath, os.O_RDONLY, os.ModePerm)
+	if !errors.Is(err, os.ErrNotExist) {
+		// handle the case where the file already exists
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "The binary file name %+v already exists", args.File.Name)
-		return fmt.Errorf("The binary file name %+v already exists", args.File.Name)
+		reply.Err = true
+		reply.ErrMsg = fmt.Sprintf("The binary file name %+v already exists", args.File.Name) //todo error here is not 500, it is a bad request
+		return nil
 	}
 	file.Close()
 
@@ -203,7 +205,9 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 	err = lockServer.db.CreateRunnableFile(runnableFile).Error
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a runnableFile in the database %+v", err)
-		return err
+		reply.Err = true
+		reply.ErrMsg = fmt.Sprintf("Failed while adding a runnableFile in the database %+v", err)
+		return nil
 	}
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Done adding binary file %+v", args.File.Name)
