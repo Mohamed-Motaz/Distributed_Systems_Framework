@@ -216,7 +216,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				webSocketServer.mu.Unlock()
 
 				if clientIsMine {
-					go webSocketServer.writeFinishedJob(client, finishedJob)
+					go webSocketServer.writeFinishedJob(client, *finishedJob)
 					finishedJobObj.Ack(false) //todo: send the appropriate response to the user
 
 				} else {
@@ -236,7 +236,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				webSocketServer.mu.Unlock()
 
 				if ok {
-					go webSocketServer.writeFinishedJob(client, finishedJob)
+					go webSocketServer.writeFinishedJob(client, *finishedJob)
 				} else {
 					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Connection with client may have been terminated}")
 				}
