@@ -55,7 +55,7 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 	} else {
 		clientData = &cache.CacheValue{
 			ServerID:            webSocketServer.id,
-			FinishedJobsResults: make([]string, 0),
+			FinishedJobs: make([]cache.FinishedJob, 0),
 		}
 	}
 
@@ -263,7 +263,7 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		res.WriteHeader(http.StatusOK)
 		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJobs})
 
-	} else if len(finishedJobs.FinishedJobsResults) == 0 {
+	} else if len(finishedJobs.FinishedJobs) == 0 {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
 		res.WriteHeader(http.StatusOK)
 		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})

@@ -30,7 +30,6 @@ type WebSocketServer struct {
 }
 
 type JobRequest struct {
-	ClientId             string     `json:"clientId"`
 	JobId                string     `json:"jobId"`
 	JobContent           string     `json:"jobContent"`
 	OptionalFilesZip     utils.File `json:"optionalFilesZip"`
