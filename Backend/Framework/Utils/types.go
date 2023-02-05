@@ -15,6 +15,7 @@ type FileType string
 const ProcessBinary FileType = "Process"
 const DistributeBinary FileType = "Distribute"
 const AggregateBinary FileType = "Aggregate"
+const OptionalFiles FileType = "OptionalFiles"
 
 type Error struct {
 	Err    bool   `json:"error"`

@@ -156,6 +156,29 @@ func (lockServer *LockServer) HandleDeleteBinaryFile(args *RPC.DeleteBinaryFileA
 	return nil
 }
 
+func (lockServer *LockServer) HandleDeleteOptionalFiles(args *RPC.DeleteOptionalFilesArgs, reply *RPC.DeleteOptionalFilesReply) error {
+
+	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to delete file %+v", args.JobId)
+
+	reply.Err = false
+
+	optionalFilesFolderPath := lockServer.getOptionalFilesFolderPath(args.JobId);
+
+	if _, err := os.Stat(optionalFilesFolderPath); errors.Is(err, os.ErrNotExist) {
+		return err;
+	}
+
+	err := os.Remove(optionalFilesFolderPath);
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete files at this path %+v with err %+v", optionalFilesFolderPath, err)
+		reply.Err = true
+		reply.ErrMsg = err.Error()
+		return nil
+	}
+	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done deleting file %+v", args.JobId)
+	return nil
+}
+
 func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply *RPC.FinishedJobReply) error {
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to submit finished job %+v", args)
 
@@ -215,6 +238,7 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 }
 
 func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUploadArgs, reply *RPC.FileUploadReply) error {
+
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to add optional files")
 
 	reply.Err = false
@@ -228,10 +252,12 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 	}
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done adding optional files")
+
 	return nil
 }
 
 func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs, reply *RPC.GetBinaryFilesReply) error {
+
 	var foundError bool = false
 	reply.Err = false
 	reply.AggregateBinaryNames = make([]string, 0)
@@ -424,6 +450,7 @@ func (lockServer *LockServer) getOptionalFiles(jobId string) (utils.File, error)
 	//---actualFiles
 	//---actualFiles
 	//---actualFiles
+
 	optionalFilesZip := utils.File{
 		Content: make([]byte, 0),
 	}
@@ -501,6 +528,8 @@ func (lockServer *LockServer) convertFileTypeToFolderType(fileType utils.FileTyp
 		return DISTRIBUTE_BINARY_FOLDER_NAME
 	case utils.AggregateBinary:
 		return AGGREGATE_BINARY_FOLDER_NAME
+	case utils.OptionalFiles:
+		return OPTIONAL_FILES_FOLDER_NAME
 	default:
 		return ""
 	}
