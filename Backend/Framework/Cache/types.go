@@ -2,7 +2,6 @@ package Cache
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -17,10 +16,6 @@ type Cache struct {
 type FinishedJob struct {
 	JobId                string    `json:"jobId"`
 	JobResult            string    `json:"jobResult"`
-	TimeAssigned         time.Time `json:"timeAssigned"`
-	ProcessBinaryName    string    `json:"processBinaryName"`
-	DistributeBinaryName string    `json:"distributeBinaryName"`
-	AggregateBinaryName  string    `json:"aggregateBinaryName"`
 }
 
 type CacheValue struct {

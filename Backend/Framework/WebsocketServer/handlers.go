@@ -263,7 +263,7 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		res.WriteHeader(http.StatusOK)
 		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJobs})
 
-	} else if len(finishedJobs.FinishedJobs) == 0 {
+	} else if err == redis.Nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
 		res.WriteHeader(http.StatusOK)
 		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})

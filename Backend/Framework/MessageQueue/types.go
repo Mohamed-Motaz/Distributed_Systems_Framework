@@ -3,7 +3,6 @@ package MessageQueue
 import (
 	utils "Framework/Utils"
 	"sync"
-	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -37,9 +36,5 @@ type FinishedJob struct {
 	JobId                string    `json:"jobId"`
 	Content              string    `json:"content"`
 	Result               string    `json:"result"`
-	TimeAssigned         time.Time `json:"timeAssigned"`
-	ProcessBinaryName    string    `json:"processBinaryName"`
-	DistributeBinaryName string    `json:"distributeBinaryName"`
-	AggregateBinaryName  string    `json:"aggregateBinaryName"`
 	utils.Error
 }
