@@ -47,16 +47,19 @@ type UploadBinaryRequest struct {
 }
 
 type GetSystemProgressRequest struct {
-	JobId    string  `json:"jobId"`
+	JobId string `json:"jobId"`
 }
 
 type GetAllFinishedJobsRequest struct {
-	ClientId  string  `json:"clientId"`
+	ClientId string `json:"clientId"`
 }
 
 type DeleteBinaryRequest struct {
 	FileType string `json:"fileType"`
 	FileName string `json:"fileName"`
+}
+type DeleteOptionalfilesRequest struct {
+	JobId string `json:"jobId"`
 }
 
 const (

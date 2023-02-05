@@ -145,6 +145,13 @@ type GetSystemProgressReply struct {
 	Progress []CurrentJobProgress
 	utils.Error
 }
+type DeleteOptionalFilesArgs struct {
+	JobId string
+}
+
+type DeleteOptionalFilesReply struct {
+	utils.Error
+}
 
 // actual helper functions ----------------------------------------------------------------------------------------------------------------------------------------
 func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
