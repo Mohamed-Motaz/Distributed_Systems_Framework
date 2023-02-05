@@ -58,9 +58,6 @@ type DeleteBinaryRequest struct {
 	FileType string `json:"fileType"`
 	FileName string `json:"fileName"`
 }
-type DeleteOptionalfilesRequest struct {
-	JobId string `json:"jobId"`
-}
 
 const (
 	_MY_HOST            string        = "MY_HOST"

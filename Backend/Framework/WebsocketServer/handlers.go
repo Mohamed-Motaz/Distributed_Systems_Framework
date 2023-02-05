@@ -59,7 +59,14 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 		}
 	}
 
-	webSocketServer.cache.Set(client.id, clientData, MAX_IDLE_CACHE_TIME) //this returns an error, 3ayat
+	err = webSocketServer.cache.Set(client.id, clientData, MAX_IDLE_CACHE_TIME)
+
+	if err != nil {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+		webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Cache is down temporarily, please try again later"})
+		client.webSocketConn.Close() //need to close the connection because the cache is down, and I can't map the client to the server
+		return
+	}
 
 	go webSocketServer.listenForJobs(client)
 }
@@ -266,21 +273,12 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
 	}
 }
-func (webSocketServer *WebSocketServer) handleDaleteOptionalFiles(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Content-Type", "application/json")
-
-	deleteOptionalFiles := DeleteOptionalfilesRequest{}
+func (webSocketServer *WebSocketServer) handleDeleteOptionalFiles(jobId string) {
 
 	reply := RPC.DeleteOptionalFilesReply{}
 
-	err := json.NewDecoder(req.Body).Decode(&deleteOptionalFiles)
-
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
-	}
 	deleteOptionalFilesArgs := RPC.DeleteOptionalFilesArgs{
-		JobId: deleteOptionalFiles.JobId,
+		JobId: jobId,
 	}
 
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
@@ -297,16 +295,10 @@ func (webSocketServer *WebSocketServer) handleDaleteOptionalFiles(res http.Respo
 
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
-		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
-
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Optional file from lockServer} -> error : %+v", reply.ErrMsg)
-		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with Deleting Optional file from lockServer %+v", err)})
 	} else {
-		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true})
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Optional Files Deleted}")
 	}
 
 }
