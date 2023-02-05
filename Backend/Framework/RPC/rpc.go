@@ -143,6 +143,7 @@ type GetSystemProgressArgs struct {
 
 type GetSystemProgressReply struct {
 	Progress []CurrentJobProgress
+	utils.Error
 }
 
 // actual helper functions ----------------------------------------------------------------------------------------------------------------------------------------

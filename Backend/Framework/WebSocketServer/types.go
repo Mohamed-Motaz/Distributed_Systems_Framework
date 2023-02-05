@@ -46,7 +46,7 @@ type UploadBinaryRequest struct {
 	RunCmd   string `json:"runCmd"`
 }
 
-type GetJobProgressRequest struct {
+type GetSystemProgressRequest struct {
 	JobId    string  `json:"jobId"`
 }
 

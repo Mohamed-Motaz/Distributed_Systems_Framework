@@ -22,5 +22,6 @@ type Error struct {
 }
 
 type Success struct {
-	Success bool `json:"success"`
+	Success  bool        `json:"success"`
+	Response interface{} `json:"response"`
 }

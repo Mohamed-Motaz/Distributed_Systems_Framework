@@ -43,7 +43,7 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	serveMux.HandleFunc("/uploadBinary", webSocketServer.handleUploadBinaryRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests).Methods("POST")
 	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests).Methods("POST")
-	serveMux.HandleFunc("/getJobProgress", webSocketServer.handleGetJobProgressRequests).Methods("POST")
+	serveMux.HandleFunc("/getJobProgress", webSocketServer.handleGetSystemProgressRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllFinishedJobs", webSocketServer.handleGetAllFinishedJobsRequests).Methods("POST")
 
 	webSocketServer.requestHandler = cors.AllowAll().Handler(middlewareLogger(serveMux))
@@ -81,8 +81,8 @@ func (webSocketServer *WebSocketServer) writeError(client *Client, err utils.Err
 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
 }
 
-//this method shows whether or not the server succeeding in sending the optionalFilesZip if there are any
-//this method is responsible for sending the errors it encounters to the client
+// this method shows whether or not the server succeeding in sending the optionalFilesZip if there are any
+// this method is responsible for sending the errors it encounters to the client
 func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
 
 	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
@@ -122,8 +122,8 @@ func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJob
 	return true
 }
 
-//this method is responsible for listening on the specific websocket connection
-//this method returns only when the connection is closed
+// this method is responsible for listening on the specific websocket connection
+// this method returns only when the connection is closed
 func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 	defer func() {
@@ -207,45 +207,34 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			clientData := &cache.CacheValue{}
 			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
 
-			if err != nil && err != redis.Nil {
+			webSocketServer.mu.Lock()
+			client, clientIsAlive := webSocketServer.clients[finishedJob.ClientId]
+			webSocketServer.mu.Unlock()
+
+			//DONE: send the appropriate response to the user
+
+			if clientIsAlive {
+				go webSocketServer.writeFinishedJob(client, *finishedJob)
 				//cache is not working at the moment
-				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-
-				webSocketServer.mu.Lock()
-				client, clientIsMine := webSocketServer.clients[finishedJob.ClientId]
-				webSocketServer.mu.Unlock()
-
-				if clientIsMine {
-					go webSocketServer.writeFinishedJob(client, *finishedJob)
-					finishedJobObj.Ack(false) //todo: send the appropriate response to the user
-
-				} else {
-					finishedJobObj.Nack(false, true)
+				if err != nil && err != redis.Nil {
+					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+					finishedJobObj.Ack(false)
+					continue
 				}
-
-				continue
 			}
 
 			if clientData.ServerID == webSocketServer.id {
 
 				clientData.FinishedJobsResults = append(clientData.FinishedJobsResults, finishedJob.Content)
-				webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+				err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
 
-				webSocketServer.mu.Lock()
-				client, ok := webSocketServer.clients[finishedJob.ClientId]
-				webSocketServer.mu.Unlock()
-
-				if ok {
-					go webSocketServer.writeFinishedJob(client, *finishedJob)
-				} else {
-					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Connection with client may have been terminated}")
+				if err != nil {
+					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
 				}
-
 				finishedJobObj.Ack(false)
 
 			} else {
 				finishedJobObj.Nack(false, true)
-				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Client is currently connecting to another server}")
 			}
 
 		}

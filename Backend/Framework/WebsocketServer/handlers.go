@@ -13,12 +13,16 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//deals with a ws upgrade connection
+// deals with a ws upgrade connection
 func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWriter, req *http.Request) {
+
 	vars := mux.Vars(req)
 	clientId, ok := vars["clientId"]
 	if !ok {
-		//todo respond with an error requiring an id
+		//DONE respond with an error requiring an id
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Client didn't send the ID}")
+		res.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: ("You must send the client Id" )})
 		return
 	}
 
@@ -98,14 +102,8 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 		},
 	})
 
-	if ok && !reply.Err {
-		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true})
-		return
-	}
-
 	if !ok {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
 		res.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
 
@@ -113,10 +111,13 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Adding files to lockServer} -> error : %+v", reply.ErrMsg)
 		res.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error while adding files to the lockserver %+v", err)})
+	}else{
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(utils.Success{Success: true})
 	}
 }
 
-//todo fix the rest
+// DONE fix the rest
 func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
@@ -135,18 +136,19 @@ func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.Re
 		},
 	})
 
-	if ok && !reply.Err {
-		json.NewEncoder(res).Encode(reply)
-		return
-	}
-
 	if !ok {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
 
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with recieving files from lockServer} -> error : %+v", reply.ErrMsg)
+		res.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with recieving files from lockServer %+v", err)})
+	}else{
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: reply})
 	}
-	json.NewEncoder(res).Encode(false)
 }
 
 func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.ResponseWriter, req *http.Request) {
@@ -180,25 +182,26 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 		},
 	})
 
-	if ok && !reply.Err {
-		json.NewEncoder(res).Encode(true)
-		return
-	}
-
 	if !ok {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connect lockServer} -> error : %+v", err)
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
 
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Binary file from lockServer} -> error : %+v", reply.ErrMsg)
+		res.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with Deleting Binary file from lockServer %+v", err)})
+	}else{
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(utils.Success{Success: true})
 	}
-	json.NewEncoder(res).Encode(false)
 }
 
-func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.ResponseWriter, req *http.Request) {
+func (webSocketServer *WebSocketServer) handleGetSystemProgressRequests(res http.ResponseWriter, req *http.Request) {
 
-	GetJobRequest := GetJobProgressRequest{}
+	GetSystemProgressRequest := GetSystemProgressRequest{}
 
-	err := json.NewDecoder(req.Body).Decode(&GetJobRequest)
+	err := json.NewDecoder(req.Body).Decode(&GetSystemProgressRequest)
 
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -219,15 +222,19 @@ func (webSocketServer *WebSocketServer) handleGetJobProgressRequests(res http.Re
 		},
 	})
 
-	if ok {
+	if !ok {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
+
+	} else if reply.Err {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Getting system progress from lockServer} -> error : %+v", reply.ErrMsg)
+		res.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with Getting system progress from lockServer %+v", err)})
+	}else{
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(reply)
-		return
-	} else {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
+		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: reply})
 	}
-	res.WriteHeader(http.StatusInternalServerError)
-	json.NewEncoder(res).Encode(false)
 }
 
 func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res http.ResponseWriter, req *http.Request) {
@@ -245,15 +252,17 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsRequest.ClientId)
 
 	if err == nil {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished jobs sent to client} -> jobs : %+v", finishedJobs)
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(finishedJobs)
+		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJobs})
 
-	} else if err == redis.Nil {
+	} else if len(finishedJobs.FinishedJobsResults) == 0 {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode("No jobs Found")
-
-	} else {
+		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})
+	}else{
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting to cache at the moment} -> error : %+v", err)
 		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(false)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
 	}
 }
