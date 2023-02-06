@@ -10,8 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-)   
-    
+)
+
 func (lockServer *LockServer) checkIsMasterAlive() {
 	for {
 		time.Sleep(time.Second * 5)
@@ -25,32 +25,73 @@ func (lockServer *LockServer) checkIsMasterAlive() {
 		}
 		lockServer.mu.Unlock()
 	}
-}   
-    
-//  return true if there is a late job else false
-func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) bool {
-    
-	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Attempting to assign late job to master %+v", args.MasterId)
-    
-	lateJob := &database.JobInfo{}
-    
-	err := lockServer.db.GetLatestInProgressJobsInfo(lateJob, time.Now().Add(lockServer.mxLateJobTime)).Error
-    
-	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in progress jobs %+v for master %+v", err, args.MasterId)
-		*reply = RPC.GetJobReply{} //not accepted
-		return false
+}
+
+//logic is as follows
+//check if any master's heartbeat has passed mxLateHeartBeat
+//if true, then check the db to get the minimum time assigned (earliest job)
+//return this earlies job
+//return a jobId
+func (lockServer *LockServer) findLateJob() *database.JobInfo {
+	lockServer.mu.Lock()
+	defer lockServer.mu.Unlock()
+
+	var minLateJob *database.JobInfo = nil
+	minTimeJobAssigned := time.Now()
+	for k, v := range lockServer.mastersState {
+		if time.Since(v.lastHeartBeat) > lockServer.mxLateHeartBeat {
+			lateJob := *&database.JobInfo{}
+
+			if err := lockServer.db.GetJobByJobId(&lateJob, v.JobId); err != nil || lateJob.Id == 0 {
+				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in progress jobs %+v from db with err %+v", k.JobId, err)
+				continue
+			}
+
+			if lateJob.TimeAssigned.Before(minTimeJobAssigned) {
+				minTimeJobAssigned = lateJob.TimeAssigned
+				minLateJob = &lateJob
+			}
+		}
 	}
-    
-	if lateJob.Id == 0 {
+
+	return minLateJob
+}
+
+//  return true if there is a late job else false
+//expect to hold a lock
+func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) bool {
+
+	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Attempting to assign late job to master %+v", args.MasterId)
+
+	lateJob := lockServer.findLateJob()
+
+	if lateJob == nil {
 		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no late job for master %+v", args.MasterId)
 		*reply = RPC.GetJobReply{} //not accepted
 		return false
 	}
-    
+
 	// found job, let's assign it :')
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Found a late job that will be reassigned %+v", lateJob)
-    
+
+	//case that will be ignored -- if i delete, then fail to create todo
+
+	//delete the old lateJob
+	if err := lockServer.db.DeleteJobById(lateJob.Id).Error; err != nil {
+		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to delete old master's job with err %+v", err)
+		*reply = RPC.GetJobReply{} //not accepted
+		return false
+	}
+	//insert the new job with the new master
+	lateJob.Id = 0
+	lateJob.MasterId = args.MasterId
+	lateJob.TimeAssigned = time.Now()
+	if err := lockServer.db.CreateJobsInfo(lateJob).Error; err != nil {
+		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to insert new master's job with err %+v", err)
+		*reply = RPC.GetJobReply{} //not accepted
+		return false
+	}
+
 	// assign late job to the master
 	reply.IsAccepted = true
 	reply.JobId = lateJob.JobId
@@ -74,17 +115,10 @@ func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.Get
 	// receive the optionalFiles from the ws server as a zip file
 	reply.OptionalFilesZip = optionalFiles
 	return true
-}   
-    
-func deleteFolder(path string) error {
-	err := os.Remove(path)
-	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete folder at this path %+v", path, err)
-	}
-	return err
-}   
-    
-func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName, fileType utils.FileType, binaryName, binaryType string) (utils.RunnableFile, error) {
+
+}
+
+func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName, fileType utils.FileType, binaryName string) (utils.RunnableFile, error) {
 	binaryRunnableFile := utils.RunnableFile{
 		File: utils.File{
 			Content: make([]byte, 0),
@@ -94,16 +128,16 @@ func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName,
 	binaryFileContent, err := os.ReadFile(
 		lockServer.getBinaryFilePath(folderName, binaryName))
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from %+v folder %+v", binaryName, binaryType, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from %+v folder %+v", binaryName, fileType, err)
 		return binaryRunnableFile, err
 	}
 	err = lockServer.db.GetRunCmdOfBinary(runnableFile, binaryName, string(fileType)).Error
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in runCmd of %+v %+v", binaryType, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in runCmd of %+v %+v", fileType, err)
 		return binaryRunnableFile, err
 	}
 	if runnableFile.Id == 0 {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db %+v", binaryType, binaryName, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db", fileType, binaryName)
 		return binaryRunnableFile, err
 	}
 	binaryRunnableFile.File = utils.File{
@@ -112,74 +146,77 @@ func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName,
 	}
 	binaryRunnableFile.RunCmd = runnableFile.BinaryRunCmd
 	return binaryRunnableFile, nil
-}   
-    
+}
+
 func (lockServer *LockServer) setBinaryFiles(processBinaryName, distributeBinaryName, aggregateBinaryName string) (utils.RunnableFile, utils.RunnableFile, utils.RunnableFile, error) {
 	ProcessBinary := utils.RunnableFile{}
 	DistributeBinary := utils.RunnableFile{}
 	AggregateBinary := utils.RunnableFile{}
-	ProcessBinary, err := lockServer.getBinaryRunnableFileFromDB(PROCESS_BINARY_FOLDER_NAME, utils.ProcessBinary, processBinaryName, "Process")
+	ProcessBinary, err := lockServer.getBinaryRunnableFileFromDB(PROCESS_BINARY_FOLDER_NAME, utils.ProcessBinary, processBinaryName)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get runCmd of processBinaryName %+v from the db %+v", processBinaryName, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", processBinaryName, err)
 		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
-	DistributeBinary, err = lockServer.getBinaryRunnableFileFromDB(DISTRIBUTE_BINARY_FOLDER_NAME, utils.DistributeBinary, distributeBinaryName, "Distribute")
+	DistributeBinary, err = lockServer.getBinaryRunnableFileFromDB(DISTRIBUTE_BINARY_FOLDER_NAME, utils.DistributeBinary, distributeBinaryName)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get runCmd of distributeBinaryName %+v from the db %+v", distributeBinaryName, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", distributeBinaryName, err)
 		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
-	AggregateBinary, err = lockServer.getBinaryRunnableFileFromDB(AGGREGATE_BINARY_FOLDER_NAME, utils.AggregateBinary, aggregateBinaryName, "Aggregate")
+	AggregateBinary, err = lockServer.getBinaryRunnableFileFromDB(AGGREGATE_BINARY_FOLDER_NAME, utils.AggregateBinary, aggregateBinaryName)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get runCmd of aggregateBinaryName %+v from the db %+v", aggregateBinaryName, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", aggregateBinaryName, err)
 		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
 	return ProcessBinary, DistributeBinary, AggregateBinary, nil
-}   
-    
-func (lockServer *LockServer) getOptionalFiles(jobId string) (utils.File, error) {	
-	
+}
+
+func (lockServer *LockServer) getOptionalFiles(jobId string) (utils.File, error) {
+
 	//-OptionalFiles
 	//--JobId
 	//---actualFiles
-	//---actualFiles
-	//---actualFiles
-    
+
 	optionalFilesZip := utils.File{
 		Content: make([]byte, 0),
 	}
-	
+
 	optionalFilesFolderPath := lockServer.getOptionalFilesFolderPath(jobId)
-	
+
 	if _, err := os.Stat(optionalFilesFolderPath); errors.Is(err, os.ErrNotExist) {
 		return optionalFilesZip, err
 	}
 
-	file, err := ioutil.ReadDir(optionalFilesFolderPath)
-	
+	files, err := ioutil.ReadDir(optionalFilesFolderPath)
+
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get optional zip file %+v", err)
 		return optionalFilesZip, err
 	}
-    
-	optionalFiles, err := os.ReadFile(filepath.Join(optionalFilesFolderPath, file[0].Name()))
-	
+
+	if len(files) == 0 {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Optional files dir %+v has no optional files", optionalFilesFolderPath)
+		return optionalFilesZip, err
+	}
+
+	optionalFilesContent, err := os.ReadFile(filepath.Join(optionalFilesFolderPath, files[0].Name()))
+
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL,
-			"Cannot get file %+v from optional files folder with err %+v", filepath.Join(optionalFilesFolderPath, file[0].Name()), err)
-		return optionalFilesZip, err //todo should I actually return the remaining files or not
+			"Cannot get file %+v from optional files folder with err %+v", filepath.Join(optionalFilesFolderPath, files[0].Name()), err)
+		return optionalFilesZip, err
 	}
-	
+
 	optionalFilesZip = utils.File{
-		Name:    file[0].Name(),
-		Content: optionalFiles,
+		Name:    files[0].Name(),
+		Content: optionalFilesContent,
 	}
-	
+
 	return optionalFilesZip, nil
-    
-}   
-    
-func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) {
-	
+
+}
+
+func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) error {
+
 	// assign job to the master and update database
 	jobInfo := &database.JobInfo{
 		ClientId:             args.ClientId,
@@ -191,43 +228,42 @@ func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) {
 		ProcessBinaryName:    args.ProcessBinaryName,
 		DistributeBinaryName: args.DistributeBinaryName,
 		AggregateBinaryName:  args.AggregateBinaryName,
-		//You need to create a new table, that maps each process name, to its run cmd.
-		//You will receive the run cmd from the ws server when uploading a binary
 	}
-    
+
 	// add job to database
 	err := lockServer.db.CreateJobsInfo(jobInfo).Error
-	
+
 	if err != nil {
 		//todo should there be an error returned to the master?
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a job in database %+v", err)
-		return
+		return err
 	}
-	
+
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Job added successfully %+v", args.JobId)
-    
-}   
-    
+	return nil
+
+}
+
 func (lockServer *LockServer) getBinaryFilePath(folderName FolderName, fileName string) string {
-	
+
 	//-Binaries
 	//--Process
 	//---zipFile
 	return filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(folderName), fileName)
-}   
-    
+}
+
 func (lockServer *LockServer) getOptionalFilesFolderPath(jobId string) string {
 	//-OptionalFiles
 	//--JobId
 	//---actualFiles
-	
+
 	return filepath.Join(string(OPTIONAL_FILES_FOLDER_NAME), jobId)
-}   
-    
+}
+
 func (lockServer *LockServer) convertFileTypeToFolderType(fileType utils.FileType) FolderName {
-	
+
 	switch fileType {
-	
+
 	case utils.ProcessBinary:
 		return PROCESS_BINARY_FOLDER_NAME
 	case utils.DistributeBinary:
@@ -239,6 +275,5 @@ func (lockServer *LockServer) convertFileTypeToFolderType(fileType utils.FileTyp
 	default:
 		return ""
 	}
-    
-}   
-    
+
+}

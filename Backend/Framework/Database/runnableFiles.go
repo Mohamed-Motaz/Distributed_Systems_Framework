@@ -5,10 +5,10 @@ import (
 )
 
 type RunnableFiles struct {
-	Id           int    `gorm:"primaryKey; column:id"                   json:"id"`
-	BinaryName   string `gorm:"primaryKey; column:binaryName"           json:"binaryName"`
-	BinaryType   string `gorm:"column:binaryType"                       json:"binaryType"`
-	BinaryRunCmd string `gorm:"primaryKey; column:binaryRunCmd"         json:"binaryRunCmd"`
+	Id           int    `gorm:"primaryKey; column:id"       json:"id"`
+	BinaryName   string `gorm:"column:binaryName"           json:"binaryName"`
+	BinaryType   string `gorm:"column:binaryType"           json:"binaryType"`
+	BinaryRunCmd string `gorm:"column:binaryRunCmd"         json:"binaryRunCmd"`
 }
 
 func (RunnableFiles) TableName() string {

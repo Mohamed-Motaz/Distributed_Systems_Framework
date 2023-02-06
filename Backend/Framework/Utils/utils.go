@@ -62,7 +62,6 @@ func ExecuteProcess(loggerRole int, processType FileType, tmpFile File, exeFile 
 }
 
 func CreateAndWriteToFile(name string, data []byte) error {
-	fmt.Printf(filepath.Dir(name))
 	if err := os.MkdirAll("./"+filepath.Dir(name), os.ModePerm); err != nil {
 		return err
 	}

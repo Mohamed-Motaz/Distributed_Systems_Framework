@@ -29,11 +29,13 @@ import (
 func NewLockServer() *LockServer {
 
 	lockServer := &LockServer{
-		id:            uuid.NewString(), // random id
-		db:            database.NewDbWrapper(database.CreateDBAddress(DbUser, DbPassword, DbProtocol, "", DbHost, DbPort, DbSettings)),
-		mxLateJobTime: time.Duration(-31) * time.Minute,
-		mu:            sync.Mutex{},
-		mastersState:  make(map[string]privCJP),
+		id:              uuid.NewString(), // random id
+		db:              database.NewDbWrapper(database.CreateDBAddress(DbUser, DbPassword, DbProtocol, "", DbHost, DbPort, DbSettings)),
+		mxLateJobTime:   time.Duration(-60) * time.Minute,
+		mxLateHeartBeat: time.Duration(5) * time.Minute,
+		mu:              sync.Mutex{},
+		getJobMu:        sync.Mutex{},
+		mastersState:    make(map[string]privCJP),
 	}
 	if err := lockServer.initDir(); err != nil {
 		logger.FailOnError(logger.LOCK_SERVER, logger.ESSENTIAL, "Error while initializing Files: %v", err)
@@ -81,5 +83,3 @@ func (lockServer *LockServer) initDir() error {
 	}
 	return nil
 }
-
-// helper functions

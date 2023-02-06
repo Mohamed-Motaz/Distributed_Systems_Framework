@@ -13,8 +13,9 @@ import (
 	"time"
 )
 
-
 func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) error {
+	lockServer.getJobMu.Lock()
+	defer lockServer.getJobMu.Unlock()
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "A master requests job %+v", args)
 	reply.IsAccepted = false
@@ -32,7 +33,7 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 
 	//check the job isn't assigned to other master
 	jobsInfo := &database.JobInfo{}
-	err := lockServer.db.CheckIsJobAssigned(jobsInfo, args.JobId).Error
+	err := lockServer.db.GetJobByJobId(jobsInfo, args.JobId).Error
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while checking if this job is assigned to another master %+v", err)
 		return nil
@@ -60,7 +61,13 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		}
 		// receive the optionalFiles from the ws server as a zip file
 		reply.OptionalFilesZip = optionalFiles
-		lockServer.addJobToDB(args)
+		if err = lockServer.addJobToDB(args); err != nil {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request rejected %+v because of db err %+v", args.JobId, err)
+			*reply = RPC.GetJobReply{} //not accepted
+			return nil
+		}
+
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request accepted %+v", reply)
 		return nil
 	}
 	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request rejected %+v", args.JobId)
@@ -89,55 +96,55 @@ func (lockServer *LockServer) HandleDeleteBinaryFile(args *RPC.DeleteBinaryFileA
 }
 
 func (lockServer *LockServer) HandleDeleteOptionalFiles(args *RPC.DeleteOptionalFilesArgs, reply *RPC.DeleteOptionalFilesReply) error {
-    
+
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to delete file %+v", args.JobId)
-    
+
 	reply.Err = false
-    
-	optionalFilesFolderPath := lockServer.getOptionalFilesFolderPath(args.JobId);
-    
+
+	optionalFilesFolderPath := lockServer.getOptionalFilesFolderPath(args.JobId)
+
 	if _, err := os.Stat(optionalFilesFolderPath); errors.Is(err, os.ErrNotExist) {
-		return err;
+		return err
 	}
-    
-	err := os.Remove(optionalFilesFolderPath);
-	
+
+	err := os.Remove(optionalFilesFolderPath)
+
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete files at this path %+v with err %+v", optionalFilesFolderPath, err)
 		reply.Err = true
 		reply.ErrMsg = err.Error()
 		return nil
 	}
-    
+
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done deleting file %+v", args.JobId)
-    
+
 	return nil
-}   
+}
 
 func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply *RPC.FinishedJobReply) error {
-    
+
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to submit finished job %+v", args)
-    
+
 	err := lockServer.db.DeleteJobById(args.JobId).Error //todo decide whether or not to delete jobs
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete job id from the database %+v", err)
 		return nil
 	}
-    
+
 	err = deleteFolder(lockServer.getOptionalFilesFolderPath(args.JobId))
 	if err != nil {
 		return nil
 	}
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done handling finished job %+v", args)
 	return nil
-}   
-    
+}
+
 func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, reply *RPC.FileUploadReply) error {
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to add binary file", args.File.Name)
 	reply.Err = false
 	binaryFilePath := lockServer.getBinaryFilePath(
 		lockServer.convertFileTypeToFolderType(args.FileType), args.File.Name)
-    
+
 	file, err := os.OpenFile(binaryFilePath, os.O_RDONLY, os.ModePerm)
 	if !errors.Is(err, os.ErrNotExist) {
 		// handle the case where the file already exists
@@ -147,9 +154,9 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 		return nil
 	}
 	file.Close()
-    
+
 	err = utils.CreateAndWriteToFile(binaryFilePath, args.File.Content)
-	
+
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to add this binary file, fileName: %v with err %+v", args.File.Name, err)
 		reply.Err = true
@@ -163,17 +170,17 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 	}
 	// add runnableFile to database
 	err = lockServer.db.CreateRunnableFile(runnableFile).Error
-	
+
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a runnableFile in the database %+v", err)
 		reply.Err = true
 		reply.ErrMsg = fmt.Sprintf("Failed while adding a runnableFile in the database %+v", err)
 		return nil
 	}
-    
+
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Done adding binary file %+v", args.File.Name)
 	return nil
-}   
+}
 
 func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUploadArgs, reply *RPC.FileUploadReply) error {
 
