@@ -4,13 +4,11 @@ import (
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
 	utils "Framework/Utils"
-	"bytes"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"Framework/RPC"
-	"encoding/gob"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -126,19 +124,19 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		return err
 	}
 
-	var tasks *[]string
-	err = gob.NewDecoder(bytes.NewReader(data)).Decode(tasks)
+	tasks := strings.Split(string(data), ",") //expect the tasks to be comma-separated
+
 	if err != nil {
 		return fmt.Errorf("error while decoding the tasks array created by the distribute binary")
 	}
 	logger.LogInfo(logger.MASTER, logger.DEBUGGING, "These are the tasks for the job %+v\n: %+v", master.currentJob.jobId, tasks)
 
 	//now that I have the tasks, set the appropriate fields in the master
-	master.currentJob.tasks = make([]Task, len(*tasks))
-	master.currentJob.finishedTasksFilePaths = make([]string, len(*tasks))
-	master.currentJob.workersTimers = make([]WorkerAndHisTimer, len(*tasks))
+	master.currentJob.tasks = make([]Task, len(tasks))
+	master.currentJob.finishedTasksFilePaths = make([]string, len(tasks))
+	master.currentJob.workersTimers = make([]WorkerAndHisTimer, len(tasks))
 
-	for i, task := range *tasks {
+	for i, task := range tasks {
 		master.currentJob.tasks[i] = Task{
 			id:      uuid.NewString(),
 			content: task,
@@ -195,12 +193,12 @@ func (master *Master) sendPeriodicProgress() {
 		progress /= float32(len(master.currentJob.tasks))
 
 		args := &RPC.SetJobProgressArgs{
-			RPC.CurrentJobProgress{ 
-			MasterId: master.id,
-			JobId:    master.currentJob.jobId,
-			ClientId: master.currentJob.clientId,
-			Progress: progress,
-			Status:   RPC.PROCESSING, //todo this will probably change in the future
+			RPC.CurrentJobProgress{
+				MasterId: master.id,
+				JobId:    master.currentJob.jobId,
+				ClientId: master.currentJob.clientId,
+				Progress: progress,
+				Status:   RPC.PROCESSING, //todo this will probably change in the future
 			},
 		}
 
