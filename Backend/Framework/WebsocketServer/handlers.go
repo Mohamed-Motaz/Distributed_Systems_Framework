@@ -54,7 +54,7 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 		//leave the finishedJobsResults as it is
 	} else {
 		clientData = &cache.CacheValue{
-			ServerID:            webSocketServer.id,
+			ServerID:     webSocketServer.id,
 			FinishedJobs: make([]cache.FinishedJob, 0),
 		}
 	}
@@ -273,6 +273,46 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
 	}
 }
+
+func (websocketServer *WebSocketServer) handleSendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
+
+	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
+		return true
+	}
+
+	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
+		JobId:    newJobRequest.JobId,
+		FilesZip: newJobRequest.OptionalFilesZip,
+	}
+
+	reply := &RPC.FileUploadReply{}
+
+	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+		Name:         "LockServer.HandleAddOptionalFiles",
+		Args:         optionalFilesUploadArgs,
+		Reply:        &reply,
+		SenderLogger: logger.WEBSOCKET_SERVER,
+		Reciever: RPC.Reciever{
+			Name: "Lockserver",
+			Port: LockServerPort,
+			Host: LockServerHost,
+		},
+	})
+
+	if !ok { //can't establish connection to the lockserver
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
+		websocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Error with connecting lockServer"}) //send a message eshtem to client
+		return false
+	} else if reply.Err { //establish a connection to the lockserver, but the operation fails
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
+		websocketServer.writeError(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with uploading files to lockServer: %+v", reply.Err)})
+		return false
+	} else {
+		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
+	}
+	return true
+}
+
 func (webSocketServer *WebSocketServer) handleDeleteOptionalFiles(jobId string) {
 
 	reply := RPC.DeleteOptionalFilesReply{}

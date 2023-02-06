@@ -4,11 +4,9 @@ import (
 	cache "Framework/Cache"
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
-	"Framework/RPC"
 	utils "Framework/Utils"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -54,14 +52,6 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	return webSocketServer, nil
 }
 
-// Middleware to log all incoming requests
-func middlewareLogger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.LogRequest(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Request received from %v to %v", r.RemoteAddr, r.RequestURI)
-		next.ServeHTTP(w, r)
-	})
-}
-
 func (webSocketServer *WebSocketServer) listenAndServe() {
 
 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Listening on %v:%v", MyHost, MyPort)
@@ -71,55 +61,12 @@ func (webSocketServer *WebSocketServer) listenAndServe() {
 	}
 }
 
-func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob mq.FinishedJob) {
-	client.webSocketConn.WriteJSON(finishedJob)
-	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Job sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), finishedJob)
-}
-
-func (webSocketServer *WebSocketServer) writeError(client *Client, err utils.Error) {
-	client.webSocketConn.WriteJSON(err)
-	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
-}
-
-// this method shows whether or not the server succeeding in sending the optionalFilesZip if there are any
-// this method is responsible for sending the errors it encounters to the client
-func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
-
-	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
-		return true
-	}
-
-	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
-		JobId:    newJobRequest.JobId,
-		FilesZip: newJobRequest.OptionalFilesZip,
-	}
-
-	reply := &RPC.FileUploadReply{}
-
-	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleAddOptionalFiles",
-		Args:         optionalFilesUploadArgs,
-		Reply:        &reply,
-		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
-			Name: "Lockserver",
-			Port: LockServerPort,
-			Host: LockServerHost,
-		},
+// Middleware to log all incoming requests
+func middlewareLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.LogRequest(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Request received from %v to %v", r.RemoteAddr, r.RequestURI)
+		next.ServeHTTP(w, r)
 	})
-
-	if !ok { //can't establish connection to the lockserver
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
-		websocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Error with connecting lockServer"}) //send a message eshtem to client
-		return false
-	} else if reply.Err { //establish a connection to the lockserver, but the operation fails
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
-		websocketServer.writeError(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with uploading files to lockServer: %+v", reply.Err)})
-		return false
-	} else {
-		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
-	}
-	return true
 }
 
 // this method is responsible for listening on the specific websocket connection
@@ -154,7 +101,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		}
 
 		//immediately attempt to send the optional files to the lockserver
-		if !webSocketServer.sendOptionalFiles(client, newJobRequest) { //no need to send the errors since this method is responsible for this
+		if !webSocketServer.handleSendOptionalFiles(client, newJobRequest) { //no need to send the errors since this method is responsible for this
 			continue
 		}
 
@@ -253,11 +200,3 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 	}
 }
 
-func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest, modifiedJobRequest *mq.AssignedJob) {
-
-	modifiedJobRequest.JobId = jobRequest.JobId
-	modifiedJobRequest.JobContent = jobRequest.JobContent
-	modifiedJobRequest.DistributeBinaryName = jobRequest.DistributeBinaryName
-	modifiedJobRequest.ProcessBinaryName = jobRequest.ProcessBinaryName
-	modifiedJobRequest.AggregateBinaryName = jobRequest.AggregateBinaryName
-}
