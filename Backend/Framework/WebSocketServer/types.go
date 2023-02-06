@@ -30,7 +30,6 @@ type WebSocketServer struct {
 }
 
 type JobRequest struct {
-	ClientId             string     `json:"clientId"`
 	JobId                string     `json:"jobId"`
 	JobContent           string     `json:"jobContent"`
 	OptionalFilesZip     utils.File `json:"optionalFilesZip"`
@@ -47,11 +46,11 @@ type UploadBinaryRequest struct {
 }
 
 type GetSystemProgressRequest struct {
-	JobId    string  `json:"jobId"`
+	JobId string `json:"jobId"`
 }
 
 type GetAllFinishedJobsRequest struct {
-	ClientId  string  `json:"clientId"`
+	ClientId string `json:"clientId"`
 }
 
 type DeleteBinaryRequest struct {

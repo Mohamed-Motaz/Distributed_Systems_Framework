@@ -9,7 +9,7 @@ import (
 
 //todo  handle the lifetime for a job in the message queue
 
-//queue names
+// queue names
 const (
 	ASSIGNED_JOBS_QUEUE = "assignedJobs"
 	FINISHED_JOBS_QUEUE = "finishedJobs"
@@ -32,9 +32,9 @@ type AssignedJob struct {
 	AggregateBinaryName  string `json:"aggregateBinaryName"`
 }
 type FinishedJob struct {
-	ClientId string `json:"clientId"`
-	JobId    string `json:"jobId"`
-	Content  string `json:"content"`
-	Result   string `json:"result"`
+	ClientId             string    `json:"clientId"`
+	JobId                string    `json:"jobId"`
+	Content              string    `json:"content"`
+	Result               string    `json:"result"`
 	utils.Error
 }

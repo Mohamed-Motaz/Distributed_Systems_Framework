@@ -124,6 +124,7 @@ func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJob
 
 // this method is responsible for listening on the specific websocket connection
 // this method returns only when the connection is closed
+
 func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 	defer func() {
@@ -157,16 +158,20 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			continue
 		}
 
-		modifiedJobRequest := &mq.AssignedJob{}
+		modifiedJobRequest := &mq.AssignedJob{
+			ClientId: client.id,
+		}
 
 		webSocketServer.modifyJobRequest(newJobRequest, modifiedJobRequest)
 
 		jobToAssign := new(bytes.Buffer)
+
 		err = json.NewEncoder(jobToAssign).Encode(modifiedJobRequest)
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with encoding data %+v for client %+v\n%+v", modifiedJobRequest, client.webSocketConn.RemoteAddr(), err)
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Can't encode the job request and send it to the message queue at the moment"})
-			//todo, send an rpc to the lockserver telling it to delete the files
+			//DONE, send an rpc to the lockserver telling it to delete the files
+			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId);
 			continue
 		}
 
@@ -175,7 +180,8 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not enqeued to jobs assigned queue} -> error : %+v", err)
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Message queue unavailable"})
-			//todo, send an rpc to the lockserver telling it to delete the files
+			//DONE, send an rpc to the lockserver telling it to delete the files
+			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId);
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully enqeued to jobs assigned queue")
 		}
@@ -225,7 +231,12 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 			if clientData.ServerID == webSocketServer.id {
 
-				clientData.FinishedJobsResults = append(clientData.FinishedJobsResults, finishedJob.Content)
+				finishedJobToCache := &cache.FinishedJob{
+					JobId: finishedJob.JobId,
+					JobResult: finishedJob.Result,
+				}
+
+				clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
 				err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
 
 				if err != nil {
@@ -244,7 +255,6 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest, modifiedJobRequest *mq.AssignedJob) {
 
-	modifiedJobRequest.ClientId = jobRequest.ClientId
 	modifiedJobRequest.JobId = jobRequest.JobId
 	modifiedJobRequest.JobContent = jobRequest.JobContent
 	modifiedJobRequest.DistributeBinaryName = jobRequest.DistributeBinaryName

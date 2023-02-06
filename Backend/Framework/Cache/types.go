@@ -13,7 +13,12 @@ type Cache struct {
 
 //Cache is a map of {ClientID, CacheValue}
 
+type FinishedJob struct {
+	JobId                string    `json:"jobId"`
+	JobResult            string    `json:"jobResult"`
+}
+
 type CacheValue struct {
-	ServerID            string
-	FinishedJobsResults []string
+	ServerID     string        `json:"serverId"`
+	FinishedJobs []FinishedJob `json:"finishedJobs"`
 }
