@@ -41,7 +41,7 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	serveMux.HandleFunc("/uploadBinary", webSocketServer.handleUploadBinaryRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests).Methods("POST")
 	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests).Methods("POST")
-	serveMux.HandleFunc("/getJobProgress", webSocketServer.handleGetSystemProgressRequests).Methods("POST")
+	serveMux.HandleFunc("/getSystemProgress", webSocketServer.handleGetSystemProgressRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllFinishedJobs", webSocketServer.handleGetAllFinishedJobsRequests).Methods("POST")
 
 	webSocketServer.requestHandler = cors.AllowAll().Handler(middlewareLogger(serveMux))
@@ -118,7 +118,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with encoding data %+v for client %+v\n%+v", modifiedJobRequest, client.webSocketConn.RemoteAddr(), err)
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Can't encode the job request and send it to the message queue at the moment"})
 			//DONE, send an rpc to the lockserver telling it to delete the files
-			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId);
+			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 			continue
 		}
 
@@ -128,7 +128,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not enqeued to jobs assigned queue} -> error : %+v", err)
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Message queue unavailable"})
 			//DONE, send an rpc to the lockserver telling it to delete the files
-			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId);
+			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully enqeued to jobs assigned queue")
 		}
@@ -157,46 +157,59 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				continue
 			}
 
-			clientData := &cache.CacheValue{}
+			//DONE: send the appropriate response to the user
+
+			//CASES
+			//cache is dead				p1 client is alive     			   --send the response, and ack
+			//							p2 client isn't alive  			   --nack
+			//
+			//cache is alive			p1 client is mine and alive	   	   --send the response, cache, and ack
+			//							p2 client is mine and dead		   --cache only, and ack
+			//							p3 client isn't mine			   --nack
+
+			var clientData *cache.CacheValue
 			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
 
 			webSocketServer.mu.Lock()
 			client, clientIsAlive := webSocketServer.clients[finishedJob.ClientId]
 			webSocketServer.mu.Unlock()
 
-			//DONE: send the appropriate response to the user
+			if err != nil && err != redis.Nil { //case 1 -- cache is dead
 
-			if clientIsAlive {
-				go webSocketServer.writeFinishedJob(client, *finishedJob)
-				//cache is not working at the moment
-				if err != nil && err != redis.Nil {
-					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+				if clientIsAlive { //p1
+					go webSocketServer.writeFinishedJob(client, *finishedJob)
 					finishedJobObj.Ack(false)
-					continue
+
+				} else { //p2
+					finishedJobObj.Nack(false, true)
 				}
-			}
+			} else { //case 2 -- cache is alive
 
-			if clientData.ServerID == webSocketServer.id {
+				if clientData.ServerID == webSocketServer.id {
+					if clientIsAlive { //p1
+						go webSocketServer.writeFinishedJob(client, *finishedJob)
+					}
+					//p2
+					finishedJobToCache := &cache.FinishedJob{
+						JobId:     finishedJob.JobId,
+						JobResult: finishedJob.Result,
+					}
 
-				finishedJobToCache := &cache.FinishedJob{
-					JobId: finishedJob.JobId,
-					JobResult: finishedJob.Result,
+					clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
+					err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+
+					if err != nil {
+						logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+					}
+					finishedJobObj.Ack(false)
+
+				} else {
+					finishedJobObj.Nack(false, true)
 				}
-
-				clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
-				err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
-
-				if err != nil {
-					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-				}
-				finishedJobObj.Ack(false)
-
-			} else {
-				finishedJobObj.Nack(false, true)
 			}
 
 		}
 
 	}
 }
-
