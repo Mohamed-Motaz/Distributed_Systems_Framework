@@ -38,12 +38,12 @@ func (lockServer *LockServer) findLateJob() *database.JobInfo {
 
 	var minLateJob *database.JobInfo = nil
 	minTimeJobAssigned := time.Now()
-	for k, v := range lockServer.mastersState {
+	for _, v := range lockServer.mastersState {
 		if time.Since(v.lastHeartBeat) > lockServer.mxLateHeartBeat {
 			lateJob := *&database.JobInfo{}
 
 			if err := lockServer.db.GetJobByJobId(&lateJob, v.JobId); err != nil || lateJob.Id == 0 {
-				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in progress jobs %+v from db with err %+v", k.JobId, err)
+				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in progress jobs %+v from db with err %+v", v.JobId, err)
 				continue
 			}
 

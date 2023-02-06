@@ -56,6 +56,10 @@ func (dBWrapper *DBWrapper) DeleteJobById(id int) *gorm.DB {
 	return dBWrapper.Db.Delete(id)
 }
 
+func (db DBWrapper) DeleteJobByJobId(jobId string) *gorm.DB {
+	return db.Db.Where("jobs.jobsinfo.jobId = ?", jobId).Delete(JobInfo{})
+}
+
 // assign job to master
 func (dBWrapper *DBWrapper) CreateJobsInfo(jobInfo *JobInfo) *gorm.DB {
 	return dBWrapper.Db.Create(jobInfo)

@@ -82,7 +82,6 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	//map the dto to rpc args
 	uploadBinaryRequestArgs := RPC.BinaryUploadArgs{
 		FileType: uploadBinaryRequest.FileType,

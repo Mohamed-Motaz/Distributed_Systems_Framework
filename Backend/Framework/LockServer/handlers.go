@@ -88,7 +88,7 @@ func (lockServer *LockServer) HandleDeleteBinaryFile(args *RPC.DeleteBinaryFileA
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete file at this path %+v with err %+v", binaryFilePath, err)
 		reply.Err = true
-		reply.ErrMsg = err.Error()
+		reply.ErrMsg = fmt.Sprintf("Cannot delete file at this path %+v", binaryFilePath)
 		return nil
 	}
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done deleting file %+v", args.FileName)
@@ -97,26 +97,27 @@ func (lockServer *LockServer) HandleDeleteBinaryFile(args *RPC.DeleteBinaryFileA
 
 func (lockServer *LockServer) HandleDeleteOptionalFiles(args *RPC.DeleteOptionalFilesArgs, reply *RPC.DeleteOptionalFilesReply) error {
 
-	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to delete file %+v", args.JobId)
+	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to delete optional file %+v", args.JobId)
 
 	reply.Err = false
 
 	optionalFilesFolderPath := lockServer.getOptionalFilesFolderPath(args.JobId)
 
 	if _, err := os.Stat(optionalFilesFolderPath); errors.Is(err, os.ErrNotExist) {
-		return err
+		logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done deleting optional file %+v", args.JobId)
+		return nil;
 	}
 
 	err := os.Remove(optionalFilesFolderPath)
 
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete files at this path %+v with err %+v", optionalFilesFolderPath, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete optional files at this path %+v with err %+v", optionalFilesFolderPath, err)
 		reply.Err = true
-		reply.ErrMsg = err.Error()
+		reply.ErrMsg = fmt.Sprintf("Cannot delete optional files at this path %+v", optionalFilesFolderPath)
 		return nil
 	}
 
-	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done deleting file %+v", args.JobId)
+	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done deleting optional file %+v", args.JobId)
 
 	return nil
 }
@@ -125,13 +126,13 @@ func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to submit finished job %+v", args)
 
-	err := lockServer.db.DeleteJobById(args.JobId).Error //todo decide whether or not to delete jobs
+	err := lockServer.db.DeleteJobByJobId(args.JobId).Error //todo decide whether or not to delete jobs
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete job id from the database %+v", err)
 		return nil
 	}
 
-	err = deleteFolder(lockServer.getOptionalFilesFolderPath(args.JobId))
+	err = os.Remove(lockServer.getOptionalFilesFolderPath(args.JobId))
 	if err != nil {
 		return nil
 	}
@@ -170,14 +171,12 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 	}
 	// add runnableFile to database
 	err = lockServer.db.CreateRunnableFile(runnableFile).Error
-
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Failed while adding a runnableFile in the database %+v", err)
 		reply.Err = true
 		reply.ErrMsg = fmt.Sprintf("Failed while adding a runnableFile in the database %+v", err)
 		return nil
 	}
-
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Done adding binary file %+v", args.File.Name)
 	return nil
 }
@@ -190,7 +189,7 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 	folderPath := lockServer.getOptionalFilesFolderPath(args.JobId)
 	err := utils.CreateAndWriteToFile(filepath.Join(folderPath, args.FilesZip.Name), args.FilesZip.Content)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %+v", args.FilesZip.Name, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to create a file, fileName: %+v with error -> %+v", args.FilesZip.Name, err)
 		reply.Err = true
 		reply.ErrMsg = "Cannot create this file" + args.FilesZip.Name
 		return nil
@@ -203,7 +202,7 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 
 func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs, reply *RPC.GetBinaryFilesReply) error {
 
-	var foundError bool = false
+	var foundFile bool = false
 	reply.Err = false
 	reply.AggregateBinaryNames = make([]string, 0)
 	reply.DistributeBinaryNames = make([]string, 0)
@@ -212,7 +211,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	files, err := ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(PROCESS_BINARY_FOLDER_NAME)))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from process binaries folder %+v", err)
-		foundError = true
+		foundFile = true
 	}
 	for _, file := range files {
 		reply.ProcessBinaryNames = append(reply.ProcessBinaryNames, file.Name())
@@ -221,7 +220,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(utils.DistributeBinary)))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from distribute binary folder %+v", err)
-		foundError = true
+		foundFile = true
 	}
 	for _, file := range files {
 		reply.DistributeBinaryNames = append(reply.DistributeBinaryNames, file.Name())
@@ -230,13 +229,13 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(utils.AggregateBinary)))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from aggregate binary folder %+v", err)
-		foundError = true
+		foundFile = true
 	}
 	for _, file := range files {
 		reply.AggregateBinaryNames = append(reply.AggregateBinaryNames, file.Name())
 	}
 
-	if foundError {
+	if !foundFile {
 		reply.Err = true
 		reply.ErrMsg = "There is an error while getting binary files."
 	}
@@ -258,8 +257,8 @@ func (lockServer *LockServer) HandleGetSystemProgress(args *RPC.GetSystemProgres
 	defer lockServer.mu.Unlock()
 
 	progress := make([]RPC.CurrentJobProgress, 0)
-	for _, v := range lockServer.mastersState {
-		progress = append(progress, v.CurrentJobProgress)
+	for _, masterState := range lockServer.mastersState {
+		progress = append(progress, masterState.CurrentJobProgress)
 	}
 	reply.Progress = progress
 	return nil
