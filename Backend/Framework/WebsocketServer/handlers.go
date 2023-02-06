@@ -85,7 +85,7 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 
 	//map the dto to rpc args
 	uploadBinaryRequestArgs := RPC.BinaryUploadArgs{
-		FileType: utils.FileType(uploadBinaryRequest.FileType),
+		FileType: uploadBinaryRequest.FileType,
 		File: utils.RunnableFile{
 			RunCmd: uploadBinaryRequest.RunCmd,
 			File: utils.File{
@@ -173,7 +173,7 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 	}
 
 	deleteBinaryRequestArgs := RPC.DeleteBinaryFileArgs{
-		FileType: utils.FileType(deleteBinaryRequest.FileType),
+		FileType: deleteBinaryRequest.FileType,
 		FileName: deleteBinaryRequest.FileName,
 	}
 
@@ -255,7 +255,7 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		return
 	}
 
-	finishedJobs := &cache.CacheValue{}
+	var finishedJobs *cache.CacheValue
 	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsRequest.ClientId)
 
 	if err == nil {

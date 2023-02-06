@@ -39,10 +39,10 @@ type JobRequest struct {
 }
 
 type UploadBinaryRequest struct {
-	FileType string `json:"fileType"`
-	Name     string `json:"name"`
-	Content  []byte `json:"content"`
-	RunCmd   string `json:"runCmd"`
+	FileType utils.FileType `json:"fileType"`
+	Name     string         `json:"name"`
+	Content  []byte         `json:"content"`
+	RunCmd   string         `json:"runCmd"`
 }
 
 type GetSystemProgressRequest struct {
@@ -54,8 +54,8 @@ type GetAllFinishedJobsRequest struct {
 }
 
 type DeleteBinaryRequest struct {
-	FileType string `json:"fileType"`
-	FileName string `json:"fileName"`
+	FileType utils.FileType `json:"fileType"`
+	FileName string         `json:"fileName"`
 }
 
 const (
