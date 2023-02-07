@@ -69,7 +69,55 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		stopHeartBeatsCh <- true
 	}()
 
-	//todo
+	//write the process to disk
+	if err := utils.UnzipSource(getTaskReply.ProcessBinary.Name, ""); err != nil {
+		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to unzip the client process with err: %+v", err)
+
+		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while unzipping process binary on the worker"}}
+		finishedTaskReply := &RPC.FinishedTaskReply{}
+
+		rpcConn := &RPC.RpcConnection{
+			Name:         "Master.HandleFinishedTasks",
+			Args:         finishedTaskArgs,
+			Reply:        &finishedTaskReply,
+			SenderLogger: logger.WORKER,
+			Reciever: RPC.Reciever{
+				Name: "Master",
+				Port: MasterPort,
+				Host: MasterHost,
+			},
+		}
+		ok, err := RPC.EstablishRpcConnection(rpcConn)
+		if !ok {
+			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v", err)
+		}
+		return
+	}
+
+	//write the optional files to disk
+	if err := utils.UnzipSource(getTaskReply.OptionalFilesZip.Name, ""); err != nil {
+		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to unzip the client optional files with err: %+v", err)
+
+		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while unzipping the optional files on the worker"}}
+		finishedTaskReply := &RPC.FinishedTaskReply{}
+
+		rpcConn := &RPC.RpcConnection{
+			Name:         "Master.HandleFinishedTasks",
+			Args:         finishedTaskArgs,
+			Reply:        &finishedTaskReply,
+			SenderLogger: logger.WORKER,
+			Reciever: RPC.Reciever{
+				Name: "Master",
+				Port: MasterPort,
+				Host: MasterHost,
+			},
+		}
+		ok, err := RPC.EstablishRpcConnection(rpcConn)
+		if !ok {
+			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v", err)
+		}
+		return
+	}
 
 	//now, need to run process
 	data, err := utils.ExecuteProcess(logger.MASTER, utils.ProcessBinary,
@@ -79,7 +127,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 	if err != nil {
 		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to excute the client process with err: %+v", err)
 
-		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while binarycuting process binary on the worker"}}
+		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while execute process binary on the worker"}}
 		finishedTaskReply := &RPC.FinishedTaskReply{}
 
 		rpcConn := &RPC.RpcConnection{

@@ -33,6 +33,7 @@ func (lockServer *LockServer) checkIsMasterAlive() {
 //return this earlies job
 //return a jobId
 func (lockServer *LockServer) findLateJob() *database.JobInfo {
+
 	lockServer.mu.Lock()
 	defer lockServer.mu.Unlock()
 
@@ -40,7 +41,7 @@ func (lockServer *LockServer) findLateJob() *database.JobInfo {
 	minTimeJobAssigned := time.Now()
 	for _, v := range lockServer.mastersState {
 		if time.Since(v.lastHeartBeat) > lockServer.mxLateHeartBeat {
-			lateJob := *&database.JobInfo{}
+			lateJob := database.JobInfo{}
 
 			if err := lockServer.db.GetJobByJobId(&lateJob, v.JobId); err != nil || lateJob.Id == 0 {
 				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in progress jobs %+v from db with err %+v", v.JobId, err)

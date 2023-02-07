@@ -166,7 +166,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			//cache is alive			p1 client is mine and alive	   	   --send the response, cache, and ack
 			//							p2 client is mine and dead		   --cache only, and ack
 			//							p3 client isn't mine			   --nack
-
+			//todo check if job has error or not
 			var clientData *cache.CacheValue
 			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
 

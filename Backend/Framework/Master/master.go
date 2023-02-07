@@ -28,8 +28,7 @@ func NewMaster() *Master {
 		maxHeartBeatTimer: 30 * time.Second, //each heartbeat should be every 10 seconds but we allow up to 2 failures
 		mu:                sync.Mutex{},
 	}
-	master.resetStatus()
-	master.addDumbJob()
+	master.resetStatus() //remove old files from previous jobs
 
 	go master.server()
 	go master.qConsumer()
@@ -146,33 +145,6 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	return nil
 }
 
-// this function expects to hold a lock
-func (master *Master) addDumbJob() {
-	// process, _ := os.ReadFile(PROCESS_EXE + ".binary")
-	// distribute, _ := os.ReadFile(DISTRIBUTE_EXE + ".binary")
-	// aggregate, _ := os.ReadFile(AGGREGATE_EXE + ".binary")
-
-	// reply := RPC.GetJobReply{
-	// 	IsAccepted: true,
-	// 	JobId:      "#1",
-	// 	ClientId:   "clientId",
-	// 	JobContent: "jobContent.txt",
-	// 	ProcessBinary: utils.File{
-	// 		Name:    PROCESS_EXE + ".binary",
-	// 		Content: process,
-	// 	},
-	// 	DistributeBinary: utils.File{
-	// 		Name:    DISTRIBUTE_EXE + ".binary",
-	// 		Content: distribute,
-	// 	},
-	// 	AggregateBinary: utils.File{
-	// 		Name:    AGGREGATE_EXE + ".binary",
-	// 		Content: aggregate,
-	// 	},
-	// }
-	// master.setJobStatus(&reply)
-}
-
 // start a thread that periodically sends my progress
 func (master *Master) sendPeriodicProgress() {
 	for {
@@ -180,7 +152,30 @@ func (master *Master) sendPeriodicProgress() {
 
 		master.mu.Lock()
 		if !master.isRunning {
+			args := &RPC.SetJobProgressArgs{
+				RPC.CurrentJobProgress{
+					MasterId: master.id,
+					JobId:    "",
+					ClientId: "",
+					Progress: 0,
+					Status:   RPC.FREE,
+				},
+			}
+
 			master.mu.Unlock()
+
+			reply := &RPC.SetJobProgressReply{}
+			RPC.EstablishRpcConnection(&RPC.RpcConnection{
+				Name:         "LockServer.HandleSetJobProgress", //todo ask rawan for the name
+				Args:         &args,
+				Reply:        &reply,
+				SenderLogger: logger.MASTER,
+				Reciever: RPC.Reciever{
+					Name: "Lockserver",
+					Port: LockServerPort,
+					Host: LockServerHost,
+				},
+			})
 			continue
 		}
 
@@ -205,7 +200,7 @@ func (master *Master) sendPeriodicProgress() {
 		master.mu.Unlock()
 		reply := &RPC.SetJobProgressReply{}
 		RPC.EstablishRpcConnection(&RPC.RpcConnection{
-			Name:         "LockServer.HandleGetJob", //todo ask rawan for the name
+			Name:         "LockServer.HandleSetJobProgress", //todo ask rawan for the name
 			Args:         &args,
 			Reply:        &reply,
 			SenderLogger: logger.MASTER,
@@ -251,11 +246,7 @@ func (master *Master) qConsumer() {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to consume job with error %v\nWill discard it", err)
 				newJob.Ack(false) //probably should just ack so it doesnt sit around in the queue forever
 
-				//send err to the mq
-				//todo should i really send an error back if i cant decode it?
-				master.mu.Lock()
-				master.publishErrAsFinJob(fmt.Sprintf("unable to martial received job %+v with err %+v", string(body), err))
-				master.mu.Unlock()
+				//no need to send an error
 				continue
 			}
 
@@ -298,11 +289,13 @@ func (master *Master) qConsumer() {
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v for client %v instead of requested job %v", reply.JobId, reply.ClientId, args.JobId)
 				newJob.Nack(false, true) //requeue job since lockserver provided another
 			}
-
+			master.mu.Lock()
 			if err := master.setJobStatus(reply); err != nil {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
+				//todo: send the lockserver an error alerting him that I finished this job (lie)
 				master.publishErrAsFinJob(err.Error())
 			}
+			master.mu.Unlock()
 
 		default: //I didn't find a job from the message queue
 
@@ -323,13 +316,15 @@ func (master *Master) qConsumer() {
 					Host: LockServerHost,
 				},
 			})
-			if ok && reply.IsAccepted { //todo: make sure rawan and salma implemented it correctly
+			if ok && reply.IsAccepted {
 				//there is indeed an outstanding job
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v", reply.JobId)
+				master.mu.Lock()
 				if err := master.setJobStatus(reply); err != nil {
 					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
 					master.publishErrAsFinJob(err.Error())
 				}
+				master.mu.Unlock()
 				continue
 			}
 
@@ -374,7 +369,7 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 
 // this function expects to hold a lock because master.publishFinJob needs to hold a lock
 // it resets the job status completely
-func (master *Master) publishErrAsFinJob(err string) {
+func (master *Master) publishErrAsFinJob(err, clientId, jobId string) { //todo fix
 	fn := mq.FinishedJob{}
 	fn.Err = true
 	fn.ErrMsg = err

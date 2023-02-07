@@ -87,6 +87,7 @@ const (
 	PROCESSING   JobProgress = "Processing"
 	AGGREGATING  JobProgress = "Aggregating"
 	UNRESPONSIVE JobProgress = "Unresponsive"
+	FREE         JobProgress = "Free"
 )
 
 type CurrentJobProgress struct {
