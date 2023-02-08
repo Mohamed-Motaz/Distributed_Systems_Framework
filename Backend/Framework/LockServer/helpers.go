@@ -10,28 +10,30 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 func (lockServer *LockServer) checkIsMasterAlive() {
 	for {
 		time.Sleep(time.Second * 5)
 		lockServer.mu.Lock()
-		for k, v := range lockServer.mastersState {
-			if time.Since(v.lastHeartBeat) > 30*time.Minute {
-				delete(lockServer.mastersState, k)
-			} else if time.Since(v.lastHeartBeat) > 5*time.Second {
-				v.Status = RPC.UNRESPONSIVE
+		for masterId, masterState := range lockServer.mastersState {
+			if time.Since(masterState.lastHeartBeat) > 30*time.Minute {
+				delete(lockServer.mastersState, masterId)
+			} else if time.Since(masterState.lastHeartBeat) > 5*time.Second {
+				masterState.Status = RPC.UNRESPONSIVE
 			}
 		}
 		lockServer.mu.Unlock()
 	}
 }
 
-//logic is as follows
-//check if any master's heartbeat has passed mxLateHeartBeat
-//if true, then check the db to get the minimum time assigned (earliest job)
-//return this earlies job
-//return a jobId
+// logic is as follows
+// check if any master's heartbeat has passed mxLateHeartBeat
+// if true, then check the db to get the minimum time assigned (earliest job)
+// return this earlies job
+// return a jobId
 func (lockServer *LockServer) findLateJob() *database.JobInfo {
 
 	lockServer.mu.Lock()
@@ -39,12 +41,12 @@ func (lockServer *LockServer) findLateJob() *database.JobInfo {
 
 	var minLateJob *database.JobInfo = nil
 	minTimeJobAssigned := time.Now()
-	for _, v := range lockServer.mastersState {
-		if time.Since(v.lastHeartBeat) > lockServer.mxLateHeartBeat {
+	for _, masterState := range lockServer.mastersState {
+		if time.Since(masterState.lastHeartBeat) > lockServer.mxLateHeartBeat {
 			lateJob := database.JobInfo{}
 
-			if err := lockServer.db.GetJobByJobId(&lateJob, v.JobId); err != nil || lateJob.Id == 0 {
-				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in progress jobs %+v from db with err %+v", v.JobId, err)
+			if err := lockServer.db.GetJobByJobId(&lateJob, masterState.JobId); err != nil || lateJob.Id == 0 {
+				logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in progress jobs %+v from db with err %+v", masterState.JobId, err)
 				continue
 			}
 
@@ -58,8 +60,9 @@ func (lockServer *LockServer) findLateJob() *database.JobInfo {
 	return minLateJob
 }
 
-//  return true if there is a late job else false
-//expect to hold a lock
+//	return true if there is a late job else false
+//
+// expect to hold a lock
 func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.GetJobReply) bool {
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Attempting to assign late job to master %+v", args.MasterId)
@@ -75,21 +78,31 @@ func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.Get
 	// found job, let's assign it :')
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Found a late job that will be reassigned %+v", lateJob)
 
-	//case that will be ignored -- if i delete, then fail to create todo
+	//DONE : case that will be ignored -- if i delete, then fail to create 
 
-	//delete the old lateJob
-	if err := lockServer.db.DeleteJobById(lateJob.Id).Error; err != nil {
-		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to delete old master's job with err %+v", err)
-		*reply = RPC.GetJobReply{} //not accepted
-		return false
-	}
-	//insert the new job with the new master
-	lateJob.Id = 0
-	lateJob.MasterId = args.MasterId
-	lateJob.TimeAssigned = time.Now()
-	if err := lockServer.db.CreateJobsInfo(lateJob).Error; err != nil {
-		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to insert new master's job with err %+v", err)
-		*reply = RPC.GetJobReply{} //not accepted
+	if lockServer.db.Db.Transaction(func(tx *gorm.DB) error {
+		// return any error will rollback
+
+		//delete the old lateJob
+		if err := lockServer.db.DeleteJobById(lateJob.Id).Error; err != nil {
+			logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to delete old master's job with err %+v", err)
+			*reply = RPC.GetJobReply{} //not accepted
+			return err
+		}
+
+		//insert the new job with the new master
+		lateJob.Id = 0
+		lateJob.MasterId = args.MasterId
+		lateJob.TimeAssigned = time.Now()
+		if err := lockServer.db.CreateJobsInfo(lateJob).Error; err != nil {
+			logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to insert new master's job with err %+v", err)
+			*reply = RPC.GetJobReply{} //not accepted
+			return err
+		}
+		// return nil will commit the whole transaction
+		return nil
+	}) != nil {
+		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Couldn't assign late job for master -> %+v", args.MasterId)
 		return false
 	}
 
