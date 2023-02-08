@@ -166,7 +166,7 @@ func (master *Master) sendPeriodicProgress() {
 
 			reply := &RPC.SetJobProgressReply{}
 			RPC.EstablishRpcConnection(&RPC.RpcConnection{
-				Name:         "LockServer.HandleSetJobProgress", //todo ask rawan for the name
+				Name:         "LockServer.HandleSetJobProgress",
 				Args:         &args,
 				Reply:        &reply,
 				SenderLogger: logger.MASTER,
@@ -200,7 +200,7 @@ func (master *Master) sendPeriodicProgress() {
 		master.mu.Unlock()
 		reply := &RPC.SetJobProgressReply{}
 		RPC.EstablishRpcConnection(&RPC.RpcConnection{
-			Name:         "LockServer.HandleSetJobProgress", //todo ask rawan for the name
+			Name:         "LockServer.HandleSetJobProgress", 
 			Args:         &args,
 			Reply:        &reply,
 			SenderLogger: logger.MASTER,
@@ -292,8 +292,9 @@ func (master *Master) qConsumer() {
 			master.mu.Lock()
 			if err := master.setJobStatus(reply); err != nil {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
-				//todo: send the lockserver an error alerting him that I finished this job (lie)
-				master.publishErrAsFinJob(err.Error())
+				//DONE: send the lockserver an error alerting him that I finished this job (lie)
+				master.attemptSendFinishedJobToLockServer();
+				master.publishErrAsFinJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
 			}
 			master.mu.Unlock()
 
@@ -322,7 +323,7 @@ func (master *Master) qConsumer() {
 				master.mu.Lock()
 				if err := master.setJobStatus(reply); err != nil {
 					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
-					master.publishErrAsFinJob(err.Error())
+					master.publishErrAsFinJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
 				}
 				master.mu.Unlock()
 				continue
@@ -369,8 +370,10 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 
 // this function expects to hold a lock because master.publishFinJob needs to hold a lock
 // it resets the job status completely
-func (master *Master) publishErrAsFinJob(err, clientId, jobId string) { //todo fix
+func (master *Master) publishErrAsFinJob(err, clientId, jobId string) { //DONE fix
 	fn := mq.FinishedJob{}
+	fn.ClientId = clientId;
+	fn.JobId = jobId;
 	fn.Err = true
 	fn.ErrMsg = err
 	master.publishFinJob(fn)
@@ -440,7 +443,7 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 
 	if args.Err {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Worker sent this error %+v", args.ErrMsg)
-		master.publishErrAsFinJob(fmt.Sprintf("Worker sent this error: %+v", args.ErrMsg))
+		master.publishErrAsFinJob(fmt.Sprintf("Worker sent this error: %+v", args.ErrMsg), master.currentJob.clientId, master.currentJob.jobId)
 		return nil
 	}
 
@@ -454,7 +457,10 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	err := utils.CreateAndWriteToFile(filePath, []byte(args.TaskResult))
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the task file %+v", err)
-		master.publishErrAsFinJob(fmt.Sprintf("Error while saving worker's task locally on the master: %+v", err))
+		master.publishErrAsFinJob(
+			fmt.Sprintf("Error while saving worker's task locally on the master: %+v", err),
+			master.currentJob.clientId,
+			master.currentJob.jobId)
 		return nil
 	}
 
@@ -486,7 +492,7 @@ func (master *Master) finishUpJob() {
 		master.currentJob.aggregateBinary)
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while running aggregate process: %+v", err)
-		master.publishErrAsFinJob(fmt.Sprintf("Error while running aggregate process: %+v", err))
+		master.publishErrAsFinJob(fmt.Sprintf("Error while running aggregate process: %+v", err), master.currentJob.clientId, master.currentJob.jobId)
 		return
 	}
 
