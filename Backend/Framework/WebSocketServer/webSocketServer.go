@@ -127,7 +127,6 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not enqeued to jobs assigned queue} -> error : %+v", err)
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Message queue unavailable"})
-			//DONE, send an rpc to the lockserver telling it to delete the files
 			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully enqeued to jobs assigned queue")
@@ -166,13 +165,19 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			//cache is alive			p1 client is mine and alive	   	   --send the response, cache, and ack
 			//							p2 client is mine and dead		   --cache only, and ack
 			//							p3 client isn't mine			   --nack
-			//todo check if job has error or not
-			var clientData *cache.CacheValue
-			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
+			//DONE check if job has error or not
 
 			webSocketServer.mu.Lock()
 			client, clientIsAlive := webSocketServer.clients[finishedJob.ClientId]
 			webSocketServer.mu.Unlock()
+
+			if finishedJob.Err && clientIsAlive {
+				webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "There was an Error while processing the job"});
+				continue;
+			}
+
+			var clientData *cache.CacheValue
+			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
 
 			if err != nil && err != redis.Nil { //case 1 -- cache is dead
 
