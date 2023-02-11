@@ -77,7 +77,13 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 func (lockServer *LockServer) HandleDeleteBinaryFile(args *RPC.DeleteBinaryFileArgs, reply *RPC.DeleteBinaryFileReply) error {
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to delete file %+v", args.FileName)
-	//todo: remove the field from the runnablefiles table
+	// remove the record from the runnablefiles table
+	if err := lockServer.db.DeleteRunnableFile(args.FileName, string(args.FileType)).Error; err != nil {
+		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to delete binary file %+v from runnableFiles table with err %+v", args.FileName, err)
+		reply.Err = true
+		reply.ErrMsg = fmt.Sprintf("Unable to delete binary file %+v from runnableFiles", args.FileName)
+		return nil
+	}
 	reply.Err = false
 
 	binaryFilePath := lockServer.getBinaryFilePath(
