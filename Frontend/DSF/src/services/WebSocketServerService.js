@@ -29,6 +29,19 @@ export const WebSocketServerService = () => {
     return response;
   };
 
+  const deleteBinaryFile = async (fileName, fileType) => {
+    let response;
+    await axios
+      .post(urlBuilder("deleteBinary"), {
+        fileName,
+        fileType,
+      })
+      .then((value) => (response = value))
+      .catch((err) => console.log({ err }));
+
+    return response;
+  };
+
   const getJobProgress = async (jobId) => {
     let response;
 
@@ -69,6 +82,7 @@ export const WebSocketServerService = () => {
     getAllBinaries,
     getJobProgress,
     uploadBinaries,
+    deleteBinaryFile,
     getAllFinishedJobs,
     getAllFinishedJobs,
   };

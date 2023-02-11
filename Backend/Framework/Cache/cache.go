@@ -70,9 +70,14 @@ func (c *Cache) Get(key string) (*CacheValue, error) {
 
 // sets the value of a key
 func (c *Cache) Set(key string, value *CacheValue, expiration time.Duration) error {
+	byteArr, err := json.Marshal(value)
 
-	return c.client.Set(c.ctx, key, value, expiration).Err()
-	
+	if err != nil {
+		return err
+	}
+
+	return c.client.Set(c.ctx, key, byteArr, expiration).Err()
+
 }
 
 // prints out all cache contents every x amount of seconds

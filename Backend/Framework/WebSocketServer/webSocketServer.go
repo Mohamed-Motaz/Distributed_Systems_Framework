@@ -99,7 +99,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Invalid format"})
 			continue
 		}
-
+		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "This is the message received on the websocket connection %+v", newJobRequest)
 		//immediately attempt to send the optional files to the lockserver
 		if !webSocketServer.handleSendOptionalFiles(client, newJobRequest) { //no need to send the errors since this method is responsible for this
 			continue
@@ -172,8 +172,8 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			webSocketServer.mu.Unlock()
 
 			if finishedJob.Err && clientIsAlive {
-				webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "There was an Error while processing the job"});
-				continue;
+				webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "There was an Error while processing the job"})
+				continue
 			}
 
 			var clientData *cache.CacheValue

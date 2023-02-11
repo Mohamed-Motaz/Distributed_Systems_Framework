@@ -19,6 +19,7 @@ export default function UploadFileButton(props) {
         ref={hiddenFileInput}
         onChange={onChange}
         className="hidden"
+        accept=".zip,.rar,.7zip,.tar"
       />
     </button>
   );
