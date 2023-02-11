@@ -14,6 +14,7 @@ export const UploadFileButtons = (props) => {
   const [process, setProcess] = React.useState([]);
   const [aggregate, setAggregate] = React.useState([]);
   const [runCommand, setRunCommand] = React.useState("");
+  const [jobContent, setJobContent] = React.useState("");
   console.log({ process });
 
   const [distributeSelectedFile, setDistributeSelectedFile] =
@@ -59,6 +60,7 @@ export const UploadFileButtons = (props) => {
       `${JSON.stringify({
         jobId: "123",
         clientId: "123",
+        jobContent,
         optionalFilesZip: optionalFiles,
         distributeBinaryName: distributeSelectedFile,
         processBinaryName: processSelectedFile,
@@ -78,6 +80,12 @@ export const UploadFileButtons = (props) => {
     console.log({ jobProgress });
   };
 
+  const handleDeleteBinary = async (fileName, fileType) => {
+    const res = await WebSocketServerService().deleteBinaryFile(
+      fileName,
+      fileType
+    );
+  };
   return (
     <section className="m-8">
       <TextField
@@ -114,6 +122,27 @@ export const UploadFileButtons = (props) => {
       <Button onClick={handleSubmitJob}>{"Submit job"}</Button>
       <Button onClick={getAllFinishedJob}>{"Get all finished jobs"}</Button>
       <Button onClick={getJobProgress}>{"Get Job Progress"}</Button>
+      <Button
+        onClick={() =>
+          handleDeleteBinary(processSelectedFile, BinariesType.process)
+        }
+      >
+        {"Delete process File"}
+      </Button>
+      <Button
+        onClick={() =>
+          handleDeleteBinary(aggregateSelectedFile, BinariesType.aggregate)
+        }
+      >
+        {"Delete aggregate File"}
+      </Button>
+      <Button
+        onClick={() =>
+          handleDeleteBinary(distributeSelectedFile, BinariesType.Distribute)
+        }
+      >
+        {"Delete distribute File"}
+      </Button>
       <DropDownBox
         title={"process"}
         files={process}
@@ -131,6 +160,14 @@ export const UploadFileButtons = (props) => {
         files={distribute}
         selectedFile={distributeSelectedFile}
         setSelectedFile={setDistributeSelectedFile}
+      />
+
+      <TextField
+        labelName="Run command"
+        color="secondary"
+        value={jobContent}
+        onChange={(cmd) => setJobContent(cmd.target.value)}
+        multiline
       />
     </section>
   );
