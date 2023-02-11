@@ -54,7 +54,7 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 		//leave the finishedJobsResults as it is
 	} else {
 		clientData = &cache.CacheValue{
-			ServerID:            webSocketServer.id,
+			ServerID:     webSocketServer.id,
 			FinishedJobs: make([]cache.FinishedJob, 0),
 		}
 	}
@@ -82,10 +82,9 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	//map the dto to rpc args
 	uploadBinaryRequestArgs := RPC.BinaryUploadArgs{
-		FileType: utils.FileType(uploadBinaryRequest.FileType),
+		FileType: uploadBinaryRequest.FileType,
 		File: utils.RunnableFile{
 			RunCmd: uploadBinaryRequest.RunCmd,
 			File: utils.File{
@@ -173,7 +172,7 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 	}
 
 	deleteBinaryRequestArgs := RPC.DeleteBinaryFileArgs{
-		FileType: utils.FileType(deleteBinaryRequest.FileType),
+		FileType: deleteBinaryRequest.FileType,
 		FileName: deleteBinaryRequest.FileName,
 	}
 
@@ -255,7 +254,7 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		return
 	}
 
-	finishedJobs := &cache.CacheValue{}
+	var finishedJobs *cache.CacheValue
 	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsRequest.ClientId)
 
 	if err == nil {
@@ -263,7 +262,7 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		res.WriteHeader(http.StatusOK)
 		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJobs})
 
-	} else if len(finishedJobs.FinishedJobs) == 0 {
+	} else if err == redis.Nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
 		res.WriteHeader(http.StatusOK)
 		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})
@@ -273,6 +272,46 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
 	}
 }
+
+func (websocketServer *WebSocketServer) handleSendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
+
+	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
+		return true
+	}
+
+	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
+		JobId:    newJobRequest.JobId,
+		FilesZip: newJobRequest.OptionalFilesZip,
+	}
+
+	reply := &RPC.FileUploadReply{}
+
+	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+		Name:         "LockServer.HandleAddOptionalFiles",
+		Args:         optionalFilesUploadArgs,
+		Reply:        &reply,
+		SenderLogger: logger.WEBSOCKET_SERVER,
+		Reciever: RPC.Reciever{
+			Name: "Lockserver",
+			Port: LockServerPort,
+			Host: LockServerHost,
+		},
+	})
+
+	if !ok { //can't establish connection to the lockserver
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
+		websocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Error with connecting lockServer"}) //send a message eshtem to client
+		return false
+	} else if reply.Err { //establish a connection to the lockserver, but the operation fails
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
+		websocketServer.writeError(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with uploading files to lockServer: %+v", reply.Err)})
+		return false
+	} else {
+		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
+	}
+	return true
+}
+
 func (webSocketServer *WebSocketServer) handleDeleteOptionalFiles(jobId string) {
 
 	reply := RPC.DeleteOptionalFilesReply{}

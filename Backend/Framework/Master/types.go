@@ -14,15 +14,15 @@ import (
 type Master struct {
 	id                string
 	currentJob        CurrentJob
-	maxHeartBeatTimer time.Duration
 	isRunning         bool //do i currently have a job
+	maxHeartBeatTimer time.Duration
 	mu                sync.Mutex
 	q                 *mq.MQ
 }
 
 type CurrentJob struct {
 	clientId               string
-	jobContent             string
+	jobContent             string //to be passed to the distribute binary
 	jobId                  string
 	tasks                  []Task
 	finishedTasksFilePaths []string //this is an array of the filePaths of the finished tasks

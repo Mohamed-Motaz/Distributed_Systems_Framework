@@ -4,11 +4,9 @@ import (
 	cache "Framework/Cache"
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
-	"Framework/RPC"
 	utils "Framework/Utils"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -43,7 +41,7 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	serveMux.HandleFunc("/uploadBinary", webSocketServer.handleUploadBinaryRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests).Methods("POST")
 	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests).Methods("POST")
-	serveMux.HandleFunc("/getJobProgress", webSocketServer.handleGetSystemProgressRequests).Methods("POST")
+	serveMux.HandleFunc("/getSystemProgress", webSocketServer.handleGetSystemProgressRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllFinishedJobs", webSocketServer.handleGetAllFinishedJobsRequests).Methods("POST")
 
 	webSocketServer.requestHandler = cors.AllowAll().Handler(middlewareLogger(serveMux))
@@ -52,14 +50,6 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	go webSocketServer.deliverJobs()
 
 	return webSocketServer, nil
-}
-
-// Middleware to log all incoming requests
-func middlewareLogger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.LogRequest(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Request received from %v to %v", r.RemoteAddr, r.RequestURI)
-		next.ServeHTTP(w, r)
-	})
 }
 
 func (webSocketServer *WebSocketServer) listenAndServe() {
@@ -71,55 +61,12 @@ func (webSocketServer *WebSocketServer) listenAndServe() {
 	}
 }
 
-func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob mq.FinishedJob) {
-	client.webSocketConn.WriteJSON(finishedJob)
-	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Job sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), finishedJob)
-}
-
-func (webSocketServer *WebSocketServer) writeError(client *Client, err utils.Error) {
-	client.webSocketConn.WriteJSON(err)
-	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
-}
-
-// this method shows whether or not the server succeeding in sending the optionalFilesZip if there are any
-// this method is responsible for sending the errors it encounters to the client
-func (websocketServer *WebSocketServer) sendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
-
-	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
-		return true
-	}
-
-	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
-		JobId:    newJobRequest.JobId,
-		FilesZip: newJobRequest.OptionalFilesZip,
-	}
-
-	reply := &RPC.FileUploadReply{}
-
-	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleAddOptionalFiles",
-		Args:         optionalFilesUploadArgs,
-		Reply:        &reply,
-		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
-			Name: "Lockserver",
-			Port: LockServerPort,
-			Host: LockServerHost,
-		},
+// Middleware to log all incoming requests
+func middlewareLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.LogRequest(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Request received from %v to %v", r.RemoteAddr, r.RequestURI)
+		next.ServeHTTP(w, r)
 	})
-
-	if !ok { //can't establish connection to the lockserver
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
-		websocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Error with connecting lockServer"}) //send a message eshtem to client
-		return false
-	} else if reply.Err { //establish a connection to the lockserver, but the operation fails
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
-		websocketServer.writeError(client, utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with uploading files to lockServer: %+v", reply.Err)})
-		return false
-	} else {
-		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
-	}
-	return true
 }
 
 // this method is responsible for listening on the specific websocket connection
@@ -154,7 +101,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		}
 
 		//immediately attempt to send the optional files to the lockserver
-		if !webSocketServer.sendOptionalFiles(client, newJobRequest) { //no need to send the errors since this method is responsible for this
+		if !webSocketServer.handleSendOptionalFiles(client, newJobRequest) { //no need to send the errors since this method is responsible for this
 			continue
 		}
 
@@ -171,7 +118,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with encoding data %+v for client %+v\n%+v", modifiedJobRequest, client.webSocketConn.RemoteAddr(), err)
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Can't encode the job request and send it to the message queue at the moment"})
 			//DONE, send an rpc to the lockserver telling it to delete the files
-			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId);
+			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 			continue
 		}
 
@@ -180,8 +127,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not enqeued to jobs assigned queue} -> error : %+v", err)
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Message queue unavailable"})
-			//DONE, send an rpc to the lockserver telling it to delete the files
-			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId);
+			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully enqeued to jobs assigned queue")
 		}
@@ -210,54 +156,65 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				continue
 			}
 
-			clientData := &cache.CacheValue{}
-			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
+			//DONE: send the appropriate response to the user
+
+			//CASES
+			//cache is dead				p1 client is alive     			   --send the response, and ack
+			//							p2 client isn't alive  			   --nack
+			//
+			//cache is alive			p1 client is mine and alive	   	   --send the response, cache, and ack
+			//							p2 client is mine and dead		   --cache only, and ack
+			//							p3 client isn't mine			   --nack
+			//DONE check if job has error or not
 
 			webSocketServer.mu.Lock()
 			client, clientIsAlive := webSocketServer.clients[finishedJob.ClientId]
 			webSocketServer.mu.Unlock()
 
-			//DONE: send the appropriate response to the user
-
-			if clientIsAlive {
-				go webSocketServer.writeFinishedJob(client, *finishedJob)
-				//cache is not working at the moment
-				if err != nil && err != redis.Nil {
-					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-					finishedJobObj.Ack(false)
-					continue
-				}
+			if finishedJob.Err && clientIsAlive {
+				webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "There was an Error while processing the job"});
+				continue;
 			}
 
-			if clientData.ServerID == webSocketServer.id {
+			var clientData *cache.CacheValue
+			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
 
-				finishedJobToCache := &cache.FinishedJob{
-					JobId: finishedJob.JobId,
-					JobResult: finishedJob.Result,
+			if err != nil && err != redis.Nil { //case 1 -- cache is dead
+
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+				if clientIsAlive { //p1
+					go webSocketServer.writeFinishedJob(client, *finishedJob)
+					finishedJobObj.Ack(false)
+
+				} else { //p2
+					finishedJobObj.Nack(false, true)
 				}
+			} else { //case 2 -- cache is alive
 
-				clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
-				err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+				if clientData.ServerID == webSocketServer.id {
+					if clientIsAlive { //p1
+						go webSocketServer.writeFinishedJob(client, *finishedJob)
+					}
+					//p2
+					finishedJobToCache := &cache.FinishedJob{
+						JobId:     finishedJob.JobId,
+						JobResult: finishedJob.Result,
+					}
 
-				if err != nil {
-					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+					clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
+					err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+
+					if err != nil {
+						logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+					}
+					finishedJobObj.Ack(false)
+
+				} else {
+					finishedJobObj.Nack(false, true)
 				}
-				finishedJobObj.Ack(false)
-
-			} else {
-				finishedJobObj.Nack(false, true)
 			}
 
 		}
 
 	}
-}
-
-func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest, modifiedJobRequest *mq.AssignedJob) {
-
-	modifiedJobRequest.JobId = jobRequest.JobId
-	modifiedJobRequest.JobContent = jobRequest.JobContent
-	modifiedJobRequest.DistributeBinaryName = jobRequest.DistributeBinaryName
-	modifiedJobRequest.ProcessBinaryName = jobRequest.ProcessBinaryName
-	modifiedJobRequest.AggregateBinaryName = jobRequest.AggregateBinaryName
 }

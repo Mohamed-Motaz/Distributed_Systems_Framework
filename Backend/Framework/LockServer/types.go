@@ -13,11 +13,13 @@ import (
 )
 
 type LockServer struct {
-	id            string
-	db            *database.DBWrapper
-	mxLateJobTime time.Duration
-	mu            sync.Mutex
-	mastersState  map[string]privCJP // key -> masterId, value -> privCJP
+	id              string
+	db              *database.DBWrapper
+	mxLateJobTime   time.Duration
+	mxLateHeartBeat time.Duration
+	mu              sync.Mutex
+	getJobMu        sync.Mutex
+	mastersState    map[string]privCJP // key -> masterId, value -> privCJP
 }
 
 type privCJP struct {
@@ -40,8 +42,7 @@ const (
 
 	_LOCAL_HOST string = "127.0.0.1"
 
-	PROCESS_BINARY_FOLDER_NAME FolderName = "Process"
-
+	PROCESS_BINARY_FOLDER_NAME    FolderName = "Process"
 	DISTRIBUTE_BINARY_FOLDER_NAME FolderName = "Distribute"
 	AGGREGATE_BINARY_FOLDER_NAME  FolderName = "Aggregate"
 	BINARY_FILES_FOLDER_NAME      FolderName = "BinaryFiles"
