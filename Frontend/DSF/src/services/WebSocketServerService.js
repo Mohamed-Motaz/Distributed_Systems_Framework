@@ -13,12 +13,6 @@ export const WebSocketServerService = () => {
 
     return response;
   };
-  /*
-FileType string `json:"fileType"`
-    Name     string `json:"name"`
-    Content  []byte `json:"content"`
-    RunCmd   string `json:"runCmd"`
-     */
   const uploadBinaries = async (fileType, name, content, runCmd) => {
     let response;
 
@@ -35,18 +29,36 @@ FileType string `json:"fileType"`
     return response;
   };
 
-  const getAllFinishedJobs = async (ClientId) => {
+  const submitJob = async (SubmitJobSwagger) => {
     let response;
-
     await axios
-      .get(urlBuilder("getAllFinishedJobs"), {
-        ClientId,
+      .post(urlBuilder(`openWS/${123}`), {
+        ...SubmitJobSwagger,
       })
       .then((value) => (response = value))
-      .catch((err) => console.log("ERROR: ", err));
+      .catch((err) => console.log("Error", err));
 
     return response;
   };
 
-  return { getAllBinaries, getAllFinishedJobs, uploadBinaries };
+  const getAllFinishedJobs = async () => {
+    let response;
+
+    await axios
+      .post(urlBuilder("getAllFinishedJobs"), {
+        clientId: "123",
+      })
+      .then((value) => (response = value))
+      .catch((err) => console.log("Error", err));
+
+    return response;
+  };
+
+  return {
+    getAllBinaries,
+    getAllFinishedJobs,
+    uploadBinaries,
+    submitJob,
+    getAllFinishedJobs,
+  };
 };
