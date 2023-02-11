@@ -153,7 +153,7 @@ func (master *Master) sendPeriodicProgress() {
 		master.mu.Lock()
 		if !master.isRunning {
 			args := &RPC.SetJobProgressArgs{
-				RPC.CurrentJobProgress{
+				CurrentJobProgress: RPC.CurrentJobProgress{
 					MasterId: master.id,
 					JobId:    "",
 					ClientId: "",
@@ -188,7 +188,7 @@ func (master *Master) sendPeriodicProgress() {
 		progress /= float32(len(master.currentJob.tasks))
 
 		args := &RPC.SetJobProgressArgs{
-			RPC.CurrentJobProgress{
+			CurrentJobProgress: RPC.CurrentJobProgress{
 				MasterId: master.id,
 				JobId:    master.currentJob.jobId,
 				ClientId: master.currentJob.clientId,
@@ -200,7 +200,7 @@ func (master *Master) sendPeriodicProgress() {
 		master.mu.Unlock()
 		reply := &RPC.SetJobProgressReply{}
 		RPC.EstablishRpcConnection(&RPC.RpcConnection{
-			Name:         "LockServer.HandleSetJobProgress", 
+			Name:         "LockServer.HandleSetJobProgress",
 			Args:         &args,
 			Reply:        &reply,
 			SenderLogger: logger.MASTER,
@@ -293,7 +293,7 @@ func (master *Master) qConsumer() {
 			if err := master.setJobStatus(reply); err != nil {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
 				//DONE: send the lockserver an error alerting him that I finished this job (lie)
-				master.attemptSendFinishedJobToLockServer();
+				master.attemptSendFinishedJobToLockServer()
 				master.publishErrAsFinJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
 			}
 			master.mu.Unlock()
@@ -372,8 +372,8 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 // it resets the job status completely
 func (master *Master) publishErrAsFinJob(err, clientId, jobId string) { //DONE fix
 	fn := mq.FinishedJob{}
-	fn.ClientId = clientId;
-	fn.JobId = jobId;
+	fn.ClientId = clientId
+	fn.JobId = jobId
 	fn.Err = true
 	fn.ErrMsg = err
 	master.publishFinJob(fn)
@@ -484,7 +484,7 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 // to the finJobs queue and notifies the lockserver
 func (master *Master) finishUpJob() {
 	//aggregate.txt contains the paths of the finished tasks, each path in a newline
-	finishedTasks := strings.Join(master.currentJob.finishedTasksFilePaths, "\n")
+	finishedTasks := strings.Join(master.currentJob.finishedTasksFilePaths, ",")
 
 	//now, need to run aggregate
 	finalResult, err := utils.ExecuteProcess(logger.MASTER, utils.AggregateBinary,

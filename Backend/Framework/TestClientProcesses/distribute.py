@@ -2,21 +2,16 @@ filePath = "./distribute.txt"
 
 def distribute():
     f = open(filePath, 'r+')
-    jobContentFilePath = f.read().replace("\n", "").strip()
+    jobContent = f.read().replace("\n", ",").strip().split(",")
 
-
-    jobContentF = open(jobContentFilePath, "r")
-    tasks = []
-    file_contents = jobContentF.readlines()
-    jobContentF.close()
-
+    for i in range(0, len(jobContent)):
+        jobContent[i] = "./readingFiles/" + jobContent[i]
     
-    for taskString in file_contents:
-        tasks.append(taskString.replace('\n', ''))
+    print(jobContent)
 
     f.seek(0)
     f.truncate(0)
-    f.write(str(tasks))
+    f.write(",".join(jobContent))
     f.close()
 
 distribute()

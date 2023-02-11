@@ -25,6 +25,7 @@ func NewWorker() *Worker {
 func (worker *Worker) work() {
 	//endless for loop that keeps asking for tasks from the master
 	for {
+		//todo need to clean any old files
 		getTaskArgs := &RPC.GetTaskArgs{
 			WorkerId: worker.id,
 		}

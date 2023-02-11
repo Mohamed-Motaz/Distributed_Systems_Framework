@@ -1,2 +1,0 @@
-./task-1.txt
-./task-2.txt

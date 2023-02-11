@@ -4,18 +4,14 @@ filePath = "./aggregate.txt"
 
 def aggregate():
     f = open(filePath, 'r+')
-    tasksFilePaths = []
-    file_contents = f.readlines()
-
-    for taskString in file_contents:
-        tasksFilePaths.append(taskString.replace('\n', ''))
+    finishedTasksPaths = f.read().replace("\n", "").strip().split(",")
 
 
     totalWordsCount = {}
 
     i = 0
-    while i < len(tasksFilePaths):
-        taskF = open(tasksFilePaths[i], 'r')
+    while i < len(finishedTasksPaths):
+        taskF = open(finishedTasksPaths[i], 'r')
 
         wordsDict = taskF.read()
         wordsDict = json.loads(wordsDict)
@@ -24,11 +20,10 @@ def aggregate():
             totalWordsCount = wordsDict
         else:
             for word in wordsDict:
-                currentWord = word.lower()
-                if totalWordsCount.get(currentWord) is None:
-                    totalWordsCount[currentWord] = wordsDict.get(currentWord)
+                if totalWordsCount.get(word) is None:
+                    totalWordsCount[word] = wordsDict.get(word)
                 else:
-                    totalWordsCount[currentWord] = wordsDict.get(currentWord) + totalWordsCount.get(currentWord)
+                    totalWordsCount[word] = wordsDict.get(word) + totalWordsCount.get(word)
 
         taskF.close()
         i += 1
@@ -38,3 +33,4 @@ def aggregate():
     f.write(str(totalWordsCount))
     f.close()
 
+aggregate()
