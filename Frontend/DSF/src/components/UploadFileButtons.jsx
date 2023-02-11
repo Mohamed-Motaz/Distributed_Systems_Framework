@@ -34,28 +34,20 @@ export const UploadFileButtons = (props) => {
 
     zip
       .generateAsync({ type: "blob", compression: "DEFLATE" })
-      .then((content) => {
+      .then(async (content) => {
         console.log({ content });
+        const buffer = await content.arrayBuffer();
+
+        const view = new Uint8Array(buffer);
+
+        console.log({ view });
         WebSocketServerService().uploadBinaries(
           fileType,
-          fileUploaded.name,
-          content,
+          fileUploaded.name + ".zip",
+          Array.from(view),
           ""
         );
       });
-
-    // zip.file(fileUploaded.name, fileUploaded);
-    // let zipFileContent = await zip
-    //   .generateAsync({ type: "blob" })
-    //   .then((content) => content);
-
-    // zipFileContent = await zipFileContent
-    //   .arrayBuffer()
-    //   .then((arrayBuffer) => Buffer.from(arrayBuffer, "binary"));
-
-    // let arr = Array.from(Uint8Array.from(zipFileContent));
-
-    // console.log({ arr });
   };
 
   const handleGetAllBinaries = async () => {
