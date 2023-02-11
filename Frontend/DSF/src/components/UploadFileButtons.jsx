@@ -24,7 +24,7 @@ export const UploadFileButtons = (props) => {
   const [processSelectedFile, setProcessSelectedFile] = React.useState("");
   const [aggregateSelectedFile, setAggregateSelectedFile] = React.useState("");
 
-  const handleUploadFile = async (event, fileType) => {
+  const handleUploadFile = async (event, fileType, runCmd) => {
     const fileUploaded = event.target.files[0];
     const zip = new JSZip();
     let base64Data;
@@ -45,7 +45,7 @@ export const UploadFileButtons = (props) => {
           fileType,
           fileUploaded.name + ".zip",
           Array.from(view),
-          ""
+          runCmd
         );
       });
   };
@@ -87,15 +87,19 @@ export const UploadFileButtons = (props) => {
         onChange={(cmd) => setRunCommand(cmd.target.value)}
       />
       <UploadFileButton
-        onChange={(e) => handleUploadFile(e, BinariesType.process)}
+        onChange={(e) => handleUploadFile(e, BinariesType.process, runCommand)}
         title={BinariesType.process}
       />
       <UploadFileButton
-        onChange={(e) => handleUploadFile(e, BinariesType.Distribute)}
+        onChange={(e) =>
+          handleUploadFile(e, BinariesType.Distribute, runCommand)
+        }
         title={BinariesType.Distribute}
       />
       <UploadFileButton
-        onChange={(e) => handleUploadFile(e, BinariesType.aggregate)}
+        onChange={(e) =>
+          handleUploadFile(e, BinariesType.aggregate, runCommand)
+        }
         title={BinariesType.aggregate}
       />
       <Button onClick={handleGetAllBinaries}>{"Get all Binaries"}</Button>
