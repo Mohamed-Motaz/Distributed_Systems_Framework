@@ -5,6 +5,7 @@ import { Button } from "flowbite-react";
 import React from "react";
 import TextField from "@material-ui/core/TextField";
 import DropDownBox from "./DropDownBox";
+import uuid from "react-uuid";
 
 //await blob.arrayBuffer().then((arrayBuffer) => Buffer.from(arrayBuffer, "binary"))
 export const UploadFileButtons = (props) => {
@@ -58,7 +59,7 @@ export const UploadFileButtons = (props) => {
     console.log("get called");
     wsClient.sendMessage(
       `${JSON.stringify({
-        jobId: "123",
+        jobId: uuid(),
         clientId: "123",
         jobContent,
         optionalFilesZip: optionalFiles,
