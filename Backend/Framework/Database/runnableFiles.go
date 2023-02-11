@@ -25,3 +25,7 @@ func (dBWrapper *DBWrapper) GetRunCmdOfBinary(runnableFile *RunnableFiles, binar
 	WHERE BinaryName = ? AND BinaryType = ?
 	`, binaryName, binaryType).Scan(runnableFile)
 }
+
+func (dBWrapper DBWrapper) DeleteRunnableFile(fileName, fileType string) *gorm.DB {
+	return dBWrapper.Db.Where("jobs.runnableFiles.BinaryName = ? AND jobs.runnableFiles.binaryType = ?", fileName, fileType).Delete(RunnableFiles{})
+}

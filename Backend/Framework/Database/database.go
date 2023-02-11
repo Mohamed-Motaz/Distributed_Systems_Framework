@@ -63,15 +63,15 @@ func applyMigrations(db *gorm.DB) {
 	(id bigint AUTO_INCREMENT,
 	clientId longtext,
 	masterId longtext,
-	jobId longtext,
+	jobId varchar(100),
 	content longtext,
 	timeAssigned datetime(3) NULL,
 	status longtext,
 	processBinaryName longtext,
 	distributeBinaryName longtext,
 	aggregateBinaryName longtext,
-		PRIMARY KEY (id)),
-		UNIQUE KEY uniqueJId (jobId)
+		PRIMARY KEY (id),
+		UNIQUE KEY uniqueJId (jobId))
 	`).Error
 
 	if err != nil {
@@ -81,11 +81,11 @@ func applyMigrations(db *gorm.DB) {
 	err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS jobs.runnableFiles
 	(id bigint AUTO_INCREMENT,
-		binaryName longtext,
-		binaryType longtext,
+		binaryName varchar(255),
+		binaryType varchar(255),
 		binaryRunCmd longtext,
-			PRIMARY KEY (id)),
-			UNIQUE KEY uniqueNameAndType (binaryName,binaryType) 
+			PRIMARY KEY (id),
+			UNIQUE KEY uniqueNameAndType (binaryName,binaryType))
 	`).Error
 
 	if err != nil {

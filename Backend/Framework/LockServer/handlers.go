@@ -77,7 +77,13 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 func (lockServer *LockServer) HandleDeleteBinaryFile(args *RPC.DeleteBinaryFileArgs, reply *RPC.DeleteBinaryFileReply) error {
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to delete file %+v", args.FileName)
-	//todo: remove the field from the runnablefiles table
+	// remove the record from the runnablefiles table
+	if err := lockServer.db.DeleteRunnableFile(args.FileName, string(args.FileType)).Error; err != nil {
+		logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to delete binary file %+v from runnableFiles table with err %+v", args.FileName, err)
+		reply.Err = true
+		reply.ErrMsg = fmt.Sprintf("Unable to delete binary file %+v from runnableFiles", args.FileName)
+		return nil
+	}
 	reply.Err = false
 
 	binaryFilePath := lockServer.getBinaryFilePath(
@@ -105,7 +111,7 @@ func (lockServer *LockServer) HandleDeleteOptionalFiles(args *RPC.DeleteOptional
 
 	if _, err := os.Stat(optionalFilesFolderPath); errors.Is(err, os.ErrNotExist) {
 		logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Done deleting optional file %+v", args.JobId)
-		return nil;
+		return nil
 	}
 
 	err := os.Remove(optionalFilesFolderPath)
@@ -211,6 +217,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	files, err := ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(PROCESS_BINARY_FOLDER_NAME)))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from process binaries folder %+v", err)
+	} else {
 		foundFile = true
 	}
 	for _, file := range files {
@@ -220,8 +227,10 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(utils.DistributeBinary)))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from distribute binary folder %+v", err)
+	} else {
 		foundFile = true
 	}
+
 	for _, file := range files {
 		reply.DistributeBinaryNames = append(reply.DistributeBinaryNames, file.Name())
 	}
@@ -229,8 +238,10 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(utils.AggregateBinary)))
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from aggregate binary folder %+v", err)
+	} else {
 		foundFile = true
 	}
+
 	for _, file := range files {
 		reply.AggregateBinaryNames = append(reply.AggregateBinaryNames, file.Name())
 	}
