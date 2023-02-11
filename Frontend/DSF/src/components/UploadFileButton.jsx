@@ -4,7 +4,7 @@ import { WebSocketServerService } from "./../services/WebSocketServerService";
 import { BinariesType } from "./../services/ServiceTypes/WebSocketServiceTypes";
 
 export default function UploadFileButton(props) {
-  const { title, onChange } = props;
+  const { title, onChange, inputType } = props;
   const hiddenFileInput = useRef(null);
 
   function handleClick() {
@@ -15,7 +15,7 @@ export default function UploadFileButton(props) {
     <button className="m-2">
       <Button onClick={handleClick}>{title}</Button>
       <input
-        type="file"
+        type={inputType ?? "file"}
         ref={hiddenFileInput}
         onChange={onChange}
         className="hidden"

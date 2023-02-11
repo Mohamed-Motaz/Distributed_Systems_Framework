@@ -2,12 +2,9 @@ import UploadFileButton from "../components/UploadFileButton.jsx";
 import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
 import { WebSocketServerService } from "../services/WebSocketServerService";
 import { Button } from "flowbite-react";
-import { Buffer } from "buffer/";
-import { Dropdown } from "@fluentui/react/lib/Dropdown";
 import React from "react";
 import TextField from "@material-ui/core/TextField";
 import DropDownBox from "./DropDownBox";
-import * as JSZip from "jszip";
 
 //await blob.arrayBuffer().then((arrayBuffer) => Buffer.from(arrayBuffer, "binary"))
 export const UploadFileButtons = (props) => {
@@ -23,31 +20,28 @@ export const UploadFileButtons = (props) => {
     React.useState("");
   const [processSelectedFile, setProcessSelectedFile] = React.useState("");
   const [aggregateSelectedFile, setAggregateSelectedFile] = React.useState("");
+  const [optionalFiles, setOptionalFiles] = React.useState({
+    name: "",
+    content: [],
+  });
 
   const handleUploadFile = async (event, fileType, runCmd) => {
     const fileUploaded = event.target.files[0];
-    const zip = new JSZip();
-    let base64Data;
 
-    zip.file(fileUploaded.name, fileUploaded);
-    console.log(fileUploaded);
+    const buffer = await fileUploaded.arrayBuffer();
+    const view = new Uint8Array(buffer);
 
-    zip
-      .generateAsync({ type: "blob", compression: "DEFLATE" })
-      .then(async (content) => {
-        console.log({ content });
-        const buffer = await content.arrayBuffer();
+    if (fileType === BinariesType.optionalFiles) {
+      setOptionalFiles({ name: fileUploaded.name, content: Array.from(view) });
+    }
+    console.log({ view });
 
-        const view = new Uint8Array(buffer);
-
-        console.log({ view });
-        WebSocketServerService().uploadBinaries(
-          fileType,
-          fileUploaded.name + ".zip",
-          Array.from(view),
-          runCmd
-        );
-      });
+    WebSocketServerService().uploadBinaries(
+      fileType,
+      fileUploaded.name,
+      Array.from(view),
+      runCmd
+    );
   };
 
   const handleGetAllBinaries = async () => {
@@ -65,7 +59,7 @@ export const UploadFileButtons = (props) => {
       `${JSON.stringify({
         jobId: "123",
         clientId: "123",
-        optionalFilesZip: {},
+        optionalFilesZip: optionalFiles,
         distributeBinaryName: distributeSelectedFile,
         processBinaryName: processSelectedFile,
         aggregateBinaryName: aggregateSelectedFile,
@@ -78,6 +72,12 @@ export const UploadFileButtons = (props) => {
     console.log({ finishedJobs });
   };
 
+  const getJobProgress = async () => {
+    const jobProgress = await WebSocketServerService().getJobProgress("123");
+
+    console.log({ jobProgress });
+  };
+
   return (
     <section className="m-8">
       <TextField
@@ -86,6 +86,7 @@ export const UploadFileButtons = (props) => {
         value={runCommand}
         onChange={(cmd) => setRunCommand(cmd.target.value)}
       />
+
       <UploadFileButton
         onChange={(e) => handleUploadFile(e, BinariesType.process, runCommand)}
         title={BinariesType.process}
@@ -102,9 +103,17 @@ export const UploadFileButtons = (props) => {
         }
         title={BinariesType.aggregate}
       />
+      <UploadFileButton
+        onChange={(e) =>
+          handleUploadFile(e, BinariesType.optionalFiles, runCommand)
+        }
+        title={BinariesType.optionalFiles}
+      />
+
       <Button onClick={handleGetAllBinaries}>{"Get all Binaries"}</Button>
       <Button onClick={handleSubmitJob}>{"Submit job"}</Button>
       <Button onClick={getAllFinishedJob}>{"Get all finished jobs"}</Button>
+      <Button onClick={getJobProgress}>{"Get Job Progress"}</Button>
       <DropDownBox
         title={"process"}
         files={process}

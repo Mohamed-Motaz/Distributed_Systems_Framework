@@ -29,6 +29,16 @@ export const WebSocketServerService = () => {
     return response;
   };
 
+  const getJobProgress = async (jobId) => {
+    let response;
+
+    await axios
+      .post(urlBuilder("getSystemProgress"), { jobId })
+      .then((value) => (response = value))
+      .catch((err) => console.log({ err }));
+    return response;
+  };
+
   const submitJob = async (SubmitJobSwagger) => {
     let response;
     await axios
@@ -55,10 +65,11 @@ export const WebSocketServerService = () => {
   };
 
   return {
-    getAllBinaries,
-    getAllFinishedJobs,
-    uploadBinaries,
     submitJob,
+    getAllBinaries,
+    getJobProgress,
+    uploadBinaries,
+    getAllFinishedJobs,
     getAllFinishedJobs,
   };
 };
