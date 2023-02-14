@@ -21,14 +21,24 @@ func GetEnv(key, fallback string) string {
 	return fallback
 }
 
-func RemoveFilesThatDontMatchPrefix(prefix string) {
+func RemoveFilesThatDontMatchNames(names []string) {
 	files, err := filepath.Glob("*")
 	if err != nil {
 		log.Printf("Error while getting files\n")
 		return
 	}
+	fmt.Printf("files: %+v", files)
 	for _, f := range files {
-		if strings.HasPrefix(f, prefix) {
+		canRemove := true
+
+		for _, name := range names {
+			if strings.HasPrefix(f, name) {
+				canRemove = false
+				break
+			}
+		}
+
+		if !canRemove {
 			continue
 		}
 		if err := os.RemoveAll(f); err != nil {

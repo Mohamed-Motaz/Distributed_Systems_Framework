@@ -76,7 +76,7 @@ func (c *Cache) Set(key string, value *CacheValue, expiration time.Duration) err
 		return err
 	}
 
-	return c.client.Set(c.ctx, key, byteArr, expiration).Err()
+	return c.client.Set(c.ctx, key, string(byteArr), expiration).Err()
 
 }
 

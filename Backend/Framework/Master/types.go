@@ -53,18 +53,20 @@ const (
 	_MQ_PORT          string = "MQ_PORT"
 	_MQ_USERNAME      string = "MQ_USERNAME"
 	_MQ_PASSWORD      string = "MQ_PASSWORD"
+	_FILES_TO_IGNORE  string = "FILES_TO_IGNORE"
 	_LOCAL_HOST       string = "127.0.0.1"
 )
 
 var (
-	MyHost         string
-	MyPort         string
-	LockServerHost string
-	LockServerPort string
-	MqHost         string
-	MqPort         string
-	MqUsername     string
-	MqPassword     string
+	MyHost            string
+	MyPort            string
+	LockServerHost    string
+	LockServerPort    string
+	MqHost            string
+	MqPort            string
+	MqUsername        string
+	MqPassword        string
+	FileNamesToIgnore []string
 )
 
 func init() {
@@ -82,4 +84,5 @@ func init() {
 	MqPort = utils.GetEnv(_MQ_PORT, "5672")
 	MqUsername = utils.GetEnv(_MQ_USERNAME, "guest")
 	MqPassword = utils.GetEnv(_MQ_PASSWORD, "guest")
+	FileNamesToIgnore = strings.Split(utils.GetEnv(_FILES_TO_IGNORE, ""), ",")
 }

@@ -5,7 +5,6 @@ import (
 	mq "Framework/MessageQueue"
 	utils "Framework/Utils"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"Framework/RPC"
@@ -44,8 +43,7 @@ func CreateMasterAddress() string {
 }
 
 func (master *Master) removeOldJobFiles() {
-	myName := filepath.Base(os.Args[0])
-	utils.RemoveFilesThatDontMatchPrefix(myName)
+	utils.RemoveFilesThatDontMatchNames(FileNamesToIgnore)
 }
 
 // this function expects to hold a lock

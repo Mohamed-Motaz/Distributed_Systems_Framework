@@ -35,6 +35,7 @@ export const UploadFileButtons = (props) => {
 
     if (fileType === BinariesType.optionalFiles) {
       setOptionalFiles({ name: fileUploaded.name, content: Array.from(view) });
+      return; //no need to call
     }
     console.log({ view });
 

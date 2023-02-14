@@ -99,7 +99,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Invalid format"})
 			continue
 		}
-		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "This is the message received on the websocket connection %+v", newJobRequest)
+		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "This is the message received on the websocket connection %+v", newJobRequest.JobId)
 		//immediately attempt to send the optional files to the lockserver
 		if !webSocketServer.handleSendOptionalFiles(client, newJobRequest) { //no need to send the errors since this method is responsible for this
 			continue
@@ -156,6 +156,12 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				continue
 			}
 
+			if finishedJob.ClientId != "" {
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Corrupt job with no clientId %+v }. Will be discarded", finishedJob)
+				finishedJobObj.Ack(false)
+				continue
+			}
+
 			//DONE: send the appropriate response to the user
 
 			//CASES
@@ -191,15 +197,30 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				}
 			} else { //case 2 -- cache is alive
 
-				if clientData.ServerID == webSocketServer.id {
+				finishedJobToCache := &cache.FinishedJob{
+					JobId:     finishedJob.JobId,
+					JobResult: finishedJob.Result,
+				}
+
+				//error may be redis.Nil
+				//todo nadafha
+				if clientData == nil {
+					clientData = &cache.CacheValue{
+						ServerID:     webSocketServer.id, //no lock errors because no one writes the server.id
+						FinishedJobs: []cache.FinishedJob{*finishedJobToCache},
+					}
+					err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+
+					if err != nil {
+						logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+					}
+					finishedJobObj.Ack(false)
+
+				} else if clientData.ServerID == webSocketServer.id {
 					if clientIsAlive { //p1
 						go webSocketServer.writeFinishedJob(client, *finishedJob)
 					}
 					//p2
-					finishedJobToCache := &cache.FinishedJob{
-						JobId:     finishedJob.JobId,
-						JobResult: finishedJob.Result,
-					}
 
 					clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
 					err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
