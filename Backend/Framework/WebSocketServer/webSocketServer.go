@@ -99,7 +99,16 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			webSocketServer.writeError(client, utils.Error{Err: true, ErrMsg: "Invalid format"})
 			continue
 		}
-		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "This is the message received on the websocket connection %+v", newJobRequest.JobId)
+
+		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "This is the message received on the websocket connection %+v",
+			struct {
+				JobId                string
+				JobContent           string
+				DistributeBinaryName string
+				ProcessBinaryName    string
+				AggregateBinaryName  string
+			}{JobId: newJobRequest.JobId, JobContent: newJobRequest.JobContent, DistributeBinaryName: newJobRequest.DistributeBinaryName, ProcessBinaryName: newJobRequest.ProcessBinaryName, AggregateBinaryName: newJobRequest.AggregateBinaryName},
+		)
 		//immediately attempt to send the optional files to the lockserver
 		if !webSocketServer.handleSendOptionalFiles(client, newJobRequest) { //no need to send the errors since this method is responsible for this
 			continue
@@ -156,7 +165,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				continue
 			}
 
-			if finishedJob.ClientId != "" {
+			if finishedJob.ClientId == "" {
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Corrupt job with no clientId %+v }. Will be discarded", finishedJob)
 				finishedJobObj.Ack(false)
 				continue

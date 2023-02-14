@@ -4,6 +4,7 @@ import (
 	logger "Framework/Logger"
 	"Framework/RPC"
 	utils "Framework/Utils"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,7 +26,9 @@ func NewWorker() *Worker {
 func (worker *Worker) work() {
 	//endless for loop that keeps asking for tasks from the master
 	for {
-		//todo need to clean any old files
+		//clean any old files
+		utils.RemoveFilesThatDontMatchNames(FileNamesToIgnore)
+
 		getTaskArgs := &RPC.GetTaskArgs{
 			WorkerId: worker.id,
 		}
@@ -54,7 +57,16 @@ func (worker *Worker) work() {
 			continue
 		}
 
-		logger.LogInfo(logger.WORKER, logger.ESSENTIAL, "This is the response received from the master %+v", getTaskReply)
+		logger.LogInfo(logger.WORKER, logger.ESSENTIAL, "This is the response received from the master %+v", struct {
+			TaskAvailable        bool
+			TaskContent          string
+			ProcessBinaryName    string
+			OptionalFilesZipName string
+			TaskId               string
+			JobId                string
+		}{TaskAvailable: getTaskReply.TaskAvailable, TaskContent: getTaskReply.TaskContent, ProcessBinaryName: getTaskReply.ProcessBinary.Name,
+			OptionalFilesZipName: getTaskReply.OptionalFilesZip.Name, TaskId: getTaskReply.TaskId, JobId: getTaskReply.TaskId},
+		)
 
 		worker.handleTask(getTaskReply)
 
@@ -66,57 +78,35 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 	stopHeartBeatsCh := make(chan bool)
 	go worker.startHeartBeats(getTaskReply, stopHeartBeatsCh)
 	defer func() {
-		logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Worker done with handleTask with this data %+v", getTaskReply)
+		logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Worker done with handleTask with this data %+v", struct {
+			TaskAvailable        bool
+			TaskContent          string
+			ProcessBinaryName    string
+			OptionalFilesZipName string
+			TaskId               string
+			JobId                string
+		}{TaskAvailable: getTaskReply.TaskAvailable, TaskContent: getTaskReply.TaskContent, ProcessBinaryName: getTaskReply.ProcessBinary.Name,
+			OptionalFilesZipName: getTaskReply.OptionalFilesZip.Name, TaskId: getTaskReply.TaskId, JobId: getTaskReply.TaskId})
 		stopHeartBeatsCh <- true
 	}()
 
 	//write the process to disk
+	if err := utils.CreateAndWriteToFile(getTaskReply.ProcessBinary.Name, getTaskReply.ProcessBinary.Content); err != nil {
+		worker.callMasterWithError(fmt.Sprintf("Error while creating the process binary zip file %+v", err), "Error while creating the process binary zip file")
+		return
+	}
 	if err := utils.UnzipSource(getTaskReply.ProcessBinary.Name, ""); err != nil {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to unzip the client process with err: %+v", err)
-
-		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while unzipping process binary on the worker"}}
-		finishedTaskReply := &RPC.FinishedTaskReply{}
-
-		rpcConn := &RPC.RpcConnection{
-			Name:         "Master.HandleFinishedTasks",
-			Args:         finishedTaskArgs,
-			Reply:        &finishedTaskReply,
-			SenderLogger: logger.WORKER,
-			Reciever: RPC.Reciever{
-				Name: "Master",
-				Port: MasterPort,
-				Host: MasterHost,
-			},
-		}
-		ok, err := RPC.EstablishRpcConnection(rpcConn)
-		if !ok {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v", err)
-		}
+		worker.callMasterWithError(fmt.Sprintf("Unable to unzip the client process with err: %+v", err), "Error while unzipping process binary on the worker")
 		return
 	}
 
 	//write the optional files to disk
+	if err := utils.CreateAndWriteToFile(getTaskReply.OptionalFilesZip.Name, getTaskReply.OptionalFilesZip.Content); err != nil {
+		worker.callMasterWithError(fmt.Sprintf("Error while creating the optional files zip file %+v", err), "Error while creating the optional files zip file")
+		return
+	}
 	if err := utils.UnzipSource(getTaskReply.OptionalFilesZip.Name, ""); err != nil {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to unzip the client optional files with err: %+v", err)
-
-		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while unzipping the optional files on the worker"}}
-		finishedTaskReply := &RPC.FinishedTaskReply{}
-
-		rpcConn := &RPC.RpcConnection{
-			Name:         "Master.HandleFinishedTasks",
-			Args:         finishedTaskArgs,
-			Reply:        &finishedTaskReply,
-			SenderLogger: logger.WORKER,
-			Reciever: RPC.Reciever{
-				Name: "Master",
-				Port: MasterPort,
-				Host: MasterHost,
-			},
-		}
-		ok, err := RPC.EstablishRpcConnection(rpcConn)
-		if !ok {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v", err)
-		}
+		worker.callMasterWithError(fmt.Sprintf("Unable to unzip the client optional files with err: %+v", err), "Error while unzipping the optional files on the worker")
 		return
 	}
 
@@ -126,27 +116,7 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		getTaskReply.ProcessBinary)
 
 	if err != nil {
-		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to excute the client process with err: %+v", err)
-
-		finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: "Error while execute process binary on the worker"}}
-		finishedTaskReply := &RPC.FinishedTaskReply{}
-
-		rpcConn := &RPC.RpcConnection{
-			Name:         "Master.HandleFinishedTasks",
-			Args:         finishedTaskArgs,
-			Reply:        &finishedTaskReply,
-			SenderLogger: logger.WORKER,
-			Reciever: RPC.Reciever{
-				Name: "Master",
-				Port: MasterPort,
-				Host: MasterHost,
-			},
-		}
-		ok, err := RPC.EstablishRpcConnection(rpcConn)
-
-		if !ok {
-			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v", err)
-		}
+		worker.callMasterWithError(fmt.Sprintf("Unable to excute the client process with err: %+v", err), "Error while execute process binary on the worker")
 		return
 	}
 
@@ -176,12 +146,28 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 }
 
 func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartBeats chan bool) {
-	logger.LogInfo(logger.WORKER, logger.DEBUGGING, "About to start sending heartbeats for this task %+v", getTaskReply)
+	logger.LogInfo(logger.WORKER, logger.DEBUGGING, "About to start sending heartbeats for this task %+v", struct {
+		TaskAvailable        bool
+		TaskContent          string
+		ProcessBinaryName    string
+		OptionalFilesZipName string
+		TaskId               string
+		JobId                string
+	}{TaskAvailable: getTaskReply.TaskAvailable, TaskContent: getTaskReply.TaskContent, ProcessBinaryName: getTaskReply.ProcessBinary.Name,
+		OptionalFilesZipName: getTaskReply.OptionalFilesZip.Name, TaskId: getTaskReply.TaskId, JobId: getTaskReply.TaskId})
 
 	for {
 		select {
 		case <-stopHeartBeats:
-			logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Stopped sending heartbeats for this task %+v", getTaskReply)
+			logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Stopped sending heartbeats for this task %+v", struct {
+				TaskAvailable        bool
+				TaskContent          string
+				ProcessBinaryName    string
+				OptionalFilesZipName string
+				TaskId               string
+				JobId                string
+			}{TaskAvailable: getTaskReply.TaskAvailable, TaskContent: getTaskReply.TaskContent, ProcessBinaryName: getTaskReply.ProcessBinary.Name,
+				OptionalFilesZipName: getTaskReply.OptionalFilesZip.Name, TaskId: getTaskReply.TaskId, JobId: getTaskReply.TaskId})
 			return
 		default:
 			time.Sleep(9 * time.Second)
@@ -208,5 +194,29 @@ func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartB
 				logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleWorkerHeartBeats with error -> %v", err)
 			}
 		}
+	}
+}
+
+func (worker *Worker) callMasterWithError(logErrorMessage, masterErrorMessage string) {
+	logger.LogError(logger.WORKER, logger.ESSENTIAL, logErrorMessage)
+
+	finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: masterErrorMessage}}
+	finishedTaskReply := &RPC.FinishedTaskReply{}
+
+	rpcConn := &RPC.RpcConnection{
+		Name:         "Master.HandleFinishedTasks",
+		Args:         finishedTaskArgs,
+		Reply:        &finishedTaskReply,
+		SenderLogger: logger.WORKER,
+		Reciever: RPC.Reciever{
+			Name: "Master",
+			Port: MasterPort,
+			Host: MasterHost,
+		},
+	}
+	ok, err := RPC.EstablishRpcConnection(rpcConn)
+
+	if !ok {
+		logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleFinishedTasks with error -> %v", err)
 	}
 }

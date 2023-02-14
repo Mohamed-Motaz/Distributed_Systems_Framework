@@ -67,7 +67,19 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 			return nil
 		}
 
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request accepted %+v", reply)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request accepted %+v", struct {
+			IsAccepted           bool
+			JobId                string
+			ClientId             string
+			JobContent           string
+			ProcessBinaryName    string
+			DistributeBinaryName string
+			AggregateBinaryName  string
+			OptionalFilesZipName string
+		}{IsAccepted: reply.IsAccepted, JobId: reply.JobId, ClientId: reply.ClientId, JobContent: reply.JobContent,
+			ProcessBinaryName: reply.ProcessBinary.Name, DistributeBinaryName: reply.DistributeBinary.Name, AggregateBinaryName: reply.AggregateBinary.Name,
+			OptionalFilesZipName: reply.OptionalFilesZip.Name},
+		)
 		return nil
 	}
 	logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Job request rejected %+v", args.JobId)
@@ -132,7 +144,7 @@ func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply
 
 	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to submit finished job %+v", args)
 
-	err := lockServer.db.DeleteJobByJobId(args.JobId).Error //todo decide whether or not to delete jobs
+	err := lockServer.db.DeleteJobByJobId(args.JobId).Error
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete job id from the database %+v", err)
 		return nil

@@ -100,15 +100,23 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	}
 
 	//now write the distribute, aggregate, and optionalFilesZip  to disk
-
+	if err := utils.CreateAndWriteToFile(master.currentJob.distributeBinary.Name, master.currentJob.distributeBinary.Content); err != nil {
+		return fmt.Errorf("error while creating the distribute binary zip file %+v", err)
+	}
 	if err := utils.UnzipSource(master.currentJob.distributeBinary.Name, ""); err != nil {
 		return fmt.Errorf("error while unzipping distribute zip %+v", err)
 	}
 
+	if err := utils.CreateAndWriteToFile(master.currentJob.aggregateBinary.Name, master.currentJob.aggregateBinary.Content); err != nil {
+		return fmt.Errorf("error while creating the aggregate binary zip file %+v", err)
+	}
 	if err := utils.UnzipSource(master.currentJob.aggregateBinary.Name, ""); err != nil {
 		return fmt.Errorf("error while unzipping aggregate zip %+v", err)
 	}
 
+	if err := utils.CreateAndWriteToFile(master.currentJob.optionalFilesZip.Name, master.currentJob.optionalFilesZip.Content); err != nil {
+		return fmt.Errorf("error while creating the optional files zip file %+v", err)
+	}
 	if err := utils.UnzipSource(master.currentJob.optionalFilesZip.Name, ""); err != nil {
 		return fmt.Errorf("error while unzipping optional files zip %+v", err)
 	}
@@ -282,10 +290,15 @@ func (master *Master) qConsumer() {
 				//use args that the lockserver has accepted
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer accepted job request %v for client %+v", args.JobId, args.ClientId)
 				newJob.Ack(false)
-			} else {
+			} else if reply.JobId != "" {
 				//use alternative provided by lockserver
 				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v for client %v instead of requested job %v", reply.JobId, reply.ClientId, args.JobId)
 				newJob.Nack(false, true) //requeue job since lockserver provided another
+			} else {
+				//seems like there is an error with the lockserver, and I can't accept any jobs now
+				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer seems like it is unable to accept my job requests now")
+				newJob.Nack(false, true)
+				continue
 			}
 			master.mu.Lock()
 			if err := master.setJobStatus(reply); err != nil {
@@ -337,7 +350,7 @@ func (master *Master) qConsumer() {
 
 // publishes a finished job to the message queue
 // this has to hold a lock
-func (master *Master) publishFinJob(finJob mq.FinishedJob) {
+func (master *Master) publishFinJob(finJob mq.FinishedJob, resetStatus bool) {
 
 	res, err := json.Marshal(finJob)
 	if err != nil {
@@ -363,7 +376,9 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob) {
 			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finJob.JobId, finJob.ClientId)
 		}
 	}
-	master.resetStatus()
+	if resetStatus {
+		master.resetStatus()
+	}
 }
 
 // this function expects to hold a lock because master.publishFinJob needs to hold a lock
@@ -374,7 +389,7 @@ func (master *Master) publishErrAsFinJob(err, clientId, jobId string) { //DONE f
 	fn.JobId = jobId
 	fn.Err = true
 	fn.ErrMsg = err
-	master.publishFinJob(fn)
+	master.publishFinJob(fn, true)
 }
 
 //
@@ -386,7 +401,16 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 
 	master.mu.Lock()
 	defer master.mu.Unlock()
-	defer logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master replied with this reply: %+v", reply)
+	defer logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master replied with this reply: %+v", struct {
+		TaskAvailable        bool
+		TaskContent          string
+		ProcessBinaryName    string
+		OptionalFilesZipName string
+		TaskId               string
+		JobId                string
+	}{TaskAvailable: reply.TaskAvailable, TaskContent: reply.TaskContent,
+		ProcessBinaryName: reply.ProcessBinary.Name, OptionalFilesZipName: reply.OptionalFilesZip.Name,
+		TaskId: reply.TaskId, JobId: reply.JobId})
 
 	if !master.isRunning {
 		reply.TaskAvailable = false
@@ -502,7 +526,7 @@ func (master *Master) finishUpJob() {
 		JobId:    master.currentJob.jobId,
 		Content:  master.currentJob.jobContent,
 		Result:   string(finalResult),
-	})
+	}, false)
 
 	master.attemptSendFinishedJobToLockServer()
 

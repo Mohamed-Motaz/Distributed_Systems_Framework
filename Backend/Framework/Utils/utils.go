@@ -27,7 +27,7 @@ func RemoveFilesThatDontMatchNames(names []string) {
 		log.Printf("Error while getting files\n")
 		return
 	}
-	fmt.Printf("files: %+v", files)
+
 	for _, f := range files {
 		canRemove := true
 
@@ -58,15 +58,19 @@ func ExecuteProcess(loggerRole int, processType FileType, tmpFile File, exeFile 
 		return nil, fmt.Errorf("error while creating the temporary file that contains the job contents for %+v process", processType)
 	}
 
-	_, err = exec.Command(exeFile.RunCmd).Output()
+	cmdArr := strings.Split(exeFile.RunCmd, " ")
+	actualCmd := cmdArr[0]
+	cmdArr = cmdArr[1:]
+
+	_, err = exec.Command(actualCmd, cmdArr...).Output()
 	if err != nil {
-		return nil, fmt.Errorf("error while executing %+v process", processType)
+		return nil, fmt.Errorf("error while executing %+v process %+v", processType, err)
 	}
 
 	//now need to read from this file the resulting data
 	data, err := os.ReadFile(tmpFile.Name)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading from the %+v process", processType)
+		return nil, fmt.Errorf("error while reading from the %+v process %+v", processType, err)
 	}
 	return data, nil
 }

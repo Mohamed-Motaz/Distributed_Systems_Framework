@@ -5,4 +5,3 @@ pg-grimm.txt
 pg-huckleberry_finn.txt
 pg-metamorphosis.txt
 pg-sherlock_holmes.txt
-pg-sherlock_holmes.txt

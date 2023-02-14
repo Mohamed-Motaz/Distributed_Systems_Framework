@@ -13,14 +13,16 @@ type Worker struct {
 }
 
 const (
-	_MASTER_HOST string = "MASTER_HOST"
-	_MASTER_PORT string = "MASTER_PORT"
-	_LOCAL_HOST  string = "127.0.0.1"
+	_MASTER_HOST     string = "MASTER_HOST"
+	_MASTER_PORT     string = "MASTER_PORT"
+	_FILES_TO_IGNORE string = "FILES_TO_IGNORE"
+	_LOCAL_HOST      string = "127.0.0.1"
 )
 
 var (
-	MasterHost string
-	MasterPort string
+	MasterHost        string
+	MasterPort        string
+	FileNamesToIgnore []string
 )
 
 func init() {
@@ -33,5 +35,5 @@ func init() {
 
 	MasterHost = strings.Replace(utils.GetEnv(MasterHost, _LOCAL_HOST), "_", ".", -1) //replace all "_" with ".""
 	MasterPort = utils.GetEnv(_MASTER_PORT, "5555")
-
+	FileNamesToIgnore = strings.Split(utils.GetEnv(_FILES_TO_IGNORE, ""), ",")
 }
