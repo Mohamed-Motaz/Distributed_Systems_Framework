@@ -94,6 +94,7 @@ export const UploadFileButtons = (props) => {
         labelName="Run command"
         color="secondary"
         value={runCommand}
+        InputProps={{ inputProps: { style: { color: "#fff" } } }}
         onChange={(cmd) => setRunCommand(cmd.target.value)}
       />
 
@@ -167,6 +168,7 @@ export const UploadFileButtons = (props) => {
       <TextField
         labelName="Run command"
         color="secondary"
+        InputProps={{ inputProps: { style: { color: "#fff" } } }}
         value={jobContent}
         onChange={(cmd) => setJobContent(cmd.target.value)}
         multiline

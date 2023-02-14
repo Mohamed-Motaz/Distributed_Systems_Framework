@@ -16,6 +16,7 @@ export default function DropDownBox(props) {
       <h1>{title}</h1>
 
       <div className="Container">
+        <h2>{selectedFile}</h2>
         <select
           name="process"
           onChange={(e) => handleCountrySelect(e)}
