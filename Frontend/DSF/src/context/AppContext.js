@@ -8,7 +8,7 @@ export default function AppContextProvider(props) {
 
 
 
-    return <AppContext.Provider value={{ setApiEndPoint }}>
+    return <AppContext.Provider value={{ apiEndPoint, setApiEndPoint }}>
         {props.children}
     </AppContext.Provider>
 }
