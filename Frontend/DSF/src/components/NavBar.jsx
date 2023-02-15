@@ -30,16 +30,22 @@ export default function NavBar()
         </NavLink>
 
         {
-            width <= 700 ? <DropDownMenu />
+            width <= 900 ? <DropDownMenu />
             : <ul className='flex text-lg font-medium gap-x-4'>
                 <li>
                     <NavLink className="nav-link" to='/'>Home</NavLink>
                 </li>
                 <li>
-                    <NavLink className="nav-link" to='/events'>Events</NavLink>
+                    <NavLink className="nav-link" to='/how-to'>How To</NavLink>
                 </li>
                 <li>
-                    <NavLink className="nav-link" to='/tops'>Tops</NavLink>
+                    <NavLink className="nav-link" to='/manage'>Manage</NavLink>
+                </li>
+                <li>
+                    <NavLink className="nav-link" to='/submit-job'>Submit Job</NavLink>
+                </li>
+                <li>
+                    <NavLink className="nav-link" to='/status'>Status</NavLink>
                 </li>
                 <li>
                     <NavLink className="nav-link" to='/about-us'>About Us</NavLink>

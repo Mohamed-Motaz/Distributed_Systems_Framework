@@ -20,19 +20,24 @@ nav .nav-link.active {
     font-weight: bold;
 }
 
-@media screen and (min-width: 701px) {
+nav .nav-link:hover li{
+    color: #342528 !important;
+    background-color: #5252524b !important;
+}
+
+@media screen and (min-width: 901px) {
     nav .nav-link:hover,
     nav i:hover,
     nav .nav-link.active {
-        padding-left: 0.9rem;
-        padding-right: 0.9rem;
+        padding-left: 0.3rem;
+        padding-right: 0.3rem;
     }
 }
 
 nav .nav-link li:hover,
 nav .nav-link.active li {
     color: #1744e1 !important;
-    font-weight: bold;
+    font-weight: bolder;
 }
 
 nav .nav-link:focus,

@@ -8,7 +8,7 @@ export default function RootLayout()
 
   return <>
     <NavBar/>
-    <div className='dark pt-20 px-8'>
+    <div className='dark pt-28 px-8'>
       <Outlet></Outlet>
     </div>
   </>

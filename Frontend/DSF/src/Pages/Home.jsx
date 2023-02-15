@@ -16,7 +16,7 @@ export default function Home() {
 
   return (
     <>
-      <main className="pt-8">
+      <main>
         <UploadFileButtons wsClient={wsClient} />
       </main>
     </>
