@@ -25,8 +25,7 @@ export default function App()
   const HOME_ROUTE = createBrowserRouter([
     {
       path: '/', element: <RootLayout/>, children: [
-        { index: true, element: <Landing/> },
-        //{ index: true, element: isFirst ? <Landing/> : <Home /> },
+        { index: true, element: isFirst ? <Landing/> : <Home /> },
         { path: '/how-to', element: <HowTo /> },
         { path: '/manage', element: <Manage /> },
         { path: '/submit-job', element: <SubmitJob /> },
