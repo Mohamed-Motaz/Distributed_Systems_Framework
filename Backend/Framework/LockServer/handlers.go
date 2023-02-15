@@ -101,7 +101,7 @@ func (lockServer *LockServer) HandleDeleteBinaryFile(args *RPC.DeleteBinaryFileA
 	binaryFilePath := lockServer.getBinaryFilePath(
 		lockServer.convertFileTypeToFolderType(args.FileType), args.FileName)
 
-	err := os.Remove(binaryFilePath)
+	err := os.RemoveAll(binaryFilePath)
 
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete file at this path %+v with err %+v", binaryFilePath, err)
@@ -126,7 +126,7 @@ func (lockServer *LockServer) HandleDeleteOptionalFiles(args *RPC.DeleteOptional
 		return nil
 	}
 
-	err := os.Remove(optionalFilesFolderPath)
+	err := os.RemoveAll(optionalFilesFolderPath)
 
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot delete optional files at this path %+v with err %+v", optionalFilesFolderPath, err)
@@ -150,7 +150,7 @@ func (lockServer *LockServer) HandleFinishedJob(args *RPC.FinishedJobArgs, reply
 		return nil
 	}
 
-	err = os.Remove(lockServer.getOptionalFilesFolderPath(args.JobId))
+	err = os.RemoveAll(lockServer.getOptionalFilesFolderPath(args.JobId))
 	if err != nil {
 		return nil
 	}
