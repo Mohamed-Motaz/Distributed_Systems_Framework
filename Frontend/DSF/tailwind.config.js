@@ -34,8 +34,8 @@ module.exports = {
         color: 'rgba(0, 0, 0, 0.1)',
       },
       boxShadow: {
-        card: '0 0 1px 0 rgba(189,192,207,0.06),0 10px 16px -1px rgba(189,192,207,0.2)',
-        cardhover: '0 0 1px 0 rgba(189,192,207,0.06),0 10px 16px -1px rgba(189,192,207,0.4)',
+        card: '0 0 1px 0 rgba(23,68,225,0.06),0 10px 16px -1px rgba(23,68,225,0.2)',
+        cardhover: '0 0 1px 0 rgba(23,68,225,0.06),0 10px 16px -1px rgba(23,68,225,0.4)',
       },
       width: {
         400: '400px',
