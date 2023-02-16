@@ -49,9 +49,9 @@ export default function Status() {
     getJobsProgress()
 
     const intervalCalling = setInterval(async () => {
-      console.log("getJobsProgress() : Start...");
+      //console.log("getJobsProgress() : Start...");
       await getJobsProgress()
-      console.log("getJobsProgress() : Done");
+      //console.log("getJobsProgress() : Done");
     }, 5000)
 
     return () => {
