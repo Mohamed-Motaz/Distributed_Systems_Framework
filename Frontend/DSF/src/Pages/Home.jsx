@@ -12,6 +12,10 @@ export default function Home() {
     onOpen: () => {
       console.log("WebSocket connection established.");
     },
+    onClose: () => {
+      console.log('WebSocket connection closed, it will be re-established in a second');
+      setTimeout(()=> wsClient(), 1000);
+    },
     onMessage: (e) => console.log({ e }),
   });
 

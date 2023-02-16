@@ -2,7 +2,9 @@ import { Progress, Tooltip } from 'flowbite-react';
 import React, { useState } from 'react'
 
 export default function StatusCard({ job }) {
+    console.log(job.error? 'Error Found': 'Success');
     job = job.response.Progress[0];
+
 
     const [isCopied, setIsCopied] = useState(false)
     const [timer, setTimer] = useState(null)
