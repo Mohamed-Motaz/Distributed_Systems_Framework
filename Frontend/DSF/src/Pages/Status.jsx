@@ -68,7 +68,7 @@ export default function Status() {
     {
       loading && jobs === null ?
         <Loading />
-        : jobs.length ? <section className='w-full grid grid-cols-12 gap-8'>
+        : jobs.length ? <section className='w-full grid grid-cols-12'>
           {
             jobs.map((job, index) => <StatusCard
               key={index}

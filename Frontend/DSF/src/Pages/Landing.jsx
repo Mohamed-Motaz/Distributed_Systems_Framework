@@ -1,13 +1,16 @@
 import React, { useContext, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AppContext } from '../context/AppContext.js'
 
 export default function Landing() {
 
+  const navigate = useNavigate();
   const { setApiEndPoint } = useContext(AppContext)
   const apiEndPointInput = useRef()
 
   const handleOnClick = () => {
     setApiEndPoint(apiEndPointInput.current.value)
+    navigate('/how-to')
   }
 
   return <main className='flex flex-col items-center'>
