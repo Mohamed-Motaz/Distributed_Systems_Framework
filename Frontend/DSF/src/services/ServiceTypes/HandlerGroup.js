@@ -1,7 +1,7 @@
 import { WebSocketServerService } from "../WebSocketServerService";
 
 export const handleUploadFile = async (event, fileType, runCmd) => {
-  const compressedFile = getCompressedFile(event);
+  const compressedFile = await getCompressedFile(event);
 
   WebSocketServerService().uploadBinaries(
     fileType,
