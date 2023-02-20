@@ -299,7 +299,7 @@ func (webSocketServer *WebSocketServer) handleGetFinishedJobByIdRequests(res htt
 			if finishedJob.JobId == GetFinishedJobByIdRequest.JobId {
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished job sent to client} -> job : %+v", finishedJob)
 				res.WriteHeader(http.StatusOK)
-				json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: finishedJob})
+				json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: finishedJob.JobResult})
 				return
 			}
 		}
