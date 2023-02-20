@@ -8,7 +8,6 @@ export const FileTypeRadioButtons = (props) => {
     <div class="flex">
       <div class="flex items-center mr-4">
         <input
-          checked={fileType === BinariesType.process}
           id="inline-radio"
           type="radio"
           value=""
@@ -25,7 +24,6 @@ export const FileTypeRadioButtons = (props) => {
       </div>
       <div class="flex items-center mr-4">
         <input
-          checked={fileType === BinariesType.Distribute}
           id="inline-2-radio"
           type="radio"
           value=""
@@ -42,7 +40,6 @@ export const FileTypeRadioButtons = (props) => {
       </div>
       <div class="flex items-center mr-4">
         <input
-          checked={fileType === BinariesType.aggregate}
           id="inline-checked-radio"
           onChange={() => handleOnChagne(BinariesType.aggregate)}
           type="radio"

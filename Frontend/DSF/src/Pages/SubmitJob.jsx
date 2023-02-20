@@ -97,7 +97,7 @@ export default function SubmitJob(props) {
           </div>
         </section>
 
-        <section className="mt-6">
+        <section className="mt-6 w-full">
           <h3 className="md:text-2xl text-xl ">Job Content</h3>
           <textarea
             className="w-full rounded-lg border-2 border-blue-800 outline-none bg-black"
@@ -127,7 +127,7 @@ export default function SubmitJob(props) {
         </section>
         <UploadFileButton
           onChange={(e) => setOptionalFiles(getCompressedFile(e))}
-          title={"Upload"}
+          title={"Optional"}
         />
         <button
           className="rounded-lg px-14 py-2 bg-blue-800 w-fit mt-8 self-center text-xl"

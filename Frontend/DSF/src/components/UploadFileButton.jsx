@@ -8,8 +8,10 @@ export default function UploadFileButton(props) {
   const hiddenFileInput = useRef(null);
 
   const [optionalText, setOptionalText] = React.useState(
-    "Choose optional file"
+    `Choose ${title} file`
   );
+
+  React.useEffect(() => setOptionalText(`Choose ${title} file`), [title]);
 
   function handleClick() {
     hiddenFileInput.current.click();
@@ -21,9 +23,9 @@ export default function UploadFileButton(props) {
   };
 
   return (
-    <div className="flex gap-2 w-full justify-center items-center mt-5">
-      <button className="m-2">
-        <Button onClick={handleClick}>{title}</Button>
+    <div className="flex gap-2 w-full justify-center items-center mt-5 ">
+      <button className="rounded-lg px-10 py-1.5 bg-blue-800">
+        <button onClick={handleClick}>{title}</button>
         <input
           type={inputType ?? "file"}
           ref={hiddenFileInput}
