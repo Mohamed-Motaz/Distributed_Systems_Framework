@@ -3,12 +3,14 @@ import { WebSocketServerService } from "../WebSocketServerService";
 export const handleUploadFile = async (event, fileType, runCmd) => {
   const compressedFile = await getCompressedFile(event);
 
-  WebSocketServerService().uploadBinaries(
+  const res = await WebSocketServerService().uploadBinaries(
     fileType,
     compressedFile.name,
     compressedFile.content,
     runCmd
   );
+
+  return res;
 };
 
 export const getCompressedFile = async (event) => {
@@ -26,6 +28,7 @@ export const handleDeleteBinary = async (fileName, fileType) => {
     fileName,
     fileType
   );
+  return res;
 };
 
 export const handleGetAllBinaries = async () => {
