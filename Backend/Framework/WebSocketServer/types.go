@@ -49,7 +49,7 @@ type GetSystemProgressRequest struct {
 	JobId string `json:"jobId"`
 }
 
-type GetAllFinishedJobsRequest struct {
+type GetAllFinishedJobsIdsRequest struct {
 	ClientId string `json:"clientId"`
 }
 
