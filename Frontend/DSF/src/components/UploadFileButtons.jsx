@@ -90,41 +90,8 @@ export const UploadFileButtons = (props) => {
   };
   return (
     <section className="m-8">
-      <TextField
-        labelName="Run command"
-        color="secondary"
-        value={runCommand}
-        InputProps={{ inputProps: { style: { color: "#fff" } } }}
-        onChange={(cmd) => setRunCommand(cmd.target.value)}
-      />
-
-      <UploadFileButton
-        onChange={(e) => handleUploadFile(e, BinariesType.process, runCommand)}
-        title={BinariesType.process}
-      />
-      <UploadFileButton
-        onChange={(e) =>
-          handleUploadFile(e, BinariesType.Distribute, runCommand)
-        }
-        title={BinariesType.Distribute}
-      />
-      <UploadFileButton
-        onChange={(e) =>
-          handleUploadFile(e, BinariesType.aggregate, runCommand)
-        }
-        title={BinariesType.aggregate}
-      />
-      <UploadFileButton
-        onChange={(e) =>
-          handleUploadFile(e, BinariesType.optionalFiles, runCommand)
-        }
-        title={BinariesType.optionalFiles}
-      />
-
       <Button onClick={handleGetAllBinaries}>{"Get all Binaries"}</Button>
-      <Button onClick={handleSubmitJob}>{"Submit job"}</Button>
-      <Button onClick={getAllFinishedJob}>{"Get all finished jobs"}</Button>
-      <Button onClick={getJobProgress}>{"Get Job Progress"}</Button>
+
       <Button
         onClick={() =>
           handleDeleteBinary(processSelectedFile, BinariesType.process)
@@ -163,15 +130,6 @@ export const UploadFileButtons = (props) => {
         files={distribute}
         selectedFile={distributeSelectedFile}
         setSelectedFile={setDistributeSelectedFile}
-      />
-
-      <TextField
-        labelName="Run command"
-        color="secondary"
-        InputProps={{ inputProps: { style: { color: "#fff" } } }}
-        value={jobContent}
-        onChange={(cmd) => setJobContent(cmd.target.value)}
-        multiline
       />
     </section>
   );
