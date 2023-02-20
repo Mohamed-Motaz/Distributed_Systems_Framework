@@ -13,6 +13,7 @@ import SubmitJob from "./Pages/SubmitJob.jsx";
 import "./App.css";
 import Status from "./Pages/Status.jsx";
 import AboutUs from "./Pages/AboutUs.jsx";
+import FinishedJobs from "./Pages/FinishedJobs.jsx";
 
 export default function App() {
   const { clientId } = useContext(AppContext);
@@ -43,6 +44,7 @@ export default function App() {
         { path: "/manage", element: <Manage /> },
         { path: "/submit-job", element: <SubmitJob wsClient={wsClient} /> },
         { path: "/status", element: <Status /> },
+        { path: "/finished-jobs", element: <FinishedJobs /> },
         { path: "/about-us", element: <AboutUs /> },
         // {
         //   path: '/movies', element: <Outlet></Outlet>,

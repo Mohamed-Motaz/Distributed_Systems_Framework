@@ -1,5 +1,5 @@
 import {saveAs} from 'file-saver'
 
-export async function downloadImage(item, nameToSaveWith) {
+export async function downloadItem(item, nameToSaveWith) {
     saveAs(item, nameToSaveWith)
 }

@@ -34,6 +34,11 @@ export default function DropDownMenu() {
                 Status
             </Dropdown.Item>
         </NavLink>
+        <NavLink className="nav-link" to='/finished-jobs'>
+            <Dropdown.Item className='justify-center'>
+                Finished
+            </Dropdown.Item>
+        </NavLink>
         <NavLink className="nav-link" to='/about-us'>
             <Dropdown.Item className='justify-center'>
                 About Us

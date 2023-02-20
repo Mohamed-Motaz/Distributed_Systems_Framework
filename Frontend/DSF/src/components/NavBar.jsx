@@ -48,6 +48,9 @@ export default function NavBar()
                     <NavLink className="nav-link" to='/status'>Status</NavLink>
                 </li>
                 <li>
+                    <NavLink className="nav-link" to='/finished-jobs'>Finished</NavLink>
+                </li>
+                <li>
                     <NavLink className="nav-link" to='/about-us'>About Us</NavLink>
                 </li>
             </ul>
