@@ -43,6 +43,10 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests).Methods("POST")
 	serveMux.HandleFunc("/getSystemProgress", webSocketServer.handleGetSystemProgressRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllFinishedJobs", webSocketServer.handleGetAllFinishedJobsRequests).Methods("POST")
+	serveMux.HandleFunc("/getAllFinishedJobsIds", webSocketServer.handleGetAllFinishedJobsIdsRequests).Methods("POST")
+	serveMux.HandleFunc("/getFinishedJobById", webSocketServer.handleGetFinishedJobByIdRequests).Methods("POST")
+	serveMux.HandleFunc("/ping", webSocketServer.handlePingRequests).Methods("GET")
+
 
 	webSocketServer.requestHandler = cors.AllowAll().Handler(middlewareLogger(serveMux))
 
@@ -153,6 +157,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 	}
 
 	for {
+		
 		time.Sleep(time.Second * 5)
 
 		for finishedJobObj := range finishedJobsChan {
@@ -181,6 +186,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			//							p2 client is mine and dead		   --cache only, and ack
 			//							p3 client isn't mine			   --nack
 			//DONE check if job has error or not
+
 
 			webSocketServer.mu.Lock()
 			client, clientIsAlive := webSocketServer.clients[finishedJob.ClientId]

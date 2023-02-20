@@ -123,7 +123,6 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 	}
 }
 
-// DONE fix the rest
 func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
@@ -271,6 +270,90 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res htt
 		res.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
 	}
+}
+
+func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsIdsRequests(res http.ResponseWriter, req *http.Request) {
+
+	GetAllFinishedJobsRequest := GetAllFinishedJobsRequest{}
+
+	err := json.NewDecoder(req.Body).Decode(&GetAllFinishedJobsRequest)
+
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var finishedJobs *cache.CacheValue
+	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsRequest.ClientId)
+
+	if err == nil {
+
+		finishedJobsIds := make([]string, 0)
+
+		for _, finishedJob := range finishedJobs.FinishedJobs {
+			finishedJobsIds = append(finishedJobsIds, finishedJob.JobId)
+		}
+
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished jobs ids sent to client} -> jobs Ids : %+v", finishedJobsIds)
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJobsIds})
+
+	} else if err == redis.Nil {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})
+	} else {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting to cache at the moment} -> error : %+v", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
+	}
+}
+
+func (webSocketServer *WebSocketServer) handleGetFinishedJobByIdRequests(res http.ResponseWriter, req *http.Request) {
+
+	GetFinishedJobByIdRequest := GetFinishedJobByIdRequest{}
+
+	err := json.NewDecoder(req.Body).Decode(&GetFinishedJobByIdRequest)
+
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var finishedJobs *cache.CacheValue
+	finishedJobs, err = webSocketServer.cache.Get(GetFinishedJobByIdRequest.ClientId)
+
+	if err == nil {
+
+		for _, finishedJob := range finishedJobs.FinishedJobs {
+			if finishedJob.JobId == GetFinishedJobByIdRequest.JobId {
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished job sent to client} -> job : %+v", finishedJob)
+				res.WriteHeader(http.StatusOK)
+				json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJob})
+				return;
+			}
+		}
+
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Job ID not found")
+		res.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(res).Encode(utils.Success{Success: false, Response: "Job ID not found"})
+
+	} else if err == redis.Nil {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})
+	} else {
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting to cache at the moment} -> error : %+v", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
+	}
+}
+
+func (webSocketServer *WebSocketServer) handlePingRequests(res http.ResponseWriter, req *http.Request) {
+
+	res.WriteHeader(http.StatusOK)
+	json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "Pong"})
+
 }
 
 func (websocketServer *WebSocketServer) handleSendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {

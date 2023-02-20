@@ -53,6 +53,11 @@ type GetAllFinishedJobsRequest struct {
 	ClientId string `json:"clientId"`
 }
 
+type GetFinishedJobByIdRequest struct {
+	ClientId string `json:"clientId"`
+	JobId    string `json:"jobId"`
+}
+
 type DeleteBinaryRequest struct {
 	FileType utils.FileType `json:"fileType"`
 	FileName string         `json:"fileName"`
