@@ -52,10 +52,10 @@ export const WebSocketServerService = () => {
     return response;
   };
 
-  const submitJob = async (SubmitJobSwagger) => {
+  const submitJob = async (SubmitJobSwagger, clientId) => {
     let response;
     await axios
-      .post(urlBuilder(`openWS/${123}`), {
+      .post(urlBuilder(`openWS/${clientId}`), {
         ...SubmitJobSwagger,
       })
       .then((value) => (response = value))
