@@ -5,29 +5,29 @@ import Loading from '../components/Loading.jsx';
 import StatusCard from '../components/StatusCard.jsx';
 import { WebSocketServerService } from '../services/WebSocketServerService.js';
 
-// function responseExample(status) {
-//   let response = {
-//     "response": {
-//       "Progress": [
-//         {
-//           "MasterId": "0c1f226b-089b-4462-9524-1abcd31da07d",
-//           "JobId": "35d42d8e-ee76-d4ff-fe2d-3102c15be475",
-//           "ClientId": "123",
-//           "Progress": 35,
-//           "Status": "Processing",
-//           "processBinary": 'Process.exe',
-//           "distributeBinary": 'Distribute.exe',
-//           "aggregateBinary": 'Aggregate.exe',
-//           "createdAt": '16-02-2023 12:00PM',
-//         }
-//       ],
-//       "error": false,
-//       "errorMsg": ""
-//     }
-//   }
+function responseExample(status,jobProgress) {
+  let response = {
+    "response": {
+      "Progress": [
+        {
+          "MasterId": "0c1f226b-089b-4462-9524-1abcd31da07d",
+          "JobId": "35d42d8e-ee76-d4ff-fe2d-3102c15be475",
+          "ClientId": "123",
+          "Progress": 35,
+          "Status": jobProgress,
+          "processBinary": 'Process.exe',
+          "distributeBinary": 'Distribute.exe',
+          "aggregateBinary": 'Aggregate.exe',
+          "createdAt": '16-02-2023 12:00PM',
+        }
+      ],
+      "error": false,
+      "errorMsg": ""
+    }
+  }
 
-//   return status ? { ...response, "success": true } : { ...response, "error": "error message here" }
-// }
+  return status ? { ...response, "success": true } : { ...response, "error": "error message here" }
+}
 
 
 
@@ -39,10 +39,10 @@ export default function Status() {
 
 
   const getJobsProgress = async () => {
-    const jobProgress = await WebSocketServerService().getJobProgress();
-    setJobs(jobProgress || [])
+    //const jobProgress = await WebSocketServerService().getJobProgress();
+    //setJobs(jobProgress || [])
 
-    //setJobs([responseExample(true), responseExample(false), responseExample(true)])
+    setJobs([responseExample(true,"Processing"), responseExample(true,"Free"), responseExample(true,"Unresponsive")])
   };
 
   useEffect(() => {
