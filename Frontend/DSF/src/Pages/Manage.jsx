@@ -6,12 +6,12 @@ import UploadFileButton from "../components/UploadFileButton.jsx";
 import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
 
 export default function Manage() {
-  const { setApiEndPoint, apiEndPoint } = useContext(AppContext);
+  const { changeApiEndPoint, apiEndPoint } = useContext(AppContext);
   const apiEndPointInput = useRef();
   const runCommandInput = useRef();
 
   const handleOnClick = () => {
-    setApiEndPoint(apiEndPointInput.current.value);
+    changeApiEndPoint(apiEndPointInput.current.value);
     console.log(apiEndPoint);
   };
 

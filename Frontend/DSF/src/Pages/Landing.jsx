@@ -5,11 +5,11 @@ import { AppContext } from '../context/AppContext.js'
 export default function Landing() {
 
   const navigate = useNavigate();
-  const { setApiEndPoint } = useContext(AppContext)
+  const { changeApiEndPoint } = useContext(AppContext)
   const apiEndPointInput = useRef()
 
   const handleOnClick = () => {
-    setApiEndPoint(apiEndPointInput.current.value)
+    changeApiEndPoint(apiEndPointInput.current.value)
     navigate('/how-to')
   }
 
