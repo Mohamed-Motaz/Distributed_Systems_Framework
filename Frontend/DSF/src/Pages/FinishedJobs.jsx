@@ -29,7 +29,7 @@ export default function FinishedJobs() {
             Finished Jobs
         </h1>
         <section>
-            <table class="w-full table-fixed">
+            <table className="w-full table-fixed">
                 <thead>
                     <tr>
                         <th className='pb-5 text-xl'>Job ID</th>

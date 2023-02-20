@@ -1,7 +1,8 @@
 import axios from "axios";
 
 export const urlBuilder = (subPath) => {
-  return `http://localhost:3001/${subPath}`;
+  const baseUrl = localStorage.getItem('apiEndPoint')
+  return `http://${baseUrl}/${subPath}`;
 };
 
 // export const ApiHelper = () => {

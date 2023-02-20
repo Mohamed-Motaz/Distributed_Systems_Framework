@@ -77,6 +77,15 @@ export const WebSocketServerService = () => {
     return response;
   };
 
+  const pingEndPoint = async (endPoint) => {
+    try {
+      await axios.get(`${endPoint}`)
+      return true
+    } catch (_) {
+      return false
+    }
+  }
+
   return {
     submitJob,
     getAllBinaries,
@@ -84,6 +93,6 @@ export const WebSocketServerService = () => {
     uploadBinaries,
     deleteBinaryFile,
     getAllFinishedJobs,
-    getAllFinishedJobs,
+    pingEndPoint
   };
 };

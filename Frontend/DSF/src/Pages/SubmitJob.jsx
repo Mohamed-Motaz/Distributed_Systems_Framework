@@ -8,12 +8,17 @@ import { getCompressedFile } from "../services/ServiceTypes/HandlerGroup.js";
 import UploadFileButton from "../components/UploadFileButton.jsx";
 import { Button } from "flowbite-react";
 import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
+import useAlert from "../helpers/useAlert.jsx";
 
 const uuid = require("react-uuid");
 
 export default function SubmitJob(props) {
   const { wsClient } = props;
   const navigate = useNavigate();
+
+  const [AlertComponent, TriggerAlert] = useAlert();
+  const [isSuccess, setIsSuccess] = useState(false)
+
   const { apiEndPoint, clientId, setClientId } = useContext(AppContext);
 
   const jobContentInput = useRef();
@@ -55,8 +60,12 @@ export default function SubmitJob(props) {
           aggregateBinaryName: aggregateSelectedFile,
         })}`
       );
+      setIsSuccess(true)
+      TriggerAlert("Submit Successed")
     } catch (error) {
       console.log({ error });
+      setIsSuccess(false)
+      TriggerAlert("Submit Failed")
     }
 
     setIsLoading(false);
@@ -78,6 +87,9 @@ export default function SubmitJob(props) {
 
   return (
     <main className="flex flex-col items-center pb-20 md:px-16">
+
+      <AlertComponent success={isSuccess} />
+
       <h1 className="md:text-5xl text-3xl mb-8">Submit Job</h1>
 
       <div className="flex flex-col shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">

@@ -11,9 +11,9 @@ export default function useAlert() {
         setTimer(setTimeout(() => setAlert(''), 2000))
     }
 
-    const AlertComponent = () => <div className={`fixed bottom-8 right-8 z-50 max-w-sm transition-all duration-500 ${alert ? 'opacity-100' : 'opacity-0'} `}>
+    const AlertComponent = ({success}) => <div className={`fixed bottom-8 right-8 z-50 max-w-sm transition-all duration-500 ${alert ? 'opacity-100' : 'opacity-0'} `}>
         <div className={`bg-black flex items-center justify-center w-fit rounded-3xl`}>
-            <div className="px-4 py-5 text-sm text-white rounded-3xl bg-red-800 ">
+            <div className={`px-4 py-5 text-sm text-white rounded-3xl ${success? 'bg-green-800' : 'bg-red-800'} `}>
                 ALERT
             </div>
             <div className={`${alert ? 'pl-3 pr-5' : 'opacity-100'} line-clamp-3 text-sm`}>

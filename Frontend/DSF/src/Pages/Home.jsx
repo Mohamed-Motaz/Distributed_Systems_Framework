@@ -1,13 +1,15 @@
-import React from "react";
+import React, { useContext } from "react";
 import { UploadFileButtons } from "../components/UploadFileButtons.jsx";
 import useWebSocket from "react-use-websocket";
 import TextField from "@material-ui/core/TextField";
 import { WebSocketServerService } from "./../services/WebSocketServerService";
 import useAlert from "../helpers/useAlert.jsx";
 import { Dropdown } from "flowbite-react";
+import { AppContext } from "../context/AppContext.js";
 
 export default function Home() {
-  const WS_URL = "ws://localhost:3001/openWS/123";
+  const { clientId, apiEndPoint } = useContext(AppContext);
+  const WS_URL = `ws://${apiEndPoint}/openWS/${clientId}`;
 
   const wsClient = useWebSocket(WS_URL, {
     onOpen: () => {
@@ -25,7 +27,7 @@ export default function Home() {
   return (
     <>
       <main>
-        <AlertComponent />
+        <AlertComponent success={false} />
 
         <UploadFileButtons wsClient={wsClient} />
 
