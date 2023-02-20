@@ -3,43 +3,32 @@ import React, { useState } from "react";
 
 export default function DropDownBox(props) {
   const { title, files, selectedFile, setSelectedFile } = props;
+  const [fileName, setFileName] = React.useState(title);
 
-  function handleCountrySelect(e) {
+  function handlechange(e) {
     console.log("Selected file", e.target.value);
     const f = e.target.value;
-    setSelectedFile(f);
+    setFileName(f);
   }
 
   console.log({ files });
 
-  // return (
-  //   <div className="dropDownBox">
-  //     <h1>{title}</h1>
-
-  //     <div className="Container">
-  //       <h2>{selectedFile}</h2>
-  //       <select
-  //         name="process"
-  //         onChange={(e) => handleCountrySelect(e)}
-  //         value={selectedFile}
-  //       >
-  //         <option value="">{`Select ${title} File`}</option>
-  //         {files?.map((file, key) => (
-  //           <option key={key} value={file}>
-  //             {file}
-  //           </option>
-  //         ))}
-  //       </select>
-  //     </div>
-  //   </div>
-  // );
-
-  return <Dropdown onChange={()=>{}} className='dark' label="Menu" style={{ background: '#1744e1' }}>
-    <Dropdown.Item className='justify-center'>
-      Item 1
-    </Dropdown.Item>
-    <Dropdown.Item className='justify-center'>
-      Item 2
-    </Dropdown.Item>
-  </Dropdown>
+  return (
+    <div className="mb-4">
+      <label
+        for="countries"
+        class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+      >
+        {`Select ${title} file`}
+      </label>
+      <select
+        id="countries"
+        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+      >
+        {files?.map((file) => (
+          <option>{file}</option>
+        ))}
+      </select>
+    </div>
+  );
 }
