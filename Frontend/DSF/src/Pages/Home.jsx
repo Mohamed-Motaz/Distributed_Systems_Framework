@@ -4,6 +4,7 @@ import useWebSocket from "react-use-websocket";
 import TextField from "@material-ui/core/TextField";
 import { WebSocketServerService } from "./../services/WebSocketServerService";
 import useAlert from "../helpers/useAlert.jsx";
+import { Dropdown } from "flowbite-react";
 
 export default function Home() {
   const WS_URL = "ws://localhost:3001/openWS/123";
@@ -14,7 +15,7 @@ export default function Home() {
     },
     onClose: () => {
       console.log('WebSocket connection closed, it will be re-established in a second');
-      setTimeout(()=> wsClient(), 1000);
+      setTimeout(() => wsClient(), 1000);
     },
     onMessage: (e) => console.log({ e }),
   });
