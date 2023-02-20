@@ -4,11 +4,14 @@ import Home from "./Home.jsx";
 import { handleUploadFile } from "../services/ServiceTypes/HandlerGroup.js";
 import UploadFileButton from "../components/UploadFileButton.jsx";
 import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
+import { FileTypeRadioButtons } from "./../components/FileTypeRadioButtons";
 
 export default function Manage() {
   const { changeApiEndPoint, apiEndPoint } = useContext(AppContext);
   const apiEndPointInput = useRef();
   const runCommandInput = useRef();
+
+  const [fileType, setFileType] = React.useState(BinariesType.process);
 
   const handleOnClick = () => {
     changeApiEndPoint(apiEndPointInput.current.value);
@@ -16,8 +19,27 @@ export default function Manage() {
   };
 
   return (
-    <main className="flex flex-col items-center pb-20 md:px-16">
+    <main className="flex gap-5 flex-col items-center pb-20 md:px-16">
       <h1 className="md:text-5xl text-3xl mb-8">Manage</h1>
+
+      <div className="flex flex-col justify-center items-center shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">
+        <section className="mt-6">
+          <h3 className="md:text-2xl text-xl ">Run Command</h3>
+          <textarea
+            className="w-full rounded-lg border-2 border-blue-800 outline-none bg-black"
+            ref={runCommandInput}
+          />
+        </section>
+
+        <FileTypeRadioButtons fileType={fileType} setFileType={setFileType} />
+
+        <UploadFileButton
+          onChange={(e) =>
+            handleUploadFile(e, fileType, runCommandInput.current.value)
+          }
+          title={fileType}
+        />
+      </div>
 
       <div className="flex flex-col justify-center items-center shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">
         <section className="w-full flex items-center">
@@ -36,53 +58,6 @@ export default function Manage() {
             </button>
           </div>
         </section>
-        {
-          //TODO: Modify the frontend
-          /**
-           * handle add&delete binaries
-           *
-           *  */
-        }
-        <div>
-          <section className="mt-6">
-            <h3 className="md:text-2xl text-xl ">Run Command</h3>
-            <textarea
-              className="w-full rounded-lg border-2 border-blue-800 outline-none bg-black"
-              ref={runCommandInput}
-            />
-          </section>
-
-          <UploadFileButton
-            onChange={(e) =>
-              handleUploadFile(
-                e,
-                BinariesType.process,
-                runCommandInput.current.value
-              )
-            }
-            title={BinariesType.process}
-          />
-          <UploadFileButton
-            onChange={(e) =>
-              handleUploadFile(
-                e,
-                BinariesType.Distribute,
-                runCommandInput.current.value
-              )
-            }
-            title={BinariesType.Distribute}
-          />
-          <UploadFileButton
-            onChange={(e) =>
-              handleUploadFile(
-                e,
-                BinariesType.aggregate,
-                runCommandInput.current.value
-              )
-            }
-            title={BinariesType.aggregate}
-          />
-        </div>
       </div>
     </main>
   );

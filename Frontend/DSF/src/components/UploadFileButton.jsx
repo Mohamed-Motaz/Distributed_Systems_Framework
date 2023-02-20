@@ -15,6 +15,11 @@ export default function UploadFileButton(props) {
     hiddenFileInput.current.click();
   }
 
+  const handleChange = (e) => {
+    onChange(e);
+    setOptionalText(e.target.files[0].name);
+  };
+
   return (
     <div className="flex gap-2 w-full justify-center items-center mt-5">
       <button className="m-2">
@@ -22,7 +27,7 @@ export default function UploadFileButton(props) {
         <input
           type={inputType ?? "file"}
           ref={hiddenFileInput}
-          onChange={onChange}
+          onChange={(e) => handleChange(e)}
           className="hidden"
           accept=".zip,.rar,.7zip,.tar"
         />
