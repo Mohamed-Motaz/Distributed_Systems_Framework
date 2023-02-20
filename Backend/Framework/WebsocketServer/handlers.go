@@ -22,7 +22,7 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 		//DONE respond with an error requiring an id
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Client didn't send the ID}")
 		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: ("You must send the client Id")})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: ("You must send the client Id")})
 		return
 	}
 
@@ -111,15 +111,15 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
 		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response:"Unable to connect to lockserver"})
 
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Adding files to lockServer} -> error : %+v", reply.ErrMsg)
 		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error while adding files to the lockserver %+v", reply.ErrMsg)})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: fmt.Sprintf("Error while adding files to the lockserver %+v", reply.ErrMsg)})
 	} else {
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true})
 	}
 }
 
@@ -144,15 +144,15 @@ func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.Re
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
 		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Unable to connect to lockserver"})
 
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with recieving files from lockServer} -> error : %+v", reply.ErrMsg)
 		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with recieving files from lockServer %+v", reply.ErrMsg)})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: fmt.Sprintf("Error with recieving files from lockServer %+v", reply.ErrMsg)})
 	} else {
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: reply})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: reply})
 	}
 }
 
@@ -190,15 +190,15 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
 		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Unable to connect to lockserver"})
 
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Binary file from lockServer} -> error : %+v", reply.ErrMsg)
 		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with Deleting Binary file from lockServer %+v", reply.ErrMsg)})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: fmt.Sprintf("Error with Deleting Binary file from lockServer %+v", reply.ErrMsg)})
 	} else {
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true})
 	}
 }
 
@@ -230,53 +230,23 @@ func (webSocketServer *WebSocketServer) handleGetSystemProgressRequests(res http
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
 		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Unable to connect to lockserver"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Unable to connect to lockserver"})
 
 	} else if reply.Err {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Getting system progress from lockServer} -> error : %+v", reply.ErrMsg)
 		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: fmt.Sprintf("Error with Getting system progress from lockServer %+v", reply.ErrMsg)})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: fmt.Sprintf("Error with Getting system progress from lockServer %+v", reply.ErrMsg)})
 	} else {
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: reply})
-	}
-}
-
-func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsRequests(res http.ResponseWriter, req *http.Request) {
-
-	GetAllFinishedJobsRequest := GetAllFinishedJobsRequest{}
-
-	err := json.NewDecoder(req.Body).Decode(&GetAllFinishedJobsRequest)
-
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var finishedJobs *cache.CacheValue
-	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsRequest.ClientId)
-
-	if err == nil {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished jobs sent to client} -> jobs : %+v", finishedJobs)
-		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJobs})
-
-	} else if err == redis.Nil {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
-		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})
-	} else {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting to cache at the moment} -> error : %+v", err)
-		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: reply})
 	}
 }
 
 func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsIdsRequests(res http.ResponseWriter, req *http.Request) {
 
-	GetAllFinishedJobsRequest := GetAllFinishedJobsRequest{}
+	GetAllFinishedJobsIdsRequest := GetAllFinishedJobsIdsRequest{}
 
-	err := json.NewDecoder(req.Body).Decode(&GetAllFinishedJobsRequest)
+	err := json.NewDecoder(req.Body).Decode(&GetAllFinishedJobsIdsRequest)
 
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -284,7 +254,7 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsIdsRequests(res 
 	}
 
 	var finishedJobs *cache.CacheValue
-	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsRequest.ClientId)
+	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsIdsRequest.ClientId)
 
 	if err == nil {
 
@@ -296,16 +266,16 @@ func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsIdsRequests(res 
 
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished jobs ids sent to client} -> jobs Ids : %+v", finishedJobsIds)
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJobsIds})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: finishedJobsIds})
 
 	} else if err == redis.Nil {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Client entry not present in cache")
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Client entry not present in cache"})
 	} else {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting to cache at the moment} -> error : %+v", err)
 		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Error while connecting to cache at the moment"})
 	}
 }
 
@@ -329,30 +299,30 @@ func (webSocketServer *WebSocketServer) handleGetFinishedJobByIdRequests(res htt
 			if finishedJob.JobId == GetFinishedJobByIdRequest.JobId {
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished job sent to client} -> job : %+v", finishedJob)
 				res.WriteHeader(http.StatusOK)
-				json.NewEncoder(res).Encode(utils.Success{Success: true, Response: finishedJob})
-				return;
+				json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: finishedJob})
+				return
 			}
 		}
 
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Job ID not found")
 		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.Success{Success: false, Response: "Job ID not found"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Job ID not found"})
 
 	} else if err == redis.Nil {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "No jobs found")
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Client entry not present in cache")
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "No jobs Found"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Client entry not present in cache"})
 	} else {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting to cache at the moment} -> error : %+v", err)
 		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.Error{Err: true, ErrMsg: "Error while connecting to cache at the moment"})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Error while connecting to cache at the moment"})
 	}
 }
 
 func (webSocketServer *WebSocketServer) handlePingRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.WriteHeader(http.StatusOK)
-	json.NewEncoder(res).Encode(utils.Success{Success: true, Response: "Pong"})
+	json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: "Pong"})
 
 }
 

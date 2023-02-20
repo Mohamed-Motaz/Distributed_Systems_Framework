@@ -42,7 +42,6 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests).Methods("POST")
 	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests).Methods("POST")
 	serveMux.HandleFunc("/getSystemProgress", webSocketServer.handleGetSystemProgressRequests).Methods("POST")
-	serveMux.HandleFunc("/getAllFinishedJobs", webSocketServer.handleGetAllFinishedJobsRequests).Methods("POST")
 	serveMux.HandleFunc("/getAllFinishedJobsIds", webSocketServer.handleGetAllFinishedJobsIdsRequests).Methods("POST")
 	serveMux.HandleFunc("/getFinishedJobById", webSocketServer.handleGetFinishedJobByIdRequests).Methods("POST")
 	serveMux.HandleFunc("/ping", webSocketServer.handlePingRequests).Methods("GET")

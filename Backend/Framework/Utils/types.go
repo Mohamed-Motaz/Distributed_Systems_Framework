@@ -22,7 +22,7 @@ type Error struct {
 	ErrMsg string `json:"errorMsg"`
 }
 
-type Success struct {
+type HttpResponse struct {
 	Success  bool        `json:"success"`
 	Response interface{} `json:"response"`
 }
