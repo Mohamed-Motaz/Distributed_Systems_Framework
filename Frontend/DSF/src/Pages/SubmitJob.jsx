@@ -72,6 +72,10 @@ export default function SubmitJob(props) {
     console.log({ Binaries: files });
   };
 
+  React.useEffect(() => {
+    handleGetAllBinaries();
+  }, []);
+
   return (
     <main className="flex flex-col items-center pb-20 md:px-16">
       <h1 className="md:text-5xl text-3xl mb-8">Submit Job</h1>
@@ -101,8 +105,7 @@ export default function SubmitJob(props) {
           />
         </section>
 
-        <section>
-          <Button onClick={handleGetAllBinaries}>{"Get all Binaries"}</Button>
+        <section className="flex gap-5 w-full justify-center mt-8">
           <DropDownBox
             title={"process"}
             files={process}
@@ -123,15 +126,17 @@ export default function SubmitJob(props) {
           />
         </section>
         <UploadFileButton
-          onChange={(e) => setOptionalFiles(getCompressedFile(e))}
-          title={BinariesType.optionalFiles}
+          onChange={(e) => (
+            setOptionalFiles(getCompressedFile(e)),
+            setOptionalText(e.target.files[0].name)
+          )}
+          title={"Upload"}
         />
-
         <button
           className="rounded-lg px-14 py-2 bg-blue-800 w-fit mt-8 self-center text-xl"
           onClick={handleJobSubmit}
         >
-          {isLoading ? "Submit..." : "Submit Job"}
+          {isLoading ? "Submitting..." : "Submit Job"}
         </button>
       </div>
     </main>
