@@ -1,6 +1,12 @@
+import { useContext } from "react";
 import { WebSocketServerService } from "../WebSocketServerService";
 
-export const handleUploadFile = async (event, fileType, runCmd) => {
+export const handleUploadFile = async (
+  event,
+  fileType,
+  runCmd,
+  TriggerAlert
+) => {
   const compressedFile = await getCompressedFile(event);
 
   const res = await WebSocketServerService().uploadBinaries(
@@ -9,6 +15,16 @@ export const handleUploadFile = async (event, fileType, runCmd) => {
     compressedFile.content,
     runCmd
   );
+  console.log({ res });
+
+  if (res?.data?.success) {
+    TriggerAlert("File has been uploaded successfully");
+  } else {
+    TriggerAlert(
+      res?.data?.response ??
+        "Unable to establish the communication with the server"
+    );
+  }
 
   return res;
 };
@@ -23,14 +39,31 @@ export const getCompressedFile = async (event) => {
   return { name: fileUploaded.name, content: Array.from(view) };
 };
 
-export const handleDeleteBinary = async (fileName, fileType) => {
+export const handleDeleteBinary = async (fileName, fileType, TriggerAlert) => {
   const res = await WebSocketServerService().deleteBinaryFile(
     fileName,
     fileType
   );
+  if (res?.data?.success) {
+    TriggerAlert("File has been deleted successfully");
+  } else {
+    TriggerAlert(
+      res?.data?.response ??
+        "Unable to establish the communication with the server"
+    );
+  }
   return res;
 };
 
-export const handleGetAllBinaries = async () => {
-  return await WebSocketServerService().getAllBinaries();
+export const handleGetAllBinaries = async (TriggerAlert) => {
+  const res = await WebSocketServerService().getAllBinaries();
+
+  if (!res?.data?.success) {
+    TriggerAlert(
+      res?.data?.response ??
+        "Unable to establish the communication with the server"
+    );
+  }
+
+  return res;
 };
