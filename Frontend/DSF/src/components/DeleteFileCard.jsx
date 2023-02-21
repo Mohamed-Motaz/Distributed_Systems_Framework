@@ -1,25 +1,27 @@
 import { handleUploadFile } from "../services/ServiceTypes/HandlerGroup.js";
-import React, { useRef } from "react";
+import React, { useRef, useContext } from "react";
 import { FileTypeRadioButtons } from "./FileTypeRadioButtons";
 import UploadFileButton from "./UploadFileButton.jsx";
 import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
 import DropDownBox from "./DropDownBox.jsx";
 import { WebSocketServerService } from "../services/WebSocketServerService.js";
 import { handleDeleteBinary } from "../services/ServiceTypes/HandlerGroup.js";
+import { AppContext } from "../context/AppContext.js";
+import { Tooltip } from "flowbite-react";
 
 export const DeleteFileCard = (props) => {
   const { process, distribute, aggregate, handleGetAllBinaries } = props;
   const [fileType, setFileType] = React.useState(BinariesType.process);
+  const { TriggerAlert, binaries } = useContext(AppContext);
 
   const [selectedFile, setSelectedFile] = React.useState("");
   console.log({ process, distribute, aggregate });
   const getFilesByType =
     fileType === BinariesType.process
-      ? process
+      ? binaries.process
       : fileType === BinariesType.Distribute
-      ? distribute
-      : aggregate;
-  console.log({ selectedFile });
+      ? binaries.distribute
+      : binaries.aggregate;
 
   return (
     <div className="flex flex-col justify-center items-center shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">
@@ -33,19 +35,34 @@ export const DeleteFileCard = (props) => {
           selectedFile={selectedFile}
           setSelectedFile={setSelectedFile}
         />
-        <button
-          className="rounded-lg px-14 py-2 bg-blue-800 w-fit mt-8 self-center text-xl"
-          onClick={() =>
-            handleDeleteBinary(selectedFile, fileType).then((res) => {
-              console.log({ res });
-              if (res.data.success) {
-                handleGetAllBinaries();
-              }
-            })
+        <Tooltip
+          content={
+            <h2>
+              {!selectedFile
+                ? "Please choose file to Delete"
+                : "Click to delete"}
+            </h2>
           }
         >
-          Delete
-        </button>
+          <button
+            className={`rounded-lg px-14 py-2 ${
+              !selectedFile ? "bg-blue-800 opacity-60" : "bg-blue-800"
+            } w-fit mt-8 self-center text-xl`}
+            disabled={!selectedFile}
+            onClick={() =>
+              handleDeleteBinary(selectedFile, fileType, TriggerAlert).then(
+                (res) => {
+                  console.log({ res });
+                  if (res.data.success) {
+                    handleGetAllBinaries();
+                  }
+                }
+              )
+            }
+          >
+            Delete
+          </button>
+        </Tooltip>
       </section>
     </div>
   );

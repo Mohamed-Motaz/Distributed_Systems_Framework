@@ -17,17 +17,14 @@ export default function SubmitJob(props) {
   const navigate = useNavigate();
 
   const [AlertComponent, TriggerAlert] = useAlert();
-  const [isSuccess, setIsSuccess] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false);
 
-  const { apiEndPoint, clientId, setClientId } = useContext(AppContext);
+  const { apiEndPoint, clientId, setClientId, setAllBinaries, binaries } =
+    useContext(AppContext);
 
   const jobContentInput = useRef();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [distribute, setDistribute] = React.useState([]);
-  const [process, setProcess] = React.useState([]);
-  const [aggregate, setAggregate] = React.useState([]);
-  const [job, setJob] = useState();
 
   const [distributeSelectedFile, setDistributeSelectedFile] =
     React.useState("");
@@ -40,14 +37,6 @@ export default function SubmitJob(props) {
 
   const handleJobSubmit = async () => {
     setIsLoading(true);
-    setJob({
-      jobContent: jobContentInput.current.value,
-      optionalFiles: optionalFiles,
-      process: processSelectedFile,
-      distribute: distributeSelectedFile,
-      aggregate: aggregateSelectedFile,
-    });
-
     try {
       wsClient.sendMessage(
         `${JSON.stringify({
@@ -60,34 +49,36 @@ export default function SubmitJob(props) {
           aggregateBinaryName: aggregateSelectedFile,
         })}`
       );
-      setIsSuccess(true)
-      TriggerAlert("Submit Successed")
+      setIsSuccess(true);
+      TriggerAlert("Submit Successed");
     } catch (error) {
       console.log({ error });
-      setIsSuccess(false)
-      TriggerAlert("Submit Failed")
+      setIsSuccess(false);
+      TriggerAlert("Submit Failed");
     }
 
     setIsLoading(false);
     navigate("/status");
   };
 
-  const handleGetAllBinaries = async () => {
-    const files = await WebSocketServerService().getAllBinaries();
-    setAggregate(files.data.response.AggregateBinaryNames);
-    setProcess(files.data.response.ProcessBinaryNames);
-    setDistribute(files.data.response.DistributeBinaryNames);
-
-    console.log({ Binaries: files });
-  };
-
   React.useEffect(() => {
-    handleGetAllBinaries();
+    setAllBinaries();
+
+    const intervalCalling = setInterval(async () => {
+      //console.log("getJobsProgress() : Start...");
+      await setAllBinaries();
+      //console.log("getJobsProgress() : Done");
+    }, 5000);
+
+    return () => {
+      clearInterval(intervalCalling);
+    };
   }, []);
+
+  const handleRandomizeClientId = () => setClientId(uuid());
 
   return (
     <main className="flex flex-col items-center pb-20 md:px-16">
-
       <AlertComponent success={isSuccess} />
 
       <h1 className="md:text-5xl text-3xl mb-8">Submit Job</h1>
@@ -100,13 +91,17 @@ export default function SubmitJob(props) {
           </div>
         </section>
 
-        <section className="w-full flex items-center justify-start gap-2">
+        <section className="w-full flex items-center justify-start gap-3">
           <h3 className="md:text-2xl text-xl ">Client ID</h3>
           <div className="w-fit rounded-lg border-2 border-blue-800 outline-none bg-black px-3 py-1">
-            <p contenteditable="true" onChange={(id) => setClientId(id)}>
-              {clientId}
-            </p>
+            <p>{clientId}</p>
           </div>
+          <button
+            className="rounded-lg px-14 py-2 bg-blue-800  mt-8 justify-center text-xl"
+            onClick={handleRandomizeClientId}
+          >
+            {"Randomize client id"}
+          </button>
         </section>
 
         <section className="mt-6 w-full">
@@ -120,19 +115,19 @@ export default function SubmitJob(props) {
         <section className="flex gap-5 w-full justify-center mt-8">
           <DropDownBox
             title={"process"}
-            files={process}
+            files={binaries.process}
             selectedFile={processSelectedFile}
             setSelectedFile={setProcessSelectedFile}
           />
           <DropDownBox
             title={"aggregate"}
-            files={aggregate}
+            files={binaries.aggregate}
             selectedFile={aggregateSelectedFile}
             setSelectedFile={setAggregateSelectedFile}
           />
           <DropDownBox
             title={"distribute"}
-            files={distribute}
+            files={binaries.distribute}
             selectedFile={distributeSelectedFile}
             setSelectedFile={setDistributeSelectedFile}
           />

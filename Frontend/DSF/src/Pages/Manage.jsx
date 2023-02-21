@@ -11,55 +11,48 @@ import { FileTypeRadioButtons } from "./../components/FileTypeRadioButtons";
 import useAlert from "../helpers/useAlert.jsx";
 
 export default function Manage() {
-  const [AlertComponent, TriggerAlert] = useAlert();
-  const [isSubmittingApi, setIsSubmittingApi] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
-  const { changeApiEndPoint, apiEndPoint } = useContext(AppContext);
+  const { TriggerAlert } = useContext(AppContext);
+  const [isSubmittingApi, setIsSubmittingApi] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const { changeApiEndPoint, apiEndPoint, setAllBinaries } =
+    useContext(AppContext);
   const apiEndPointInput = useRef();
-  const [distribute, setDistribute] = React.useState([]);
-  const [process, setProcess] = React.useState([]);
-  const [aggregate, setAggregate] = React.useState([]);
 
   const handleOnClick = async () => {
-    setIsSubmittingApi(true)
-    setIsSuccess(false)
-    const isAlive = await changeApiEndPoint(apiEndPointInput.current.value)
-    apiEndPointInput.current.value = ""
-    setIsSubmittingApi(false)
+    setIsSubmittingApi(true);
+    setIsSuccess(false);
+    const isAlive = await changeApiEndPoint(apiEndPointInput.current.value);
+    apiEndPointInput.current.value = "";
+    setIsSubmittingApi(false);
     if (!isAlive) {
-      TriggerAlert("Endpoint is not found (Not Alive)")
-      return 
+      TriggerAlert("Endpoint is not found (Not Alive)");
+      return;
     }
-    setIsSuccess(true)
-    TriggerAlert("Endpoint is set successfully")
-  }
-
-  const handleGetAllBinaries = async () => {
-    const files = await WebSocketServerService().getAllBinaries();
-    setAggregate(files.data.response.AggregateBinaryNames);
-    setProcess(files.data.response.ProcessBinaryNames);
-    setDistribute(files.data.response.DistributeBinaryNames);
-
-    console.log({ Binaries: files });
+    setIsSuccess(true);
+    TriggerAlert("Endpoint is set successfully");
   };
 
   React.useEffect(() => {
-    handleGetAllBinaries();
+    setAllBinaries();
+
+    const intervalCalling = setInterval(async () => {
+      //console.log("getJobsProgress() : Start...");
+      await setAllBinaries();
+      //console.log("getJobsProgress() : Done");
+    }, 5000);
+
+    return () => {
+      clearInterval(intervalCalling);
+    };
   }, []);
 
   return (
     <main className="flex gap-5 flex-col items-center pb-20 md:px-16">
-      <AlertComponent success={isSuccess}/>
       <h1 className="md:text-5xl text-3xl mb-8">Manage</h1>
 
-      <UploadFileCard handleGetAllBinaries={handleGetAllBinaries} />
+      <UploadFileCard />
 
-      <DeleteFileCard
-        process={process}
-        distribute={distribute}
-        aggregate={aggregate}
-        handleGetAllBinaries={handleGetAllBinaries}
-      />
+      <DeleteFileCard />
 
       <div className="flex flex-col justify-center items-center shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">
         <section className="w-full flex items-center">
@@ -75,7 +68,7 @@ export default function Manage() {
               className="rounded-lg px-10 py-1.5 bg-blue-800 absolute right-1 top-1"
               onClick={handleOnClick}
             >
-              {isSubmittingApi ? 'Submitting...' : 'Submit'}
+              {isSubmittingApi ? "Connecting..." : "Connect"}
             </button>
           </div>
         </section>
