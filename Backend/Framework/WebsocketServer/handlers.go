@@ -41,7 +41,7 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 	if err != nil && err != redis.Nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
 		webSocketServer.mu.Unlock()
-		webSocketServer.writeError(client, utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")})
+		webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")})
 		client.webSocketConn.Close() //need to close the connection because the cache is down, and I can't map the client to the server
 		return
 	}
@@ -63,7 +63,7 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 
 	if err != nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-		webSocketServer.writeError(client, utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")})
+		webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")})
 		client.webSocketConn.Close() //need to close the connection because the cache is down, and I can't map the client to the server
 		return
 	}
@@ -238,7 +238,7 @@ func (webSocketServer *WebSocketServer) handleGetSystemProgressRequests(res http
 		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: fmt.Sprintf("Error with Getting system progress from lockServer %+v", reply.ErrMsg)})
 	} else {
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: reply})
+		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: reply.Progress})
 	}
 }
 
@@ -353,11 +353,11 @@ func (websocketServer *WebSocketServer) handleSendOptionalFiles(client *Client, 
 
 	if !ok { //can't establish connection to the lockserver
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
-		websocketServer.writeError(client, utils.HttpResponse{Success: false, Response: ("Error with connecting lockServer")}) //send a message eshtem to client
+		websocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Error with connecting lockServer")}) //send a message eshtem to client
 		return false
 	} else if reply.Err { //establish a connection to the lockserver, but the operation fails
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
-		websocketServer.writeError(client, utils.HttpResponse{Success: false, Response: (fmt.Sprintf("Error with uploading files to lockServer: %+v", reply.ErrMsg))})
+		websocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: (fmt.Sprintf("Error with uploading files to lockServer: %+v", reply.ErrMsg))})
 		return false
 	} else {
 		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")

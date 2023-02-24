@@ -88,7 +88,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		_, message, err := client.webSocketConn.ReadMessage()
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Unable to read from the websocket %+v with err:\n%v", client.webSocketConn.RemoteAddr(), err)
-			webSocketServer.writeError(client, utils.HttpResponse{Success: false, Response: ("Unable to read from the websocket")})
+			webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Unable to read from the websocket")})
 			return
 		}
 
@@ -98,7 +98,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client while unmarshaling json %v\n%v", client.webSocketConn.RemoteAddr(), err)
-			webSocketServer.writeError(client, utils.HttpResponse{Success: false, Response: ("Invalid format")})
+			webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Invalid format")})
 			continue
 		}
 
@@ -127,7 +127,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		err = json.NewEncoder(jobToAssign).Encode(modifiedJobRequest)
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with encoding data %+v for client %+v\n%+v", modifiedJobRequest, client.webSocketConn.RemoteAddr(), err)
-			webSocketServer.writeError(client, utils.HttpResponse{Success: false, Response: ("Can't encode the job request and send it to the message queue at the moment")})
+			webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Can't encode the job request and send it to the message queue at the moment")})
 			//DONE, send an rpc to the lockserver telling it to delete the files
 			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 			continue
@@ -137,7 +137,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not enqeued to jobs assigned queue} -> error : %+v", err)
-			webSocketServer.writeError(client, utils.HttpResponse{Success: false, Response: ("Message queue unavailable")})
+			webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Message queue unavailable")})
 			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully enqeued to jobs assigned queue")
@@ -190,7 +190,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			webSocketServer.mu.Unlock()
 
 			if finishedJob.Err && clientIsAlive {
-				webSocketServer.writeError(client, utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")})
+				webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")})
 				continue
 			}
 
@@ -201,7 +201,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
 				if clientIsAlive { //p1
-					go webSocketServer.writeFinishedJob(client, *finishedJob)
+					go webSocketServer.writeResp(client, utils.HttpResponse{Success: true, Response: *finishedJob})
 					finishedJobObj.Ack(false)
 
 				} else { //p2
@@ -230,7 +230,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 				} else if clientData.ServerID == webSocketServer.id {
 					if clientIsAlive { //p1
-						go webSocketServer.writeFinishedJob(client, *finishedJob)
+						go webSocketServer.writeResp(client, utils.HttpResponse{Success: true, Response: *finishedJob})
 					}
 					//p2
 
