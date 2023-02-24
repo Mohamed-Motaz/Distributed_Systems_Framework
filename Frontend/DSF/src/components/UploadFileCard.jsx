@@ -10,7 +10,7 @@ export const UploadFileCard = (props) => {
   const {} = props;
   const runCommandInput = useRef();
 
-  const { TriggerAlert } = useContext(AppContext);
+  const { TriggerAlert, setIsSuccess } = useContext(AppContext);
   const [runCmd, setRunCmd] = React.useState("");
   const [fileType, setFileType] = React.useState(BinariesType.process);
   const [uploadedFileData, setUploadedFileData] = React.useState({
@@ -34,7 +34,8 @@ export const UploadFileCard = (props) => {
       uploadedFileData.event,
       fileType,
       runCmd,
-      TriggerAlert
+      TriggerAlert,
+      setIsSuccess
     );
   };
 
