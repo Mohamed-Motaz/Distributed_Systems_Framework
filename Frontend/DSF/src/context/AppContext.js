@@ -11,13 +11,6 @@ export default function AppContextProvider(props) {
   const storedApiEndPoint = localStorage.getItem("apiEndPoint");
 
   const [apiEndPoint, setApiEndPoint] = useState(storedApiEndPoint || "");
-  const [binaries, setBinaries] = useState({
-    process: [],
-    aggregate: [],
-    distribute: [],
-  });
-  const [AlertComponent, TriggerAlert] = useAlert();
-  const [isSuccess, setIsSuccess] = useState(false);
 
   async function changeApiEndPoint(endPoint) {
     if (endPoint.includes("://")) {
@@ -29,24 +22,12 @@ export default function AppContextProvider(props) {
     const isAlive = await WebSocketServerService().pingEndPoint();
 
     if (!isAlive) {
-      localStorage.removeItem("apiEndPoint")
+      localStorage.removeItem("apiEndPoint");
       return false;
     }
 
     return isAlive;
   }
-
-  const setAllBinaries = async () => {
-    const files = await handleGetAllBinaries(TriggerAlert, setIsSuccess);
-
-    const { AggregateBinaryNames, ProcessBinaryNames, DistributeBinaryNames } =
-      files?.data?.response;
-    setBinaries({
-      process: ProcessBinaryNames,
-      aggregate: AggregateBinaryNames,
-      distribute: DistributeBinaryNames,
-    });
-  };
 
   const [clientId, setClientId] = useState(
     Date.now().toString(36) + Math.random().toString(36).substr(2)
@@ -58,13 +39,7 @@ export default function AppContextProvider(props) {
         apiEndPoint,
         changeApiEndPoint,
         clientId,
-        setAllBinaries,
-        binaries,
         setClientId,
-        isSuccess,
-        setIsSuccess,
-        AlertComponent,
-        TriggerAlert,
       }}
     >
       {props.children}

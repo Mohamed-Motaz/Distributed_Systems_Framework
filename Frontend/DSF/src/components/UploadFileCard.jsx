@@ -7,10 +7,9 @@ import { Tooltip } from "flowbite-react";
 import { AppContext } from "../context/AppContext.js";
 
 export const UploadFileCard = (props) => {
-  const {} = props;
+  const { TriggerAlert, setIsSuccess } = props;
   const runCommandInput = useRef();
 
-  const { TriggerAlert, setIsSuccess } = useContext(AppContext);
   const [runCmd, setRunCmd] = React.useState("");
   const [fileType, setFileType] = React.useState(BinariesType.process);
   const [uploadedFileData, setUploadedFileData] = React.useState({

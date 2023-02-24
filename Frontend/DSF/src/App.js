@@ -9,7 +9,7 @@ import HowTo from "./Pages/HowTo.jsx";
 import { AppContext } from "../src/context/AppContext";
 import Manage from "./Pages/Manage.jsx";
 import SubmitJob from "./Pages/SubmitJob.jsx";
-
+import useAlert from "./helpers/useAlert";
 import "./App.css";
 import Status from "./Pages/Status.jsx";
 import AboutUs from "./Pages/AboutUs.jsx";
@@ -18,15 +18,12 @@ import FinishedJobs from "./Pages/FinishedJobs.jsx";
 export default function App() {
   const [isFirst, setIsFirst] = useState(true);
 
-  const {
-    clientId,
-    apiEndPoint,
-    AlertComponent,
-    TriggerAlert,
-    isSuccess,
-    setIsSuccess,
-  } = useContext(AppContext);
+  const { clientId, apiEndPoint } = useContext(AppContext);
   const WS_URL = `ws://${apiEndPoint}/openWS/${clientId}`;
+
+  const [AlertComponent, TriggerAlert] = useAlert();
+
+  const [isSuccess, setIsSuccess] = React.useState(false);
 
   console.log("API Endpoint =======>>>> ", apiEndPoint);
   const wsClient = useWebSocket(WS_URL, {
@@ -44,7 +41,6 @@ export default function App() {
       if (e.data.Success) {
         setIsSuccess(true);
         TriggerAlert("A Job is done check Finished Jobs");
-
       } else {
         setIsSuccess(false);
         TriggerAlert(e.data.Response);
