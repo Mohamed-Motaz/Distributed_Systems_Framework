@@ -6,16 +6,14 @@ import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js"
 import DropDownBox from "./DropDownBox.jsx";
 import { WebSocketServerService } from "../services/WebSocketServerService.js";
 import { handleDeleteBinary } from "../services/ServiceTypes/HandlerGroup.js";
-import { AppContext } from "../context/AppContext.js";
 import { Tooltip } from "flowbite-react";
 
 export const DeleteFileCard = (props) => {
-  const { process, distribute, aggregate, handleGetAllBinaries } = props;
+  const { binaries, handleGetAllBinaries, TriggerAlert, setIsSuccess } = props;
   const [fileType, setFileType] = React.useState(BinariesType.process);
-  const { TriggerAlert, binaries, setIsSuccess } = useContext(AppContext);
 
   const [selectedFile, setSelectedFile] = React.useState("");
-  console.log({ process, distribute, aggregate });
+
   const getFilesByType =
     fileType === BinariesType.process
       ? binaries.process

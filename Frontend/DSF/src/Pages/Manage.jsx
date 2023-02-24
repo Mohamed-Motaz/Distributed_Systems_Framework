@@ -9,14 +9,17 @@ import UploadFileButton from "../components/UploadFileButton.jsx";
 import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
 import { FileTypeRadioButtons } from "./../components/FileTypeRadioButtons";
 import useAlert from "../helpers/useAlert.jsx";
+import { handleGetAllBinaries } from "../services/ServiceTypes/HandlerGroup.js";
 
 export default function Manage() {
-  const { TriggerAlert } = useContext(AppContext);
   const [isSubmittingApi, setIsSubmittingApi] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const { changeApiEndPoint, apiEndPoint, setAllBinaries } =
-    useContext(AppContext);
+  const { changeApiEndPoint, apiEndPoint } = useContext(AppContext);
+
   const apiEndPointInput = useRef();
+
+  const [AlertComponent, TriggerAlert] = useAlert();
+
+  const [isSuccess, setIsSuccess] = React.useState(false);
 
   const handleOnClick = async () => {
     setIsSubmittingApi(true);
@@ -32,12 +35,30 @@ export default function Manage() {
     TriggerAlert("Endpoint is set successfully");
   };
 
+  const [binaries, setBinaries] = useState({
+    process: [],
+    aggregate: [],
+    distribute: [],
+  });
+
+  const setAllBinaries = async (TriggerAlert, setIsSuccess) => {
+    const files = await handleGetAllBinaries(TriggerAlert, setIsSuccess);
+
+    const { AggregateBinaryNames, ProcessBinaryNames, DistributeBinaryNames } =
+      files?.data?.response;
+    setBinaries({
+      process: ProcessBinaryNames,
+      aggregate: AggregateBinaryNames,
+      distribute: DistributeBinaryNames,
+    });
+  };
+
   React.useEffect(() => {
-    setAllBinaries();
+    setAllBinaries(TriggerAlert, setIsSuccess);
 
     const intervalCalling = setInterval(async () => {
       //console.log("getJobsProgress() : Start...");
-      await setAllBinaries();
+      await setAllBinaries(TriggerAlert, setIsSuccess);
       //console.log("getJobsProgress() : Done");
     }, 5000);
 
@@ -48,11 +69,17 @@ export default function Manage() {
 
   return (
     <main className="flex gap-5 flex-col items-center pb-20 md:px-16">
+      <AlertComponent success={isSuccess} />
+
       <h1 className="md:text-5xl text-3xl mb-8">Manage</h1>
 
-      <UploadFileCard />
+      <UploadFileCard setIsSuccess={setIsSuccess} TriggerAlert={TriggerAlert} />
 
-      <DeleteFileCard />
+      <DeleteFileCard
+        binaries={binaries}
+        setIsSuccess={setIsSuccess}
+        TriggerAlert={TriggerAlert}
+      />
 
       <div className="flex flex-col justify-center items-center shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">
         <section className="w-full flex items-center">

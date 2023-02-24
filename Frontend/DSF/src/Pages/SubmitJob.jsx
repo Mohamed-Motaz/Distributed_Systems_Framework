@@ -9,6 +9,7 @@ import UploadFileButton from "../components/UploadFileButton.jsx";
 import { Button } from "flowbite-react";
 import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
 import useAlert from "../helpers/useAlert.jsx";
+import { handleGetAllBinaries } from "../services/ServiceTypes/HandlerGroup.js";
 
 const uuid = require("react-uuid");
 
@@ -19,8 +20,27 @@ export default function SubmitJob(props) {
   const [AlertComponent, TriggerAlert] = useAlert();
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const { apiEndPoint, clientId, setClientId, setAllBinaries, binaries } =
-    useContext(AppContext);
+  const { apiEndPoint, clientId, setClientId } = useContext(AppContext);
+
+  const [binaries, setBinaries] = useState({
+    process: [],
+    aggregate: [],
+    distribute: [],
+  });
+
+  const setAllBinaries = async (TriggerAlert, setIsSuccess) => {
+    const files = await handleGetAllBinaries(TriggerAlert, setIsSuccess);
+
+    const { AggregateBinaryNames, ProcessBinaryNames, DistributeBinaryNames } =
+      files?.data?.response;
+    setBinaries({
+      process: ProcessBinaryNames,
+      aggregate: AggregateBinaryNames,
+      distribute: DistributeBinaryNames,
+    });
+  };
+
+  console.log({ binaries });
 
   const jobContentInput = useRef();
 
@@ -63,11 +83,11 @@ export default function SubmitJob(props) {
   };
 
   React.useEffect(() => {
-    setAllBinaries();
+    setAllBinaries(TriggerAlert, setIsSuccess);
 
     const intervalCalling = setInterval(async () => {
       //console.log("getJobsProgress() : Start...");
-      await setAllBinaries();
+      await setAllBinaries(TriggerAlert, setIsSuccess);
       //console.log("getJobsProgress() : Done");
     }, 5000);
 
