@@ -9,9 +9,9 @@ export default function DropDownBox(props) {
     const f = e.target.value;
     setSelectedFile(f);
   }
-  React.useEffect(() => setSelectedFile(files?.[0]), [files]);
+  // React.useEffect(() => setSelectedFile(files?.[0]), [files]);
 
-  console.log({ files });
+  console.log({ files, selectedFile });
 
   return (
     <div className="mb-4">
