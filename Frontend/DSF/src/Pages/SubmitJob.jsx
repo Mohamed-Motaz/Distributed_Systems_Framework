@@ -26,10 +26,15 @@ export default function SubmitJob(props) {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const [distributeSelectedFile, setDistributeSelectedFile] =
-    React.useState("");
-  const [processSelectedFile, setProcessSelectedFile] = React.useState("");
-  const [aggregateSelectedFile, setAggregateSelectedFile] = React.useState("");
+  const [distributeSelectedFile, setDistributeSelectedFile] = React.useState(
+    binaries.distribute?.[0]
+  );
+  const [processSelectedFile, setProcessSelectedFile] = React.useState(
+    binaries.process?.[0]
+  );
+  const [aggregateSelectedFile, setAggregateSelectedFile] = React.useState(
+    binaries.aggregate?.[0]
+  );
   const [optionalFiles, setOptionalFiles] = React.useState({
     name: "",
     content: [],
