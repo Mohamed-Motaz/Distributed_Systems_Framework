@@ -12,7 +12,7 @@ import { Tooltip } from "flowbite-react";
 export const DeleteFileCard = (props) => {
   const { process, distribute, aggregate, handleGetAllBinaries } = props;
   const [fileType, setFileType] = React.useState(BinariesType.process);
-  const { TriggerAlert, binaries } = useContext(AppContext);
+  const { TriggerAlert, binaries, setIsSuccess } = useContext(AppContext);
 
   const [selectedFile, setSelectedFile] = React.useState("");
   console.log({ process, distribute, aggregate });
@@ -50,14 +50,17 @@ export const DeleteFileCard = (props) => {
             } w-fit mt-8 self-center text-xl`}
             disabled={!selectedFile}
             onClick={() =>
-              handleDeleteBinary(selectedFile, fileType, TriggerAlert).then(
-                (res) => {
-                  console.log({ res });
-                  if (res.data.success) {
-                    handleGetAllBinaries();
-                  }
+              handleDeleteBinary(
+                selectedFile,
+                fileType,
+                TriggerAlert,
+                setIsSuccess
+              ).then((res) => {
+                console.log({ res });
+                if (res.data.success) {
+                  handleGetAllBinaries();
                 }
-              )
+              })
             }
           >
             Delete

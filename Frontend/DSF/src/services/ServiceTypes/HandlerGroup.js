@@ -5,7 +5,8 @@ export const handleUploadFile = async (
   event,
   fileType,
   runCmd,
-  TriggerAlert
+  TriggerAlert,
+  setIsSuccess
 ) => {
   const compressedFile = await getCompressedFile(event);
 
@@ -18,8 +19,10 @@ export const handleUploadFile = async (
   console.log({ res });
 
   if (res?.data?.success) {
+    setIsSuccess(true);
     TriggerAlert("File has been uploaded successfully");
   } else {
+    setIsSuccess(false);
     TriggerAlert(
       res?.data?.response ??
         "Unable to establish the communication with the server"
@@ -39,14 +42,21 @@ export const getCompressedFile = async (event) => {
   return { name: fileUploaded.name, content: Array.from(view) };
 };
 
-export const handleDeleteBinary = async (fileName, fileType, TriggerAlert) => {
+export const handleDeleteBinary = async (
+  fileName,
+  fileType,
+  TriggerAlert,
+  setIsSuccess
+) => {
   const res = await WebSocketServerService().deleteBinaryFile(
     fileName,
     fileType
   );
   if (res?.data?.success) {
+    setIsSuccess(true);
     TriggerAlert("File has been deleted successfully");
   } else {
+    setIsSuccess(false);
     TriggerAlert(
       res?.data?.response ??
         "Unable to establish the communication with the server"
@@ -55,10 +65,11 @@ export const handleDeleteBinary = async (fileName, fileType, TriggerAlert) => {
   return res;
 };
 
-export const handleGetAllBinaries = async (TriggerAlert) => {
+export const handleGetAllBinaries = async (TriggerAlert, setIsSuccess) => {
   const res = await WebSocketServerService().getAllBinaries();
 
   if (!res?.data?.success) {
+    setIsSuccess(false);
     TriggerAlert(
       res?.data?.response ??
         "Unable to establish the communication with the server"

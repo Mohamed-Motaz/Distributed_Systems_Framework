@@ -9,7 +9,7 @@ export default function DropDownBox(props) {
     const f = e.target.value;
     setSelectedFile(f);
   }
-  // React.useEffect(() => setSelectedFile(files?.[0]), [files]);
+  React.useEffect(() => setSelectedFile(files?.[0]), []);
 
   console.log({ files, selectedFile });
 
@@ -22,6 +22,9 @@ export default function DropDownBox(props) {
         {`Select ${title} file`}
       </label>
       <select
+        defaultValue={selectedFile}
+        value={selectedFile}
+        placeholder="choose file"
         id="countries"
         onChange={(e) => handlechange(e)}
         className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"

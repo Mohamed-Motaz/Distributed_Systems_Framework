@@ -17,6 +17,7 @@ export default function AppContextProvider(props) {
     distribute: [],
   });
   const [AlertComponent, TriggerAlert] = useAlert();
+  const [isSuccess, setIsSuccess] = useState(false);
 
   async function changeApiEndPoint(endPoint) {
     const isAlive = await WebSocketServerService().pingEndPoint(endPoint);
@@ -33,7 +34,7 @@ export default function AppContextProvider(props) {
   }
 
   const setAllBinaries = async () => {
-    const files = await handleGetAllBinaries(TriggerAlert);
+    const files = await handleGetAllBinaries(TriggerAlert, setIsSuccess);
 
     const { AggregateBinaryNames, ProcessBinaryNames, DistributeBinaryNames } =
       files?.data?.response;
@@ -57,6 +58,8 @@ export default function AppContextProvider(props) {
         setAllBinaries,
         binaries,
         setClientId,
+        isSuccess,
+        setIsSuccess,
         AlertComponent,
         TriggerAlert,
       }}

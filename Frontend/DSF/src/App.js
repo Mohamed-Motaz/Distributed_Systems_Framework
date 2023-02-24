@@ -17,10 +17,15 @@ import FinishedJobs from "./Pages/FinishedJobs.jsx";
 
 export default function App() {
   const [isFirst, setIsFirst] = useState(true);
-  const [isSuccess, setIsSuccess] = useState(false);
 
-  const { clientId, apiEndPoint, AlertComponent, TriggerAlert } =
-    useContext(AppContext);
+  const {
+    clientId,
+    apiEndPoint,
+    AlertComponent,
+    TriggerAlert,
+    isSuccess,
+    setIsSuccess,
+  } = useContext(AppContext);
   const WS_URL = `ws://${apiEndPoint}/openWS/${clientId}`;
 
   console.log("API Endpoint =======>>>> ", apiEndPoint);
