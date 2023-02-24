@@ -37,11 +37,12 @@ export default function App() {
     // },
     onMessage: (e) => {
       if (e.data.Success) {
-        setIsSuccess(false);
-        TriggerAlert(e.data.Response);
-      } else {
         setIsSuccess(true);
         TriggerAlert("A Job is done check Finished Jobs");
+
+      } else {
+        setIsSuccess(false);
+        TriggerAlert(e.data.Response);
       }
       console.log({ e });
     },

@@ -133,7 +133,9 @@ export default function SubmitJob(props) {
           />
         </section>
         <UploadFileButton
-          onChange={(e) => setOptionalFiles(getCompressedFile(e))}
+          onChange={async (e) => {
+            setOptionalFiles(await getCompressedFile(e))
+          }}
           title={"Optional"}
         />
         <button

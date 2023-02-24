@@ -87,9 +87,9 @@ export const WebSocketServerService = () => {
     }
   };
 
-  const pingEndPoint = async (endPoint) => {
+  const pingEndPoint = async () => {
     try {
-      await axios.get(`${endPoint}/ping`);
+      await axios.get(urlBuilder("ping"));
       return true;
     } catch (_) {
       return false;
