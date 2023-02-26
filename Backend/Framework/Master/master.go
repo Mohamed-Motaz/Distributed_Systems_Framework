@@ -195,6 +195,7 @@ func (master *Master) sendPeriodicProgress() {
 			}
 		}
 		progress /= float32(len(master.currentJob.tasks))
+		progress *= 100
 
 		args := &RPC.SetJobProgressArgs{
 			CurrentJobProgress: RPC.CurrentJobProgress{
