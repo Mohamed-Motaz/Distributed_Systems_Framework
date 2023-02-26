@@ -170,8 +170,9 @@ func (master *Master) sendPeriodicProgress() {
 
 			master.mu.Unlock()
 
+			logger.LogInfo(logger.MASTER, logger.DEBUGGING, "About to send periodic progress %+v", args)
 			reply := &RPC.SetJobProgressReply{}
-			RPC.EstablishRpcConnection(&RPC.RpcConnection{
+			if _, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 				Name:         "LockServer.HandleSetJobProgress",
 				Args:         &args,
 				Reply:        &reply,
@@ -181,7 +182,9 @@ func (master *Master) sendPeriodicProgress() {
 					Port: LockServerPort,
 					Host: LockServerHost,
 				},
-			})
+			}); err != nil {
+				logger.LogError(logger.MASTER, logger.DEBUGGING, "Error while sending periodic progress err: %+v", err)
+			}
 			continue
 		}
 
@@ -192,6 +195,7 @@ func (master *Master) sendPeriodicProgress() {
 			}
 		}
 		progress /= float32(len(master.currentJob.tasks))
+		progress *= 100
 
 		args := &RPC.SetJobProgressArgs{
 			CurrentJobProgress: RPC.CurrentJobProgress{
@@ -204,8 +208,10 @@ func (master *Master) sendPeriodicProgress() {
 		}
 
 		master.mu.Unlock()
+
+		logger.LogInfo(logger.MASTER, logger.DEBUGGING, "About to send periodic progress %+v", args)
 		reply := &RPC.SetJobProgressReply{}
-		RPC.EstablishRpcConnection(&RPC.RpcConnection{
+		if _, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
 			Name:         "LockServer.HandleSetJobProgress",
 			Args:         &args,
 			Reply:        &reply,
@@ -215,7 +221,9 @@ func (master *Master) sendPeriodicProgress() {
 				Port: LockServerPort,
 				Host: LockServerHost,
 			},
-		})
+		}); err != nil {
+			logger.LogError(logger.MASTER, logger.DEBUGGING, "Error while sending periodic progress err: %+v", err)
+		}
 
 	}
 }

@@ -266,12 +266,15 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 }
 
 func (lockServer *LockServer) HandleSetJobProgress(args *RPC.SetJobProgressArgs, reply *RPC.SetJobProgressReply) error {
+	logger.LogInfo(logger.LOCK_SERVER, logger.DEBUGGING, "Request to set job progress %+v", args)
+
 	lockServer.mu.Lock()
 	defer lockServer.mu.Unlock()
 	lockServer.mastersState[args.MasterId] = privCJP{
 		lastHeartBeat:      time.Now(),
 		CurrentJobProgress: args.CurrentJobProgress,
 	}
+
 	return nil
 }
 

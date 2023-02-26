@@ -1,16 +1,32 @@
 // import { uuid } from "react-uuid";
+import { WebSocketServerService } from "../services/WebSocketServerService.js";
+import { handleGetAllBinaries } from "../services/ServiceTypes/HandlerGroup.js";
+import useAlert from "../helpers/useAlert.jsx";
 
 const { createContext, useState } = require("react");
 
 export let AppContext = createContext(false);
 
 export default function AppContextProvider(props) {
+  const storedApiEndPoint = localStorage.getItem("apiEndPoint");
 
-  const storedApiEndPoint = localStorage.getItem('apiEndPoint');
   const [apiEndPoint, setApiEndPoint] = useState(storedApiEndPoint || "");
-  function changeApiEndPoint(endPoint){
-    setApiEndPoint(endPoint)
-    localStorage.setItem('apiEndPoint', endPoint)
+
+  async function changeApiEndPoint(endPoint) {
+    if (endPoint.includes("://")) {
+      endPoint = endPoint.split("://")[1];
+    }
+    setApiEndPoint(endPoint);
+    localStorage.setItem("apiEndPoint", endPoint);
+
+    const isAlive = await WebSocketServerService().pingEndPoint();
+
+    if (!isAlive) {
+      localStorage.removeItem("apiEndPoint");
+      return false;
+    }
+
+    return isAlive;
   }
 
   const [clientId, setClientId] = useState(
@@ -19,7 +35,12 @@ export default function AppContextProvider(props) {
 
   return (
     <AppContext.Provider
-      value={{ apiEndPoint, changeApiEndPoint, clientId, setClientId }}
+      value={{
+        apiEndPoint,
+        changeApiEndPoint,
+        clientId,
+        setClientId,
+      }}
     >
       {props.children}
     </AppContext.Provider>

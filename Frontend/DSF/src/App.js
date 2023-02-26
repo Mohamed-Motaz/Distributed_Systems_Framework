@@ -9,37 +9,52 @@ import HowTo from "./Pages/HowTo.jsx";
 import { AppContext } from "../src/context/AppContext";
 import Manage from "./Pages/Manage.jsx";
 import SubmitJob from "./Pages/SubmitJob.jsx";
-
+import useAlert from "./helpers/useAlert";
 import "./App.css";
 import Status from "./Pages/Status.jsx";
 import AboutUs from "./Pages/AboutUs.jsx";
 import FinishedJobs from "./Pages/FinishedJobs.jsx";
 
 export default function App() {
-  const { clientId } = useContext(AppContext);
-  const WS_URL = `ws://localhost:3001/openWS/${clientId}`;
+  const [isFirst, setIsFirst] = useState(true);
 
+  const { clientId, apiEndPoint } = useContext(AppContext);
+  const WS_URL = `ws://${apiEndPoint}/openWS/${clientId}`;
+
+  const [AlertComponent, TriggerAlert] = useAlert();
+
+  const [isSuccess, setIsSuccess] = React.useState(false);
+
+  console.log("API Endpoint =======>>>> ", apiEndPoint);
   const wsClient = useWebSocket(WS_URL, {
     onOpen: () => {
       console.log("WebSocket connection established.");
     },
-    onClose: () => {
-      console.log(
-        "WebSocket connection closed, it will be re-established in a second"
-      );
-      setTimeout(() => wsClient(), 1000);
+    shouldReconnect: (closeEvent) => true,
+    // onClose: () => {
+    //   console.log(
+    //     "WebSocket connection closed, it will be re-established in a second"
+    //   );
+    //   setTimeout(wsClient, 1000);
+    // },
+    onMessage: (e) => {
+      if (e.data.Success) {
+        setIsSuccess(true);
+        TriggerAlert("A Job is done check Finished Jobs");
+      } else {
+        setIsSuccess(false);
+        TriggerAlert(e.data.Response);
+      }
+      console.log({ e });
     },
-    onMessage: (e) => console.log({ e }),
   });
-
-  const [isFirst, setIsFirst] = useState(true);
 
   const HOME_ROUTE = createBrowserRouter([
     {
       path: "/",
       element: <RootLayout />,
       children: [
-        { index: true, element: isFirst ? <Landing /> : <Home /> },
+        { index: true, element: <Landing /> },
         { path: "/how-to", element: <HowTo /> },
         { path: "/manage", element: <Manage /> },
         { path: "/submit-job", element: <SubmitJob wsClient={wsClient} /> },
@@ -73,5 +88,11 @@ export default function App() {
     console.log("====================================");
   }, []);
 
-  return <RouterProvider router={HOME_ROUTE} />;
+  return (
+    <main>
+      <AlertComponent success={isSuccess} />
+
+      <RouterProvider router={HOME_ROUTE} />
+    </main>
+  );
 }

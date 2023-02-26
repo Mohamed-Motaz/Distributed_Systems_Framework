@@ -3,7 +3,6 @@ import React, { useState } from 'react'
 
 export default function StatusCard({ job }) {
     console.log(job.error ? 'Error Found' : 'Success');
-    job = job.response.Progress[0];
 
 
     const [isCopied, setIsCopied] = useState(false)
@@ -65,8 +64,7 @@ export default function StatusCard({ job }) {
     </div>
 }
 
-function ProgressBar({job}) {
-
+function ProgressBar({ job }) {
     if (job.Status === "Free") {
         return <Progress
             color="yellow"

@@ -1,20 +1,14 @@
 package main
 
 import (
-	mq "Framework/MessageQueue"
 	logger "Framework/Logger"
+	mq "Framework/MessageQueue"
 	utils "Framework/Utils"
 )
 
-
-func (webSocketServer *WebSocketServer) writeFinishedJob(client *Client, finishedJob mq.FinishedJob) {
-	client.webSocketConn.WriteJSON(finishedJob)
-	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Job sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), finishedJob)
-}
-
-func (webSocketServer *WebSocketServer) writeError(client *Client, err utils.Error) {
-	client.webSocketConn.WriteJSON(err)
-	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), err)
+func (webSocketServer *WebSocketServer) writeResp(client *Client, res utils.HttpResponse) {
+	client.webSocketConn.WriteJSON(res)
+	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Resp sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), res)
 }
 
 func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest, modifiedJobRequest *mq.AssignedJob) {
