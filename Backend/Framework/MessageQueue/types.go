@@ -24,17 +24,18 @@ type MQ struct {
 	mu   sync.Mutex
 }
 type AssignedJob struct {
-	ClientId             string `json:"clientId"`
-	JobId                string `json:"jobId"`
-	JobContent           string `json:"jobContent"`
-	DistributeBinaryName string `json:"distributeBinaryName"`
-	ProcessBinaryName    string `json:"processBinaryName"`
-	AggregateBinaryName  string `json:"aggregateBinaryName"`
+	ClientId           string `json:"clientId"`
+	JobId              string `json:"jobId"`
+	JobContent         string `json:"jobContent"`
+	DistributeBinaryId string `json:"distributeBinaryId"`
+	ProcessBinaryId    string `json:"processBinaryId"`
+	AggregateBinaryId  string `json:"aggregateBinaryId"`
 }
+
 type FinishedJob struct {
-	ClientId             string    `json:"clientId"`
-	JobId                string    `json:"jobId"`
-	Content              string    `json:"content"`
-	Result               string    `json:"result"`
+	ClientId string `json:"clientId"`
+	JobId    string `json:"jobId"`
+	Content  string `json:"content"`
+	Result   string `json:"result"`
 	utils.Error
 }

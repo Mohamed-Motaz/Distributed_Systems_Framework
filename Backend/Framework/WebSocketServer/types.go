@@ -63,6 +63,20 @@ type DeleteBinaryRequest struct {
 	FileName string         `json:"fileName"`
 }
 
+type WsMsgType string
+
+const (
+	FINISHED_JOB      WsMsgType = "finishedJob"
+	SYSTEM_PROGRESS   WsMsgType = "systemProgress"
+	SYSTEM_BINARIES   WsMsgType = "systemBinaries"
+	FINISHED_JOBS_IDS WsMsgType = "finishedJobsIds"
+)
+
+type WsResponse struct {
+	MsgType  WsMsgType   `json:"msgType"`
+	Response interface{} `json:"response"`
+}
+
 const (
 	_MY_HOST            string        = "MY_HOST"
 	_MY_PORT            string        = "MY_PORT"

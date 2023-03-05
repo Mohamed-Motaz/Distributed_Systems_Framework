@@ -124,10 +124,15 @@ type GetBinaryFilesArgs struct {
 }
 
 type GetBinaryFilesReply struct {
-	ProcessBinaryNames    []string
-	DistributeBinaryNames []string
-	AggregateBinaryNames  []string
+	ProcessBinaryNames    []BinaryFileNameAndId
+	DistributeBinaryNames []BinaryFileNameAndId
+	AggregateBinaryNames  []BinaryFileNameAndId
 	utils.Error
+}
+
+type BinaryFileNameAndId struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 type DeleteBinaryFileArgs struct {
