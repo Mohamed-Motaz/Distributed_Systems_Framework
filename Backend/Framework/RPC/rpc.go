@@ -90,12 +90,19 @@ const (
 	FREE         JobProgress = "Free"
 )
 
+type WorkerTask struct {
+	WorkerId             string
+	CurrentTaskContent   string //may be empty
+	FinishedTasksContent []string
+}
+
 type CurrentJobProgress struct {
-	MasterId string
-	JobId    string
-	ClientId string
-	Progress float32
-	Status   JobProgress
+	MasterId     string
+	JobId        string
+	ClientId     string
+	Progress     float32
+	Status       JobProgress
+	WorkersTasks []WorkerTask
 }
 type SetJobProgressArgs struct {
 	CurrentJobProgress

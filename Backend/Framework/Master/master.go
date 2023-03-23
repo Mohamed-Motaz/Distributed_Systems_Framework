@@ -147,6 +147,10 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 			content: task,
 			isDone:  false,
 		}
+
+		master.currentJob.workersTimers[i] = WorkerAndHisTimer{
+			lastHeartBeat: time.Time{},
+		}
 	}
 	return nil
 }
@@ -199,11 +203,12 @@ func (master *Master) sendPeriodicProgress() {
 
 		args := &RPC.SetJobProgressArgs{
 			CurrentJobProgress: RPC.CurrentJobProgress{
-				MasterId: master.id,
-				JobId:    master.currentJob.jobId,
-				ClientId: master.currentJob.clientId,
-				Progress: progress,
-				Status:   RPC.PROCESSING, //todo this will probably change in the future
+				MasterId:     master.id,
+				JobId:        master.currentJob.jobId,
+				ClientId:     master.currentJob.clientId,
+				Progress:     progress,
+				Status:       RPC.PROCESSING, //todo this will probably change in the future
+				WorkersTasks: master.generateWorkersTasks(),
 			},
 		}
 
@@ -661,6 +666,40 @@ func (master *Master) allTasksDone() bool {
 		}
 	}
 	return true
+}
+
+//this function generates the WorkersTasks field
+//this function expects to hold a lock
+func (master *Master) generateWorkersTasks() []RPC.WorkerTask {
+	workersTasks := make([]RPC.WorkerTask, 0)
+	workersMp := make(map[string]*RPC.WorkerTask)
+
+	for i, workerTimer := range master.currentJob.workersTimers {
+		//init a new key for the worker if it doesn't exist in the map
+		if _, ok := workersMp[workerTimer.workerId]; !ok {
+			workersMp[workerTimer.workerId] = &RPC.WorkerTask{
+				FinishedTasksContent: make([]string, 0),
+			}
+		}
+
+		task := master.currentJob.tasks[i]
+
+		if task.isDone {
+			workersMp[workerTimer.workerId].FinishedTasksContent =
+				append(workersMp[workerTimer.workerId].FinishedTasksContent, task.content)
+		} else if workerTimer.lastHeartBeat.UnixMilli() > 0 {
+			//check if the worker is currently working
+			workersMp[workerTimer.workerId].CurrentTaskContent = task.content
+		}
+	}
+
+	for k, v := range workersMp {
+		workerT := v
+		workerT.WorkerId = k
+		workersTasks = append(workersTasks, *workerT)
+	}
+
+	return workersTasks
 }
 
 // func (master *Master) removeSliceElementByIndex (arr *[]Task, index int) int {
