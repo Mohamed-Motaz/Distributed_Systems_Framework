@@ -2,6 +2,7 @@
 import { WebSocketServerService } from "../services/WebSocketServerService.js";
 import { handleGetAllBinaries } from "../services/ServiceTypes/HandlerGroup.js";
 import useAlert from "../helpers/useAlert.jsx";
+import { useNavigate } from "react-router-dom";
 
 const { createContext, useState } = require("react");
 
@@ -16,15 +17,16 @@ export default function AppContextProvider(props) {
     if (endPoint.includes("://")) {
       endPoint = endPoint.split("://")[1];
     }
-    setApiEndPoint(endPoint);
-    localStorage.setItem("apiEndPoint", endPoint);
-
     const isAlive = await WebSocketServerService().pingEndPoint();
 
     if (!isAlive) {
       localStorage.removeItem("apiEndPoint");
       return false;
     }
+    
+    setApiEndPoint(endPoint);
+    localStorage.setItem("apiEndPoint", endPoint);
+
 
     return isAlive;
   }
