@@ -14,10 +14,11 @@ type Cache struct {
 //Cache is a map of {ClientID, CacheValue}
 
 type FinishedJob struct {
-	JobId                string    `json:"jobId"`
-	JobResult            string    `json:"jobResult"`
+	JobId     string `json:"jobId"`
+	JobResult string `json:"jobResult"`
 }
 
+//todo: add createdAr and timeAssigned
 type CacheValue struct {
 	ServerID     string        `json:"serverId"`
 	FinishedJobs []FinishedJob `json:"finishedJobs"`

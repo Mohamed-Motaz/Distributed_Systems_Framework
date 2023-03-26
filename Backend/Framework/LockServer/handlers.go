@@ -219,7 +219,8 @@ func (lockServer *LockServer) HandleAddOptionalFiles(args *RPC.OptionalFilesUplo
 }
 
 func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs, reply *RPC.GetBinaryFilesReply) error {
-
+	//todo: call getRunnableFiles and add them in the response
+	//todo: in the future, may check if the items in the db are actually present on disk -- don't remove this todo
 	var foundFile bool = false
 	reply.Err = false
 	reply.AggregateBinaryNames = make([]string, 0)
@@ -286,6 +287,8 @@ func (lockServer *LockServer) HandleGetSystemProgress(args *RPC.GetSystemProgres
 	for _, masterState := range lockServer.mastersState {
 		progress = append(progress, masterState.CurrentJobProgress)
 	}
+
+	//todo: sort the masters by id
 	reply.Progress = progress
 	return nil
 }

@@ -96,13 +96,15 @@ type WorkerTask struct {
 	FinishedTasksContent []string
 }
 
+//todo: add the current binary names used ex processbinaryname ta7t
 type CurrentJobProgress struct {
-	MasterId     string
-	JobId        string
-	ClientId     string
-	Progress     float32
-	Status       JobProgress
-	WorkersTasks []WorkerTask
+	MasterId          string
+	JobId             string
+	ClientId          string
+	ProcessBinaryName string
+	Progress          float32
+	Status            JobProgress
+	WorkersTasks      []WorkerTask
 }
 type SetJobProgressArgs struct {
 	CurrentJobProgress

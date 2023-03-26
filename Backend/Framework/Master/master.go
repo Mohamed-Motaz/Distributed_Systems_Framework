@@ -201,6 +201,7 @@ func (master *Master) sendPeriodicProgress() {
 		progress /= float32(len(master.currentJob.tasks))
 		progress *= 100
 
+		//todo: set progress to 1 decimal point
 		args := &RPC.SetJobProgressArgs{
 			CurrentJobProgress: RPC.CurrentJobProgress{
 				MasterId:     master.id,

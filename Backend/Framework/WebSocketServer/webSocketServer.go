@@ -51,6 +51,11 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	go webSocketServer.listenAndServe()
 	go webSocketServer.deliverJobs()
 
+	//todo: add a thread that periodically locks the connections map, loops on all connections,
+	//and the sends out  getAllBinaries and getSystemProgress and finishedJobsIds
+	//this means that as the websocket server, you will have to make those calls to the lockserver yourself
+	//be careful to assign each websocket message its type
+	//todo: make sure all messages on the WS connection are only of type WsResponse
 	return webSocketServer, nil
 }
 
@@ -132,6 +137,11 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 			continue
 		}
+		//todo: add field createdAt
+		//should be added to the database (jobinfo) & the migration
+		//should be added to the mq field
+		//should be accepted by the master, and sent to the lockserver
+		//so should be added to the communication between the master and the lock server
 
 		err = webSocketServer.queue.Enqueue(mq.ASSIGNED_JOBS_QUEUE, jobToAssign.Bytes())
 

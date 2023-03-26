@@ -73,8 +73,8 @@ const (
 )
 
 type WsResponse struct {
-	MsgType  WsMsgType   `json:"msgType"`
-	Response interface{} `json:"response"`
+	MsgType  WsMsgType          `json:"msgType"`
+	Response utils.HttpResponse `json:"response"`
 }
 
 const (
