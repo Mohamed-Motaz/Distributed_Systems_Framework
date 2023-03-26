@@ -1,5 +1,6 @@
 import { Progress, Tooltip } from 'flowbite-react';
 import React, { useState } from 'react'
+import WorkersModal from './WorkersModal.jsx';
 
 export default function StatusCard({ job }) {
     console.log(job.error ? 'Error Found' : 'Success');
@@ -15,10 +16,19 @@ export default function StatusCard({ job }) {
         setTimer(setTimeout(() => setIsCopied(false), 1000))
     }
 
-    return <div className='xl:col-span-4 md:col-span-6 col-span-12 px-3 mb-6'>
-        <div className=' shadow-card hover:shadow-cardhover rounded-lg p-8 gap-2'>
+    return job.Status === "Processing"
+        ? ProgressingMaster(job, isCopied, copyToClipboard)
+        : job.Status === "Free"
+            ? FreeMaster(job, isCopied, copyToClipboard)
+            : UnresponsiveMaster(job, isCopied, copyToClipboard)
+}
+
+function ProgressingMaster(job, isCopied, copyToClipboard) {
+
+    return <div className='xl:col-span-4 md:col-span-6 col-span-12 px-3 mb-6 flex'>
+        <div className='rounded-lg p-8 pb-4 self-stretch w-full gap-2 bg-green-900'>
             <div className='mb-8 flex justify-center items-center gap-2'>
-                <button className='rounded-lg bg-blue-800' onClick={copyToClipboard}>
+                <button className='rounded-lg bg-black border-blue-800 border-2' onClick={copyToClipboard}>
                     <Tooltip content={isCopied ? 'Copied To Cilpboard' : job.MasterId}>
                         <h2 className='text-xl text-center px-6 py-2' >
                             MASTER SERVER ID
@@ -58,35 +68,56 @@ export default function StatusCard({ job }) {
                 </div>
             </div>
             <div className='mt-6 mb-3'>
-                <ProgressBar job={job} />
+                <Progress
+                    progress={job.Progress}
+                    color="green"
+                    label={`Job Progress: ${job.Status}`}
+                    labelPosition="outside"
+                    labelProgress={true}
+                />
+            </div>
+
+            <WorkersModal workers={job.WorkersTasks} />
+        </div>
+    </div>
+}
+
+function FreeMaster(job, isCopied, copyToClipboard) {
+
+    return <div className='xl:col-span-4 md:col-span-6 col-span-12 px-3 mb-6 flex'>
+        <div className='rounded-lg p-8 self-stretch w-full gap-2 bg-gray-700'>
+            <div className='mb-8 flex justify-center items-center gap-2'>
+                <button className='rounded-lg bg-black border-blue-800 border-2' onClick={copyToClipboard}>
+                    <Tooltip content={isCopied ? 'Copied To Cilpboard' : job.MasterId}>
+                        <h2 className='text-xl text-center px-6 py-2' >
+                            MASTER SERVER ID
+                        </h2>
+                    </Tooltip>
+                </button>
+            </div>
+            <div className='text-center text-2xl pt-[20%]'>
+                Free Master
             </div>
         </div>
     </div>
 }
 
-function ProgressBar({ job }) {
-    if (job.Status === "Free") {
-        return <Progress
-            color="yellow"
-            label={`Job Progress: ${job.Status}`}
-            labelPosition="outside"
-        />
-    }
+function UnresponsiveMaster(job, isCopied, copyToClipboard) {
 
-    if (job.Status === "Unresponsive") {
-        return <Progress
-            color="red"
-            label={`Job Progress: ${job.Status}`}
-            labelPosition="outside"
-        />
-    }
-
-    return <Progress
-        progress={job.Progress}
-        color="green"
-        label={`Job Progress: ${job.Status}`}
-        labelPosition="outside"
-        labelProgress={true}
-    />
-
+    return <div className='xl:col-span-4 md:col-span-6 col-span-12 px-3 mb-6 flex'>
+        <div className='rounded-lg p-8 self-stretch w-full gap-2 bg-red-900'>
+            <div className='mb-8 flex flex-col justify-center items-center gap-2'>
+                <button className='rounded-lg bg-black border-blue-800 border-2' onClick={copyToClipboard}>
+                    <Tooltip content={isCopied ? 'Copied To Cilpboard' : job.MasterId}>
+                        <h2 className='text-xl text-center px-6 py-2' >
+                            MASTER SERVER ID
+                        </h2>
+                    </Tooltip>
+                </button>
+            </div>
+            <div className='text-center text-2xl pt-[20%]'>
+                Unresponsive Master
+            </div>
+        </div>
+    </div>
 }

@@ -92,7 +92,16 @@ export default function App() {
     <main>
       <AlertComponent success={isSuccess} />
 
-      <RouterProvider router={HOME_ROUTE} />
+      <RouterProvider router={
+        localStorage.getItem('apiEndPoint')
+          ? HOME_ROUTE
+          : createBrowserRouter([{
+            path: "/",
+            element: <div className='dark pt-28 px-8'>
+              <Landing />
+            </div>
+          }])
+      } />
     </main>
   );
 }

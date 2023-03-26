@@ -1,6 +1,6 @@
 import { handleUploadFile } from "../services/ServiceTypes/HandlerGroup.js";
 import React, { useRef, useContext } from "react";
-import { FileTypeRadioButtons } from "./FileTypeRadioButtons";
+import { DeleteFileTypeRadioButtons } from "./DeleteFileTypeRadioButtons.jsx";
 import UploadFileButton from "./UploadFileButton.jsx";
 import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
 import DropDownBox from "./DropDownBox.jsx";
@@ -10,14 +10,14 @@ import { Tooltip } from "flowbite-react";
 
 export const DeleteFileCard = (props) => {
   const { binaries, handleGetAllBinaries, TriggerAlert, setIsSuccess } = props;
-  const [fileType, setFileType] = React.useState(BinariesType.process);
+  const [deleteFileType, setDeleteFileType] = React.useState(BinariesType.process);
 
   const [selectedFile, setSelectedFile] = React.useState("");
 
   const getFilesByType =
-    fileType === BinariesType.process
+  deleteFileType === BinariesType.process
       ? binaries.process
-      : fileType === BinariesType.Distribute
+      : deleteFileType === BinariesType.Distribute
       ? binaries.distribute
       : binaries.aggregate;
 
@@ -25,10 +25,10 @@ export const DeleteFileCard = (props) => {
     <div className="flex flex-col justify-center items-center shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">
       <h3 className="md:text-2xl text-xl ">Choose file to delete</h3>
 
-      <FileTypeRadioButtons fileType={fileType} setFileType={setFileType} />
+      <DeleteFileTypeRadioButtons deleteFileType={deleteFileType} setDeleteFileType={setDeleteFileType} />
       <section className="flex gap-5 w-full justify-center  mt-8">
         <DropDownBox
-          title={fileType}
+          title={deleteFileType}
           files={getFilesByType}
           selectedFile={selectedFile}
           setSelectedFile={setSelectedFile}
@@ -50,7 +50,7 @@ export const DeleteFileCard = (props) => {
             onClick={() =>
               handleDeleteBinary(
                 selectedFile,
-                fileType,
+                deleteFileType,
                 TriggerAlert,
                 setIsSuccess
               ).then((res) => {

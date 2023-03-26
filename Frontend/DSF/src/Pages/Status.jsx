@@ -6,6 +6,48 @@ import StatusCard from "../components/StatusCard.jsx";
 import { WebSocketServerService } from "../services/WebSocketServerService.js";
 import { AppContext } from "./../context/AppContext";
 
+function jobExample(jobStatus) {
+  return {
+    MasterId: "idmd9303-kdk9303-eke-2993iop",
+    JobId: "idmd9303-kdk9303-eke-2993iop",
+    ClientId: "idmd9303-kdk9303-eke-2993iop",
+    Progress: 34.56,
+    Status: jobStatus,
+    WorkersTasks: [
+      {
+        WorkerId: "idmd9303-kdk9303-eke-2993iop",
+        CurrentTaskContent: "lastTask.txt",
+        FinishedTaskContent: [
+          "FirstTask.txt",
+          "SecondTask.txt",
+          "ThirdTask.txt",
+          "FourthTask.txt"
+        ],
+
+      }, {
+        WorkerId: "idmd9303-kdk9303-eke-2993iop",
+        CurrentTaskContent: "lastTask.txt",
+        FinishedTaskContent: [
+          "FirstTask.txt",
+          "SecondTask.txt",
+          "ThirdTask.txt",
+          "FourthTask.txt"
+        ],
+
+      }, {
+        WorkerId: "idmd9303-kdk9303-eke-2993iop",
+        CurrentTaskContent: "lastTask.txt",
+        FinishedTaskContent: [
+          "FirstTask.txt",
+          "SecondTask.txt",
+          "ThirdTask.txt",
+          "FourthTask.txt"
+        ],
+
+      }
+    ]
+  }
+}
 
 export default function Status() {
   const [jobs, setJobs] = useState(null);
@@ -14,25 +56,23 @@ export default function Status() {
   const { TriggerAlert } = useContext(AppContext);
 
   const getJobsProgress = async () => {
-    const jobProgress = await WebSocketServerService().getJobProgress();
-    if (!jobProgress?.data?.success) {
-      TriggerAlert(
-        jobProgress?.data?.response ??
-        "Unable to establish the communication with the server"
-      );
-    }
-    setJobs(jobProgress.data.response || []);
+    // const jobProgress = await WebSocketServerService().getJobProgress();
+    // if (!jobProgress?.data?.success) {
+    //   TriggerAlert(
+    //     jobProgress?.data?.response ??
+    //     "Unable to establish the communication with the server"
+    //   );
+    // }
+    // setJobs(jobProgress.data.response || []);
 
-    // setJobs([responseExample(true,"Processing"), responseExample(true,"Free"), responseExample(true,"Unresponsive")])
+    setJobs([jobExample("Processing"), jobExample("Free"), jobExample("Unresponsive")])
   };
 
   useEffect(() => {
     getJobsProgress();
 
     const intervalCalling = setInterval(async () => {
-      //console.log("getJobsProgress() : Start...");
       await getJobsProgress();
-      //console.log("getJobsProgress() : Done");
     }, 5000);
 
     return () => {
@@ -48,10 +88,9 @@ export default function Status() {
         <Loading />
       ) : jobs.length ? (
         <section className="w-full grid grid-cols-12">
-          {jobs.map((job, index) => (
+          {jobs.map((job) => (
             <StatusCard
-              key={index}
-              // key={job.response.Progress[0].JobId}
+              key={job.MasterId}
               job={job}
             />
           ))}
