@@ -11,7 +11,8 @@ import { FileTypeRadioButtons } from "./../components/FileTypeRadioButtons";
 import useAlert from "../helpers/useAlert.jsx";
 import { handleGetAllBinaries } from "../services/ServiceTypes/HandlerGroup.js";
 
-export default function Manage() {
+export default function Manage(props) {
+  const { binaries } = props;
   const [isSubmittingApi, setIsSubmittingApi] = useState(false);
   const { changeApiEndPoint, apiEndPoint } = useContext(AppContext);
 
@@ -34,38 +35,6 @@ export default function Manage() {
     setIsSuccess(true);
     TriggerAlert("Endpoint is set successfully");
   };
-
-  const [binaries, setBinaries] = useState({
-    process: [],
-    aggregate: [],
-    distribute: [],
-  });
-
-  const setAllBinaries = async (TriggerAlert, setIsSuccess) => {
-    const files = await handleGetAllBinaries(TriggerAlert, setIsSuccess);
-
-    const { AggregateBinaryNames, ProcessBinaryNames, DistributeBinaryNames } =
-      files?.data?.response;
-    setBinaries({
-      process: ProcessBinaryNames,
-      aggregate: AggregateBinaryNames,
-      distribute: DistributeBinaryNames,
-    });
-  };
-
-  React.useEffect(() => {
-    setAllBinaries(TriggerAlert, setIsSuccess);
-
-    const intervalCalling = setInterval(async () => {
-      //console.log("getJobsProgress() : Start...");
-      await setAllBinaries(TriggerAlert, setIsSuccess);
-      //console.log("getJobsProgress() : Done");
-    }, 5000);
-
-    return () => {
-      clearInterval(intervalCalling);
-    };
-  }, []);
 
   return (
     <main className="flex gap-5 flex-col items-center pb-20 md:px-16">

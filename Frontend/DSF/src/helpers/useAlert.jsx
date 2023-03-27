@@ -3,11 +3,13 @@ import React, { useEffect, useState } from "react";
 export default function useAlert() {
   const [alert, setAlert] = useState("");
   const [timer, setTimer] = useState(null);
+  const [handleOnClick, setHandleOnClick] = useState(null);
 
-  function TriggerAlert(message) {
+  function TriggerAlert(message, onClick = null) {
     clearTimeout(timer);
     setAlert(message);
-    setTimer(setTimeout(() => setAlert(""), 5000));
+    setHandleOnClick(onClick);
+    setTimer(setTimeout(() => setAlert(""), setHandleOnClick(null), 5000));
   }
 
   const AlertComponent = ({ success }) => (
@@ -33,6 +35,14 @@ export default function useAlert() {
         >
           {alert}
         </div>
+        {handleOnClick ?? (
+          <button
+            className="rounded-lg px-10 py-1.5 bg-blue-800 absolute right-1 top-1"
+            onClick={handleOnClick}
+          >
+            Download
+          </button>
+        )}
       </div>
     </div>
   );

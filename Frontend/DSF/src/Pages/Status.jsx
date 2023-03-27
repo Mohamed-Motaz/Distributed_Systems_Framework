@@ -21,64 +21,38 @@ function jobExample(jobStatus) {
           "FirstTask.txt",
           "SecondTask.txt",
           "ThirdTask.txt",
-          "FourthTask.txt"
+          "FourthTask.txt",
         ],
-
-      }, {
+      },
+      {
         WorkerId: "idmd9303-kdk9303-eke-2993iop",
         CurrentTaskContent: "lastTask.txt",
         FinishedTaskContent: [
           "FirstTask.txt",
           "SecondTask.txt",
           "ThirdTask.txt",
-          "FourthTask.txt"
+          "FourthTask.txt",
         ],
-
-      }, {
+      },
+      {
         WorkerId: "idmd9303-kdk9303-eke-2993iop",
         CurrentTaskContent: "lastTask.txt",
         FinishedTaskContent: [
           "FirstTask.txt",
           "SecondTask.txt",
           "ThirdTask.txt",
-          "FourthTask.txt"
+          "FourthTask.txt",
         ],
-
-      }
-    ]
-  }
+      },
+    ],
+  };
 }
 
-export default function Status() {
-  const [jobs, setJobs] = useState(null);
+export default function Status(props) {
+  const { jobs } = props;
   const [loading, setLoading] = useState(true);
 
   const { TriggerAlert } = useContext(AppContext);
-
-  const getJobsProgress = async () => {
-    // const jobProgress = await WebSocketServerService().getJobProgress();
-    // if (!jobProgress?.data?.success) {
-    //   TriggerAlert(
-    //     jobProgress?.data?.response ??
-    //     "Unable to establish the communication with the server"
-    //   );
-    // }
-    // setJobs(jobProgress.data.response || []);
-
-    setJobs([jobExample("Processing"), jobExample("Free"), jobExample("Unresponsive")])
-  };
-
-  useEffect(() => {
-    getJobsProgress();
-
-    const intervalCalling = setInterval(async () => {
-      await getJobsProgress();
-    }, 5000);
-
-    return () => {
-      clearInterval(intervalCalling);
-    };
-  }, []);
 
   return (
     <main className="flex flex-col items-center pb-20 md:px-6">
@@ -89,10 +63,7 @@ export default function Status() {
       ) : jobs.length ? (
         <section className="w-full grid grid-cols-12">
           {jobs.map((job) => (
-            <StatusCard
-              key={job.MasterId}
-              job={job}
-            />
+            <StatusCard key={job.MasterId} job={job} />
           ))}
         </section>
       ) : (

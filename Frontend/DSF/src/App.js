@@ -25,6 +25,26 @@ export default function App() {
 
   const [isSuccess, setIsSuccess] = React.useState(false);
 
+  const [binaries, setBinaries] = useState({
+    process: [],
+    aggregate: [],
+    distribute: [],
+  });
+
+  const [finishedJobIds, setFinishedJobIds] = useState(null);
+  const [systemProgress, setSystemProgress] = useState(null);
+
+  const setAllBinaries = async (files) => {
+    const { AggregateBinaryNames, ProcessBinaryNames, DistributeBinaryNames } =
+      files;
+    setBinaries({
+      process: ProcessBinaryNames,
+      aggregate: AggregateBinaryNames,
+      distribute: DistributeBinaryNames,
+    });
+  };
+
+  //getAllBinaries and getSystemProgress and finishedJobsIds
   console.log("API Endpoint =======>>>> ", apiEndPoint);
   const wsClient = useWebSocket(WS_URL, {
     onOpen: () => {
@@ -38,13 +58,43 @@ export default function App() {
     //   setTimeout(wsClient, 1000);
     // },
     onMessage: (e) => {
-      if (e.data.Success) {
-        setIsSuccess(true);
-        TriggerAlert("A Job is done check Finished Jobs");
-      } else {
-        setIsSuccess(false);
-        TriggerAlert(e.data.Response);
+      if (e.data.msgType === "systemBinaries") {
+        if (e.data.response.success) {
+          setAllBinaries(e.data.response.response);
+        } else {
+          TriggerAlert(
+            e?.data?.response.response ?? "Unable to get system binaries"
+          );
+        }
+      } else if (e.data.msgType === "finishedJobsIds") {
+        if (e.data.response.success) {
+          setFinishedJobIds(e?.data?.response.response || []);
+        } else {
+          TriggerAlert(
+            e?.data?.response.response ?? "Unable to get finished job IDs"
+          );
+        }
+      } else if (e.data.msgType === "systemProgress") {
+        if (e.data.response.success) {
+          setSystemProgress(e?.data?.response.response || []);
+        } else {
+          TriggerAlert(
+            e?.data?.response.response ?? "Unable to get systemProgress"
+          );
+        }
+      } else if (e.data.msgType === "finishedJob") {
+        if (e.data.response.success) {
+          TriggerAlert(
+            `The job with id: ${e.data.response.response.JobId} is finished`,
+            () => {}
+          ); // implement download logic
+        } else {
+          TriggerAlert(
+            e?.data?.response.response ?? "Unable to get finished job"
+          );
+        }
       }
+
       console.log({ e });
     },
   });
@@ -56,10 +106,16 @@ export default function App() {
       children: [
         { index: true, element: <Landing /> },
         { path: "/how-to", element: <HowTo /> },
-        { path: "/manage", element: <Manage /> },
-        { path: "/submit-job", element: <SubmitJob wsClient={wsClient} /> },
-        { path: "/status", element: <Status /> },
-        { path: "/finished-jobs", element: <FinishedJobs /> },
+        { path: "/manage", element: <Manage binaries={binaries} /> },
+        {
+          path: "/submit-job",
+          element: <SubmitJob binaries={binaries} wsClient={wsClient} />,
+        },
+        { path: "/status", element: <Status jobs={systemProgress} /> },
+        {
+          path: "/finished-jobs",
+          element: <FinishedJobs jobs={finishedJobIds} />,
+        },
         { path: "/about-us", element: <AboutUs /> },
         // {
         //   path: '/movies', element: <Outlet></Outlet>,
@@ -92,16 +148,22 @@ export default function App() {
     <main>
       <AlertComponent success={isSuccess} />
 
-      <RouterProvider router={
-        localStorage.getItem('apiEndPoint')
-          ? HOME_ROUTE
-          : createBrowserRouter([{
-            path: "/",
-            element: <div className='dark pt-28 px-8'>
-              <Landing />
-            </div>
-          }])
-      } />
+      <RouterProvider
+        router={
+          localStorage.getItem("apiEndPoint")
+            ? HOME_ROUTE
+            : createBrowserRouter([
+                {
+                  path: "/",
+                  element: (
+                    <div className="dark pt-28 px-8">
+                      <Landing />
+                    </div>
+                  ),
+                },
+              ])
+        }
+      />
     </main>
   );
 }

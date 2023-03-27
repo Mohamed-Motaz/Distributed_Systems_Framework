@@ -4,39 +4,10 @@ import { AppContext } from "../context/AppContext.js";
 import { WebSocketServerService } from "../services/WebSocketServerService.js";
 import { FaDownload } from "react-icons/fa";
 
-export default function FinishedJobs() {
-  const [jobs, setJobs] = useState(null);
+export default function FinishedJobs(props) {
+  const { jobs } = props;
 
   const { TriggerAlert, clientId } = useContext(AppContext);
-  const setAllFinishedJobs = async () => {
-    const finishedJobs = await WebSocketServerService().getAllFinishedJobs(
-      clientId
-    );
-    console.log(finishedJobs);
-    if (!finishedJobs?.data?.success) {
-      TriggerAlert(
-        finishedJobs?.data?.response ??
-          "Unable to establish the communication with the server"
-      );
-    }
-    setJobs(finishedJobs?.data?.response || []);
-
-    // setJobs([responseExample(true,"Processing"), responseExample(true,"Free"), responseExample(true,"Unresponsive")])
-  };
-
-  useEffect(() => {
-    setAllFinishedJobs();
-
-    const intervalCalling = setInterval(async () => {
-      //console.log("getJobsProgress() : Start...");
-      await setAllFinishedJobs();
-      //console.log("getJobsProgress() : Done");
-    }, 5000);
-
-    return () => {
-      clearInterval(intervalCalling);
-    };
-  }, []);
 
   const handleDownloadJobById = async (jobId) => {
     const job = await WebSocketServerService().getJobById(clientId, jobId);

@@ -14,7 +14,7 @@ import { handleGetAllBinaries } from "../services/ServiceTypes/HandlerGroup.js";
 const uuid = require("react-uuid");
 
 export default function SubmitJob(props) {
-  const { wsClient } = props;
+  const { wsClient, binaries } = props;
   const navigate = useNavigate();
 
   const [AlertComponent, TriggerAlert] = useAlert();
@@ -22,35 +22,21 @@ export default function SubmitJob(props) {
 
   const { apiEndPoint, clientId, setClientId } = useContext(AppContext);
 
-  const [binaries, setBinaries] = useState({
-    process: [],
-    aggregate: [],
-    distribute: [],
-  });
-
-  const setAllBinaries = async (TriggerAlert, setIsSuccess) => {
-    const files = await handleGetAllBinaries(TriggerAlert, setIsSuccess);
-
-    const { AggregateBinaryNames, ProcessBinaryNames, DistributeBinaryNames } =
-      files?.data?.response;
-    setBinaries({
-      process: ProcessBinaryNames,
-      aggregate: AggregateBinaryNames,
-      distribute: DistributeBinaryNames,
-    });
-  };
-
   console.log({ binaries });
 
   const jobContentInput = useRef();
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const [distributeSelectedFile, setDistributeSelectedFile] =
-    React.useState(null);
-  const [processSelectedFile, setProcessSelectedFile] = React.useState(null);
-  const [aggregateSelectedFile, setAggregateSelectedFile] =
-    React.useState(null);
+  const [distributeSelectedFile, setDistributeSelectedFile] = React.useState(
+    sessionStorage.getItem("distribute")
+  );
+  const [processSelectedFile, setProcessSelectedFile] = React.useState(
+    sessionStorage.getItem("process")
+  );
+  const [aggregateSelectedFile, setAggregateSelectedFile] = React.useState(
+    sessionStorage.getItem("aggregate")
+  );
   const [optionalFiles, setOptionalFiles] = React.useState({
     name: "",
     content: [],
@@ -81,20 +67,6 @@ export default function SubmitJob(props) {
     setIsLoading(false);
     navigate("/status");
   };
-
-  React.useEffect(() => {
-    setAllBinaries(TriggerAlert, setIsSuccess);
-
-    const intervalCalling = setInterval(async () => {
-      //console.log("getJobsProgress() : Start...");
-      await setAllBinaries(TriggerAlert, setIsSuccess);
-      //console.log("getJobsProgress() : Done");
-    }, 5000);
-
-    return () => {
-      clearInterval(intervalCalling);
-    };
-  }, []);
 
   const handleRandomizeClientId = () => setClientId(uuid());
 
