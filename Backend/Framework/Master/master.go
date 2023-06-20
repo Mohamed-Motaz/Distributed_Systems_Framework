@@ -277,9 +277,9 @@ func (master *Master) qConsumer() {
 				MasterId:             master.id,
 				JobContent:           data.JobContent,
 				MQJobFound:           true,
-				ProcessBinaryName:    data.ProcessBinaryName,
-				DistributeBinaryName: data.DistributeBinaryName,
-				AggregateBinaryName:  data.AggregateBinaryName,
+				ProcessBinaryName:    data.ProcessBinaryId,
+				DistributeBinaryName: data.DistributeBinaryId,
+				AggregateBinaryName:  data.AggregateBinaryId,
 			}
 			reply := &RPC.GetJobReply{}
 			ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{

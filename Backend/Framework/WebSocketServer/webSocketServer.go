@@ -37,12 +37,9 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	}
 
 	serveMux := mux.NewRouter()
-	serveMux.HandleFunc("/openWS/{clientId}", webSocketServer.handleJobRequests)
+	serveMux.HandleFunc("/openWS/{clientId}", webSocketServer.handleWebSocketConnections)
 	serveMux.HandleFunc("/uploadBinary", webSocketServer.handleUploadBinaryRequests).Methods("POST")
-	serveMux.HandleFunc("/getAllBinaries", webSocketServer.handleGetAllBinariesRequests).Methods("POST")
 	serveMux.HandleFunc("/deleteBinary", webSocketServer.handleDeleteBinaryRequests).Methods("POST")
-	serveMux.HandleFunc("/getSystemProgress", webSocketServer.handleGetSystemProgressRequests).Methods("POST")
-	serveMux.HandleFunc("/getAllFinishedJobsIds", webSocketServer.handleGetAllFinishedJobsIdsRequests).Methods("POST")
 	serveMux.HandleFunc("/getFinishedJobById", webSocketServer.handleGetFinishedJobByIdRequests).Methods("POST")
 	serveMux.HandleFunc("/ping", webSocketServer.handlePingRequests).Methods("GET")
 
@@ -88,12 +85,15 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 	}()
 	defer client.webSocketConn.Close()
 
-	for {
+	res := WsResponse{MsgType: JOB_REQUEST}
 
+	for {
 		_, message, err := client.webSocketConn.ReadMessage()
+
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Unable to read from the websocket %+v with err:\n%v", client.webSocketConn.RemoteAddr(), err)
-			webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Unable to read from the websocket")})
+			res.Response = utils.HttpResponse{Success: false, Response: ("Unable to read from the websocket")}
+			webSocketServer.writeResp(client, res)
 			return
 		}
 
@@ -103,7 +103,8 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Error with client while unmarshaling json %v\n%v", client.webSocketConn.RemoteAddr(), err)
-			webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Invalid format")})
+			res.Response = utils.HttpResponse{Success: false, Response: ("Invalid format")}
+			webSocketServer.writeResp(client, res)
 			continue
 		}
 
@@ -116,8 +117,11 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 				AggregateBinaryName  string
 			}{JobId: newJobRequest.JobId, JobContent: newJobRequest.JobContent, DistributeBinaryName: newJobRequest.DistributeBinaryName, ProcessBinaryName: newJobRequest.ProcessBinaryName, AggregateBinaryName: newJobRequest.AggregateBinaryName},
 		)
-		//immediately attempt to send the optional files to the lockserver
-		if !webSocketServer.handleSendOptionalFiles(client, newJobRequest) { //no need to send the errors since this method is responsible for this
+
+		resOfSendingOptionalFiles := webSocketServer.sendOptionalFilesToLockserver(client, newJobRequest);
+
+		if !resOfSendingOptionalFiles.Response.Success{ 
+			webSocketServer.writeResp(client,resOfSendingOptionalFiles);
 			continue
 		}
 
@@ -132,8 +136,8 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		err = json.NewEncoder(jobToAssign).Encode(modifiedJobRequest)
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "Error with encoding data %+v for client %+v\n%+v", modifiedJobRequest, client.webSocketConn.RemoteAddr(), err)
-			webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Can't encode the job request and send it to the message queue at the moment")})
-			//DONE, send an rpc to the lockserver telling it to delete the files
+			res.Response = utils.HttpResponse{Success: false, Response: ("Can't encode the job request and send it to the message queue at the moment")}
+			webSocketServer.writeResp(client, res)
 			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 			continue
 		}
@@ -147,7 +151,8 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		if err != nil {
 			logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{New job not enqeued to jobs assigned queue} -> error : %+v", err)
-			webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Message queue unavailable")})
+			res.Response = utils.HttpResponse{Success: false, Response: ("Message queue unavailable")}
+			webSocketServer.writeResp(client, res)
 			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 		} else {
 			logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "New job successfully enqeued to jobs assigned queue")
@@ -163,6 +168,8 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 	if err != nil {
 		logger.FailOnError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Server can't consume finished Jobs} -> error : %v", err)
 	}
+
+	res := WsResponse{MsgType: FINISHED_JOB}
 
 	for {
 
@@ -184,8 +191,6 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				continue
 			}
 
-			//DONE: send the appropriate response to the user
-
 			//CASES
 			//cache is dead				p1 client is alive     			   --send the response, and ack
 			//							p2 client isn't alive  			   --nack
@@ -193,14 +198,14 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			//cache is alive			p1 client is mine and alive	   	   --send the response, cache, and ack
 			//							p2 client is mine and dead		   --cache only, and ack
 			//							p3 client isn't mine			   --nack
-			//DONE check if job has error or not
 
 			webSocketServer.mu.Lock()
 			client, clientIsAlive := webSocketServer.clients[finishedJob.ClientId]
 			webSocketServer.mu.Unlock()
 
 			if finishedJob.Err && clientIsAlive {
-				webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")})
+				res.Response = utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")}
+				webSocketServer.writeResp(client, res)
 				continue
 			}
 
@@ -211,7 +216,12 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
 				if clientIsAlive { //p1
-					go webSocketServer.writeResp(client, utils.HttpResponse{Success: true, Response: *finishedJob})
+
+					res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
+				    webSocketServer.writeResp(client, res)
+
+					/////////////////////////////////////why here using gorotine///////////////////////////////
+					//go webSocketServer.writeResp(client, WsResponse{FINISHED_JOB,utils.HttpResponse{Success: true, Response: *finishedJob}})
 					finishedJobObj.Ack(false)
 
 				} else { //p2
@@ -240,8 +250,11 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 				} else if clientData.ServerID == webSocketServer.id {
 					if clientIsAlive { //p1
-						go webSocketServer.writeResp(client, utils.HttpResponse{Success: true, Response: *finishedJob})
+						res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
+				        webSocketServer.writeResp(client, res)
+						//go webSocketServer.writeResp(client, WsResponse{FINISHED_JOB,utils.HttpResponse{Success: true, Response: *finishedJob}})
 					}
+					
 					//p2
 
 					clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
@@ -260,4 +273,29 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 		}
 
 	}
+}
+
+
+func (webSocketServer *WebSocketServer) sendSystemInfo(client *Client){
+
+	for{
+
+		time.Sleep(time.Second * 10)
+
+		webSocketServer.mu.Lock()
+		_, found := webSocketServer.clients[client.id];
+		webSocketServer.mu.Unlock()
+
+		if  !found {
+			return;
+		}
+
+		go webSocketServer.writeResp(client, webSocketServer.GetFinishedJobsIds(client));
+
+		go webSocketServer.writeResp(client, webSocketServer.GetSystemProgress());
+
+		go webSocketServer.writeResp(client, webSocketServer.GetSystemBinaries());
+
+	}
+
 }

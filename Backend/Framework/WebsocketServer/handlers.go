@@ -14,7 +14,7 @@ import (
 )
 
 // deals with a ws upgrade connection
-func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWriter, req *http.Request) {
+func (webSocketServer *WebSocketServer) handleWebSocketConnections(res http.ResponseWriter, req *http.Request) {
 
 	vars := mux.Vars(req)
 	clientId, ok := vars["clientId"]
@@ -37,15 +37,15 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 
 	clientData, err := webSocketServer.cache.Get(client.id)
 
-	webSocketServer.mu.Lock()
+
 	if err != nil && err != redis.Nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-		webSocketServer.mu.Unlock()
-		webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")})
+		webSocketServer.writeResp(client, WsResponse{JOB_REQUEST,utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")}})
 		client.webSocketConn.Close() //need to close the connection because the cache is down, and I can't map the client to the server
 		return
 	}
 
+	webSocketServer.mu.Lock()
 	webSocketServer.clients[client.id] = client
 	webSocketServer.mu.Unlock()
 
@@ -63,12 +63,13 @@ func (webSocketServer *WebSocketServer) handleJobRequests(res http.ResponseWrite
 
 	if err != nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-		webSocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")})
+		webSocketServer.writeResp(client, WsResponse{JOB_REQUEST,utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")}})
 		client.webSocketConn.Close() //need to close the connection because the cache is down, and I can't map the client to the server
 		return
 	}
 
 	go webSocketServer.listenForJobs(client)
+	go webSocketServer.sendSystemInfo(client)
 }
 
 func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.ResponseWriter, req *http.Request) {
@@ -123,39 +124,6 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 	}
 }
 
-func (webSocketServer *WebSocketServer) handleGetAllBinariesRequests(res http.ResponseWriter, req *http.Request) {
-
-	res.Header().Set("Content-Type", "application/json")
-
-	reply := &RPC.GetBinaryFilesReply{}
-
-	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleGetBinaryFiles",
-		Args:         &RPC.GetBinaryFilesArgs{},
-		Reply:        &reply,
-		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
-			Name: "Lockserver",
-			Port: LockServerPort,
-			Host: LockServerHost,
-		},
-	})
-
-	if !ok {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
-		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Unable to connect to lockserver"})
-
-	} else if reply.Err {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with recieving files from lockServer} -> error : %+v", reply.ErrMsg)
-		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: fmt.Sprintf("Error with recieving files from lockServer %+v", reply.ErrMsg)})
-	} else {
-		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: reply})
-	}
-}
-
 func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
@@ -165,6 +133,7 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 	reply := &RPC.DeleteBinaryFileReply{}
 
 	err := json.NewDecoder(req.Body).Decode(&deleteBinaryRequest)
+
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
@@ -202,22 +171,17 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 	}
 }
 
-func (webSocketServer *WebSocketServer) handleGetSystemProgressRequests(res http.ResponseWriter, req *http.Request) {
+func (webSocketServer *WebSocketServer) handleDeleteOptionalFiles(jobId string) {
 
-	GetSystemProgressRequest := GetSystemProgressRequest{}
+	reply := RPC.DeleteOptionalFilesReply{}
 
-	err := json.NewDecoder(req.Body).Decode(&GetSystemProgressRequest)
-
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
+	deleteOptionalFilesArgs := RPC.DeleteOptionalFilesArgs{
+		JobId: jobId,
 	}
 
-	reply := &RPC.GetSystemProgressReply{}
-
 	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleGetSystemProgress",
-		Args:         &RPC.GetSystemProgressArgs{},
+		Name:         "LockServer.HandleDeleteOptionalFiles",
+		Args:         deleteOptionalFilesArgs,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
 		Reciever: RPC.Reciever{
@@ -229,55 +193,13 @@ func (webSocketServer *WebSocketServer) handleGetSystemProgressRequests(res http
 
 	if !ok {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
-		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Unable to connect to lockserver"})
-
 	} else if reply.Err {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Getting system progress from lockServer} -> error : %+v", reply.ErrMsg)
-		res.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: fmt.Sprintf("Error with Getting system progress from lockServer %+v", reply.ErrMsg)})
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Optional file from lockServer} -> error : %+v", reply.ErrMsg)
 	} else {
-		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: reply.Progress})
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Optional Files Deleted}")
 	}
 }
 
-func (webSocketServer *WebSocketServer) handleGetAllFinishedJobsIdsRequests(res http.ResponseWriter, req *http.Request) {
-
-	GetAllFinishedJobsIdsRequest := GetAllFinishedJobsIdsRequest{}
-
-	err := json.NewDecoder(req.Body).Decode(&GetAllFinishedJobsIdsRequest)
-
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var finishedJobs *cache.CacheValue
-	finishedJobs, err = webSocketServer.cache.Get(GetAllFinishedJobsIdsRequest.ClientId)
-
-	if err == nil {
-
-		finishedJobsIds := make([]string, 0)
-
-		for _, finishedJob := range finishedJobs.FinishedJobs {
-			finishedJobsIds = append(finishedJobsIds, finishedJob.JobId)
-		}
-
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished jobs ids sent to client} -> jobs Ids : %+v", finishedJobsIds)
-		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: finishedJobsIds})
-
-	} else if err == redis.Nil {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Client entry not present in cache")
-		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Client entry not present in cache"})
-	} else {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting to cache at the moment} -> error : %+v", err)
-		res.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(res).Encode(utils.HttpResponse{Success: false, Response: "Error while connecting to cache at the moment"})
-	}
-}
 
 func (webSocketServer *WebSocketServer) handleGetFinishedJobByIdRequests(res http.ResponseWriter, req *http.Request) {
 
@@ -323,74 +245,5 @@ func (webSocketServer *WebSocketServer) handlePingRequests(res http.ResponseWrit
 
 	res.WriteHeader(http.StatusOK)
 	json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: "Pong"})
-
 }
 
-func (websocketServer *WebSocketServer) handleSendOptionalFiles(client *Client, newJobRequest *JobRequest) bool {
-
-	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
-		return true
-	}
-
-	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
-		JobId:    newJobRequest.JobId,
-		FilesZip: newJobRequest.OptionalFilesZip,
-	}
-
-	reply := &RPC.FileUploadReply{}
-
-	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleAddOptionalFiles",
-		Args:         optionalFilesUploadArgs,
-		Reply:        &reply,
-		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
-			Name: "Lockserver",
-			Port: LockServerPort,
-			Host: LockServerHost,
-		},
-	})
-
-	if !ok { //can't establish connection to the lockserver
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
-		websocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: ("Error with connecting lockServer")}) //send a message eshtem to client
-		return false
-	} else if reply.Err { //establish a connection to the lockserver, but the operation fails
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
-		websocketServer.writeResp(client, utils.HttpResponse{Success: false, Response: (fmt.Sprintf("Error with uploading files to lockServer: %+v", reply.ErrMsg))})
-		return false
-	} else {
-		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
-	}
-	return true
-}
-
-func (webSocketServer *WebSocketServer) handleDeleteOptionalFiles(jobId string) {
-
-	reply := RPC.DeleteOptionalFilesReply{}
-
-	deleteOptionalFilesArgs := RPC.DeleteOptionalFilesArgs{
-		JobId: jobId,
-	}
-
-	ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-		Name:         "LockServer.HandleDeleteOptionalFiles",
-		Args:         deleteOptionalFilesArgs,
-		Reply:        &reply,
-		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
-			Name: "Lockserver",
-			Port: LockServerPort,
-			Host: LockServerHost,
-		},
-	})
-
-	if !ok {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting lockServer} -> error : %+v", err)
-	} else if reply.Err {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with Deleting Optional file from lockServer} -> error : %+v", reply.ErrMsg)
-	} else {
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Optional Files Deleted}")
-	}
-
-}

@@ -45,14 +45,6 @@ type UploadBinaryRequest struct {
 	RunCmd   string         `json:"runCmd"`
 }
 
-type GetSystemProgressRequest struct {
-	JobId string `json:"jobId"`
-}
-
-type GetAllFinishedJobsIdsRequest struct {
-	ClientId string `json:"clientId"`
-}
-
 type GetFinishedJobByIdRequest struct {
 	ClientId string `json:"clientId"`
 	JobId    string `json:"jobId"`
@@ -70,6 +62,7 @@ const (
 	SYSTEM_PROGRESS   WsMsgType = "systemProgress"
 	SYSTEM_BINARIES   WsMsgType = "systemBinaries"
 	FINISHED_JOBS_IDS WsMsgType = "finishedJobsIds"
+	JOB_REQUEST       WsMsgType = "jobRequest"
 )
 
 type WsResponse struct {
