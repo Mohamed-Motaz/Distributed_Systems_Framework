@@ -1,11 +1,11 @@
 package main
 
 import (
+	cache "Framework/Cache"
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
 	"Framework/RPC"
 	utils "Framework/Utils"
-	cache "Framework/Cache"
 	"fmt"
 
 	"github.com/go-redis/redis/v8"
@@ -27,10 +27,10 @@ func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest,
 
 func (websocketServer *WebSocketServer) sendOptionalFilesToLockserver(client *Client, newJobRequest *JobRequest) WsResponse {
 
-	res := WsResponse{MsgType: JOB_REQUEST, Response: utils.HttpResponse{true , ""}};
+	res := WsResponse{MsgType: JOB_REQUEST, Response: utils.HttpResponse{true, ""}}
 
 	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
-		return res;
+		return res
 	}
 
 	optionalFilesUploadArgs := &RPC.OptionalFilesUploadArgs{
@@ -52,25 +52,24 @@ func (websocketServer *WebSocketServer) sendOptionalFilesToLockserver(client *Cl
 		},
 	})
 
-	if !ok { 
-		
-	    logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
+	if !ok {
+
+		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with connecting lockServer} -> error : %+v", err)
 		res.Response = utils.HttpResponse{Success: false, Response: ("Error with connecting lockServer")}
-	
-	} else if reply.Err { 
-		
+
+	} else if reply.Err {
+
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error with uploading files to lockServer} -> error : %+v", reply.ErrMsg)
 		res.Response = utils.HttpResponse{Success: false, Response: (fmt.Sprintf("Error with uploading files to lockServer: %+v", reply.ErrMsg))}
-	
+
 	} else {
 		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Optional Files sent to lockServer successfully")
 	}
 
-	return res;
+	return res
 }
 
-
-func (webSocketServer *WebSocketServer) GetFinishedJobsIds(client *Client) WsResponse{
+func (webSocketServer *WebSocketServer) GetFinishedJobsIds(client *Client) WsResponse {
 
 	res := WsResponse{
 		MsgType: FINISHED_JOBS_IDS,
@@ -87,9 +86,9 @@ func (webSocketServer *WebSocketServer) GetFinishedJobsIds(client *Client) WsRes
 			finishedJobsIds = append(finishedJobsIds, finishedJob.JobId)
 		}
 
-		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished jobs ids sent to client} -> jobs Ids : %+v", finishedJobsIds)
+		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished jobs ids sent to client} -> jobs Ids : %+v", finishedJobsIds)
 		res.Response = (utils.HttpResponse{Success: true, Response: finishedJobsIds})
-		
+
 	} else if err == redis.Nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "Client entry not present in cache")
 		res.Response = (utils.HttpResponse{Success: false, Response: "Client entry not present in cache"})
@@ -97,10 +96,10 @@ func (webSocketServer *WebSocketServer) GetFinishedJobsIds(client *Client) WsRes
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Error while connecting to cache at the moment} -> error : %+v", err)
 		res.Response = (utils.HttpResponse{Success: false, Response: "Error while connecting to cache at the moment"})
 	}
-	return res;
+	return res
 }
 
-func (webSocketServer *WebSocketServer) GetSystemBinaries() WsResponse{
+func (webSocketServer *WebSocketServer) GetSystemBinaries() WsResponse {
 
 	res := WsResponse{
 		MsgType: SYSTEM_BINARIES,
@@ -131,11 +130,10 @@ func (webSocketServer *WebSocketServer) GetSystemBinaries() WsResponse{
 	} else {
 		res.Response = utils.HttpResponse{Success: true, Response: reply}
 	}
-	return res;
+	return res
 }
 
-
-func (webSocketServer *WebSocketServer) GetSystemProgress() WsResponse{
+func (webSocketServer *WebSocketServer) GetSystemProgress() WsResponse {
 
 	res := WsResponse{
 		MsgType: SYSTEM_PROGRESS,
@@ -165,5 +163,5 @@ func (webSocketServer *WebSocketServer) GetSystemProgress() WsResponse{
 	} else {
 		res.Response = (utils.HttpResponse{Success: true, Response: reply.Progress})
 	}
-	return res;
+	return res
 }
