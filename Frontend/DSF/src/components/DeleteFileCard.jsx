@@ -1,21 +1,20 @@
-import { handleUploadFile } from "../services/ServiceTypes/HandlerGroup.js";
-import React, { useRef, useContext } from "react";
-import { DeleteFileTypeRadioButtons } from "./DeleteFileTypeRadioButtons.jsx";
-import UploadFileButton from "./UploadFileButton.jsx";
-import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
-import DropDownBox from "./DropDownBox.jsx";
-import { WebSocketServerService } from "../services/WebSocketServerService.js";
-import { handleDeleteBinary } from "../services/ServiceTypes/HandlerGroup.js";
 import { Tooltip } from "flowbite-react";
+import React from "react";
+import { handleDeleteBinary } from "../services/ServiceTypes/HandlerGroup.js";
+import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
+import { DeleteFileTypeRadioButtons } from "./DeleteFileTypeRadioButtons.jsx";
+import DropDownBox from "./DropDownBox.jsx";
 
 export const DeleteFileCard = (props) => {
   const { binaries, handleGetAllBinaries, TriggerAlert, setIsSuccess } = props;
-  const [deleteFileType, setDeleteFileType] = React.useState(BinariesType.process);
+  const [deleteFileType, setDeleteFileType] = React.useState(
+    BinariesType.Distribute
+  );
 
   const [selectedFile, setSelectedFile] = React.useState("");
 
   const getFilesByType =
-  deleteFileType === BinariesType.process
+    deleteFileType === BinariesType.process
       ? binaries.process
       : deleteFileType === BinariesType.Distribute
       ? binaries.distribute
@@ -25,7 +24,10 @@ export const DeleteFileCard = (props) => {
     <div className="flex flex-col justify-center items-center shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">
       <h3 className="md:text-2xl text-xl ">Choose file to delete</h3>
 
-      <DeleteFileTypeRadioButtons deleteFileType={deleteFileType} setDeleteFileType={setDeleteFileType} />
+      <DeleteFileTypeRadioButtons
+        deleteFileType={deleteFileType}
+        setDeleteFileType={setDeleteFileType}
+      />
       <section className="flex gap-5 w-full justify-center  mt-8">
         <DropDownBox
           title={deleteFileType}
