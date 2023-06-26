@@ -19,7 +19,7 @@ func (dBWrapper *DBWrapper) CreateRunnableFile(runnableFile *RunnableFiles) *gor
 	return dBWrapper.Db.Create(runnableFile)
 }
 
-func (dBWrapper *DBWrapper) GetRunCmdOfBinary(runnableFile *RunnableFiles, binaryName string, binaryType string) *gorm.DB {
+func (dBWrapper *DBWrapper) GetBinaryByNameAndType(runnableFile *RunnableFiles, binaryName string, binaryType string) *gorm.DB {
 	return dBWrapper.Db.Raw(`
 	SELECT * FROM jobs.runnableFiles
 	WHERE binaryName = ? AND binaryType = ?

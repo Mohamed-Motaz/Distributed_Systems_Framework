@@ -145,9 +145,9 @@ func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName,
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from %+v folder %+v", binaryName, fileType, err)
 		return binaryRunnableFile, err
 	}
-	err = lockServer.db.GetRunCmdOfBinary(runnableFile, binaryName, string(fileType)).Error
+	err = lockServer.db.GetBinaryByNameAndType(runnableFile, binaryName, string(fileType)).Error
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get in runCmd of %+v %+v", fileType, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get binary file of %+v %+v", binaryName, err)
 		return binaryRunnableFile, err
 	}
 	if runnableFile.Id == 0 {

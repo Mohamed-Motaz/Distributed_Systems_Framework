@@ -225,9 +225,9 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	//todo: in the future, may check if the items in the db are actually present on disk -- don't remove this todo
 	var foundFile bool = false
 	reply.Err = false
-	reply.AggregateBinaryNames = make([]string, 0)
-	reply.DistributeBinaryNames = make([]string, 0)
-	reply.ProcessBinaryNames = make([]string, 0)
+	reply.AggregateBinaryNames = make([]RPC.BinaryFileNameAndId, 0)
+	reply.DistributeBinaryNames = make([]RPC.BinaryFileNameAndId, 0)
+	reply.ProcessBinaryNames = make([]RPC.BinaryFileNameAndId, 0)
 
 	files, err := ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(PROCESS_BINARY_FOLDER_NAME)))
 	if err != nil {
@@ -236,7 +236,17 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 		foundFile = true
 	}
 	for _, file := range files {
-		reply.ProcessBinaryNames = append(reply.ProcessBinaryNames, file.Name())
+		runnableFile := &database.RunnableFiles{}
+		err = lockServer.db.GetBinaryByNameAndType(runnableFile, file.Name(), string(utils.ProcessBinary)).Error
+		if err != nil {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get binary file of %+v %+v", file.Name(), err)
+			continue
+		}
+		if runnableFile.Id == 0 {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db", string(utils.ProcessBinary), file.Name())
+			continue
+		}
+		reply.ProcessBinaryNames = append(reply.ProcessBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.Id, Name: file.Name()})
 	}
 
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(DISTRIBUTE_BINARY_FOLDER_NAME)))
@@ -247,7 +257,17 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	}
 
 	for _, file := range files {
-		reply.DistributeBinaryNames = append(reply.DistributeBinaryNames, file.Name())
+		runnableFile := &database.RunnableFiles{}
+		err = lockServer.db.GetBinaryByNameAndType(runnableFile, file.Name(), string(utils.DistributeBinary)).Error
+		if err != nil {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get binary file of %+v %+v", file.Name(), err)
+			continue
+		}
+		if runnableFile.Id == 0 {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db", string(utils.DistributeBinary), file.Name())
+			continue
+		}
+		reply.DistributeBinaryNames = append(reply.DistributeBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.Id, Name: file.Name()})
 	}
 
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(AGGREGATE_BINARY_FOLDER_NAME)))
@@ -258,7 +278,17 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 	}
 
 	for _, file := range files {
-		reply.AggregateBinaryNames = append(reply.AggregateBinaryNames, file.Name())
+		runnableFile := &database.RunnableFiles{}
+		err = lockServer.db.GetBinaryByNameAndType(runnableFile, file.Name(), string(utils.AggregateBinary)).Error
+		if err != nil {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get binary file of %+v %+v", file.Name(), err)
+			continue
+		}
+		if runnableFile.Id == 0 {
+			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db", string(utils.AggregateBinary), file.Name())
+			continue
+		}
+		reply.AggregateBinaryNames = append(reply.AggregateBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.Id, Name: file.Name()})
 	}
 
 	if !foundFile {
