@@ -46,9 +46,9 @@ export default function SubmitJob(props) {
           clientId,
           jobContent: jobContentInput.current.value,
           optionalFilesZip: optionalFiles,
-          distributeBinaryName: distributeSelectedFile,
-          processBinaryName: processSelectedFile,
-          aggregateBinaryName: aggregateSelectedFile,
+          distributeBinaryName: distributeSelectedFile.id,
+          processBinaryName: processSelectedFile.id,
+          aggregateBinaryName: aggregateSelectedFile.id,
         })}`
       );
       setIsSuccess(true);
@@ -101,7 +101,7 @@ export default function SubmitJob(props) {
         </section>
 
         <section className="flex gap-5 w-full justify-center mt-8">
-        <DropDownBox
+          <DropDownBox
             title={"distribute"}
             files={binaries.distribute}
             selectedFile={distributeSelectedFile}
@@ -119,7 +119,6 @@ export default function SubmitJob(props) {
             selectedFile={aggregateSelectedFile}
             setSelectedFile={setAggregateSelectedFile}
           />
-        
         </section>
         <UploadFileButton
           onChange={async (e) => setOptionalFiles(await getCompressedFile(e))}

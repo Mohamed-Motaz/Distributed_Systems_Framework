@@ -1,5 +1,4 @@
-import { Dropdown } from "flowbite-react";
-import React, { useState } from "react";
+import React from "react";
 
 export default function DropDownBox(props) {
   const { title, files, selectedFile, setSelectedFile } = props;
@@ -33,7 +32,7 @@ export default function DropDownBox(props) {
       >
         <option>Choose file...</option>
         {files?.map((file) => (
-          <option>{file}</option>
+          <option>{file.name}</option>
         ))}
       </select>
     </div>
