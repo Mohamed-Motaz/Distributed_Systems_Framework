@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 export default function useAlert() {
   const [alert, setAlert] = useState("");
@@ -9,7 +9,12 @@ export default function useAlert() {
     clearTimeout(timer);
     setAlert(message);
     setHandleOnClick(onClick);
-    setTimer(setTimeout(() => setAlert(""), setHandleOnClick(null), 5000));
+    setTimer(
+      setTimeout(() => {
+        setAlert("");
+        setHandleOnClick(null);
+      }, 5000)
+    );
   }
 
   const AlertComponent = ({ success }) => (
@@ -23,8 +28,8 @@ export default function useAlert() {
       >
         <div
           className={`px-4 py-5 text-sm text-white rounded-3xl ${
-            success ? "bg-green-800" : "bg-red-800"
-          } `}
+            handleOnClick ? "w-2/4" : "w-3/4"
+          } bg-red-800`}
         >
           ALERT
         </div>
@@ -35,12 +40,12 @@ export default function useAlert() {
         >
           {alert}
         </div>
-        {handleOnClick ?? (
+        {handleOnClick && (
           <button
             className="rounded-lg px-10 py-1.5 bg-blue-800 absolute right-1 top-1"
             onClick={handleOnClick}
           >
-            Download
+            {"Download"}
           </button>
         )}
       </div>

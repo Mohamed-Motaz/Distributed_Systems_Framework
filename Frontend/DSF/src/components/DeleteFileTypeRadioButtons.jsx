@@ -4,7 +4,7 @@ export const DeleteFileTypeRadioButtons = (props) => {
   const { deleteFileType, setDeleteFileType } = props;
 
   const handleOnChagne = (type) => setDeleteFileType(type);
-  
+
   return (
     <div className="flex">
       <div className="flex items-center mr-4">
@@ -12,6 +12,7 @@ export const DeleteFileTypeRadioButtons = (props) => {
           id="inline-delete-2-radio"
           type="radio"
           value=""
+          checked={deleteFileType === BinariesType.Distribute}
           onChange={() => handleOnChagne(BinariesType.Distribute)}
           name="inline-delete-radio-group"
           className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
@@ -28,6 +29,7 @@ export const DeleteFileTypeRadioButtons = (props) => {
           id="inline-delete-radio"
           type="radio"
           value=""
+          checked={deleteFileType === BinariesType.process}
           onChange={() => handleOnChagne(BinariesType.process)}
           name="inline-delete-radio-group"
           className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
@@ -42,6 +44,7 @@ export const DeleteFileTypeRadioButtons = (props) => {
       <div className="flex items-center mr-4">
         <input
           id="inline-delete-checked-radio"
+          checked={deleteFileType === BinariesType.aggregate}
           onChange={() => handleOnChagne(BinariesType.aggregate)}
           type="radio"
           value=""

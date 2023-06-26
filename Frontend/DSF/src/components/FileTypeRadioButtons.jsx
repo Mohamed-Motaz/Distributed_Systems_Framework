@@ -4,7 +4,7 @@ export const FileTypeRadioButtons = (props) => {
   const { fileType, setFileType } = props;
 
   const handleOnChagne = (type) => setFileType(type);
-  
+
   return (
     <div className="flex">
       <div className="flex items-center mr-4">
@@ -12,6 +12,7 @@ export const FileTypeRadioButtons = (props) => {
           id="inline-2-radio"
           type="radio"
           value=""
+          checked={fileType === BinariesType.Distribute}
           onChange={() => handleOnChagne(BinariesType.Distribute)}
           name="inline-radio-group"
           className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
@@ -30,6 +31,7 @@ export const FileTypeRadioButtons = (props) => {
           value=""
           onChange={() => handleOnChagne(BinariesType.process)}
           name="inline-radio-group"
+          checked={fileType === BinariesType.process}
           className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
         />
         <label
@@ -44,6 +46,7 @@ export const FileTypeRadioButtons = (props) => {
           id="inline-checked-radio"
           onChange={() => handleOnChagne(BinariesType.aggregate)}
           type="radio"
+          checked={fileType === BinariesType.aggregate}
           value=""
           name="inline-radio-group"
           className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"

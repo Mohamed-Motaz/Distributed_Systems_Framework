@@ -1,15 +1,10 @@
-import { set } from "lodash";
 import React, { useContext, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AppContext } from "../context/AppContext.js";
 import DropDownBox from "../components/DropDownBox";
-import { WebSocketServerService } from "../services/WebSocketServerService.js";
-import { getCompressedFile } from "../services/ServiceTypes/HandlerGroup.js";
 import UploadFileButton from "../components/UploadFileButton.jsx";
-import { Button } from "flowbite-react";
-import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
+import { AppContext } from "../context/AppContext.js";
 import useAlert from "../helpers/useAlert.jsx";
-import { handleGetAllBinaries } from "../services/ServiceTypes/HandlerGroup.js";
+import { getCompressedFile } from "../services/ServiceTypes/HandlerGroup.js";
 
 const uuid = require("react-uuid");
 
@@ -106,6 +101,12 @@ export default function SubmitJob(props) {
         </section>
 
         <section className="flex gap-5 w-full justify-center mt-8">
+        <DropDownBox
+            title={"distribute"}
+            files={binaries.distribute}
+            selectedFile={distributeSelectedFile}
+            setSelectedFile={setDistributeSelectedFile}
+          />
           <DropDownBox
             title={"process"}
             files={binaries.process}
@@ -118,12 +119,7 @@ export default function SubmitJob(props) {
             selectedFile={aggregateSelectedFile}
             setSelectedFile={setAggregateSelectedFile}
           />
-          <DropDownBox
-            title={"distribute"}
-            files={binaries.distribute}
-            selectedFile={distributeSelectedFile}
-            setSelectedFile={setDistributeSelectedFile}
-          />
+        
         </section>
         <UploadFileButton
           onChange={async (e) => setOptionalFiles(await getCompressedFile(e))}

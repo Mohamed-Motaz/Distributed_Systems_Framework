@@ -1,17 +1,16 @@
+import { Tooltip } from "flowbite-react";
+import React, { useRef } from "react";
 import { handleUploadFile } from "../services/ServiceTypes/HandlerGroup.js";
-import React, { useRef, useContext } from "react";
+import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
 import { FileTypeRadioButtons } from "./FileTypeRadioButtons";
 import UploadFileButton from "./UploadFileButton.jsx";
-import { BinariesType } from "../services/ServiceTypes/WebSocketServiceTypes.js";
-import { Tooltip } from "flowbite-react";
-import { AppContext } from "../context/AppContext.js";
 
 export const UploadFileCard = (props) => {
   const { TriggerAlert, setIsSuccess } = props;
   const runCommandInput = useRef();
 
   const [runCmd, setRunCmd] = React.useState("");
-  const [fileType, setFileType] = React.useState(BinariesType.process);
+  const [fileType, setFileType] = React.useState(BinariesType.Distribute);
   const [uploadedFileData, setUploadedFileData] = React.useState({
     event: {},
   });
