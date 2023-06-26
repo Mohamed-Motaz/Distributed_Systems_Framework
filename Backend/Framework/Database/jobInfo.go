@@ -7,19 +7,20 @@ import (
 )
 
 type JobInfo struct {
-	Id                   int       `gorm:"primaryKey; column:id"       json:"id"`
-	ClientId             string    `gorm:"column:clientId"             json:"clientId"`
-	MasterId             string    `gorm:"column:masterId"             json:"masterId"`
-	JobId                string    `gorm:"column:jobId"                json:"jobId"`
-	Content              string    `gorm:"column:content"              json:"content"`
-	TimeAssigned         time.Time `gorm:"column:timeAssigned"         json:"timeAssigned"`
-	Status               JobStatus `gorm:"column:status"               json:"status"`
-	ProcessBinaryName    string    `gorm:"column:processBinaryName"       json:"processBinaryName"`
-	DistributeBinaryName string    `gorm:"column:distributeBinaryName"    json:"distributeBinaryName"`
-	AggregateBinaryName  string    `gorm:"column:aggregateBinaryName"     json:"aggregateBinaryName"`
+	Id                 int       `gorm:"primaryKey; column:id"       json:"id"`
+	ClientId           string    `gorm:"column:clientId"             json:"clientId"`
+	MasterId           string    `gorm:"column:masterId"             json:"masterId"`
+	JobId              string    `gorm:"column:jobId"                json:"jobId"`
+	Content            string    `gorm:"column:content"              json:"content"`
+	CreatedAt          time.Time `gorm:"column:createdAt"            json:"createdAt"`
+	TimeAssigned       time.Time `gorm:"column:timeAssigned"         json:"timeAssigned"`
+	Status             JobStatus `gorm:"column:status"               json:"status"`
+	ProcessBinaryId    string    `gorm:"column:processBinaryId"      json:"processBinaryId"`
+	DistributeBinaryId string    `gorm:"column:distributeBinaryId"   json:"distributeBinaryId"`
+	AggregateBinaryId  string    `gorm:"column:aggregateBinaryId"    json:"aggregateBinaryId"`
 }
 
-//todo: change binaries to be ids here and in the migration
+// todo: change binaries to be ids here and in the migration
 func (JobInfo) TableName() string {
 	return "jobs.jobsinfo"
 }

@@ -2,6 +2,7 @@ package Cache
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -14,12 +15,14 @@ type Cache struct {
 //Cache is a map of {ClientID, CacheValue}
 
 type FinishedJob struct {
-	JobId     string `json:"jobId"`
-	JobResult string `json:"jobResult"`
+	JobId        string    `json:"jobId"`
+	JobResult    string    `json:"jobResult"`
+	CreatedAt    time.Time `json: "createdAt"`
+	TimeAssigned time.Time `json: "timeAssigned"`
 }
 
-//todo: add createdAr and timeAssigned
+// DONE: add createdAt and timeAssigned
 type CacheValue struct {
-	ServerID     string        `json:"serverId"`
-	FinishedJobs []FinishedJob `json:"finishedJobs"`
+	ServerID     string        `json: "serverId"`
+	FinishedJobs []FinishedJob `json: "finishedJobs"`
 }

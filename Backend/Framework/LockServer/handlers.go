@@ -44,7 +44,7 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		reply.JobId = args.JobId
 		reply.ClientId = args.ClientId
 		reply.JobContent = args.JobContent
-		processBinary, distributeBinary, aggregateBinary, err := lockServer.setBinaryFiles(args.ProcessBinaryName, args.DistributeBinaryName, args.AggregateBinaryName)
+		processBinary, distributeBinary, aggregateBinary, err := lockServer.setBinaryFiles(args.ProcessBinaryId, args.DistributeBinaryId, args.AggregateBinaryId)
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary files %+v", err)
 			*reply = RPC.GetJobReply{} //not accepted
@@ -53,6 +53,7 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		reply.ProcessBinary = processBinary
 		reply.DistributeBinary = distributeBinary
 		reply.AggregateBinary = aggregateBinary
+		reply.CreatedAt = args.CreatedAt
 		optionalFiles, err := lockServer.getOptionalFiles(args.JobId)
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from optional files folder %+v", err)
@@ -76,9 +77,10 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 			DistributeBinaryName string
 			AggregateBinaryName  string
 			OptionalFilesZipName string
+			CreatedAt            time.Time
 		}{IsAccepted: reply.IsAccepted, JobId: reply.JobId, ClientId: reply.ClientId, JobContent: reply.JobContent,
 			ProcessBinaryName: reply.ProcessBinary.Name, DistributeBinaryName: reply.DistributeBinary.Name, AggregateBinaryName: reply.AggregateBinary.Name,
-			OptionalFilesZipName: reply.OptionalFilesZip.Name},
+			OptionalFilesZipName: reply.OptionalFilesZip.Name, CreatedAt: reply.CreatedAt},
 		)
 		return nil
 	}

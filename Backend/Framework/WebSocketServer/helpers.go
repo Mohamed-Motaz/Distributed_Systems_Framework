@@ -20,9 +20,9 @@ func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest,
 
 	modifiedJobRequest.JobId = jobRequest.JobId
 	modifiedJobRequest.JobContent = jobRequest.JobContent
-	modifiedJobRequest.DistributeBinaryId = jobRequest.DistributeBinaryName
-	modifiedJobRequest.ProcessBinaryId = jobRequest.ProcessBinaryName
-	modifiedJobRequest.AggregateBinaryId = jobRequest.AggregateBinaryName
+	modifiedJobRequest.DistributeBinaryId = jobRequest.DistributeBinaryId
+	modifiedJobRequest.ProcessBinaryId = jobRequest.ProcessBinaryId
+	modifiedJobRequest.AggregateBinaryId = jobRequest.AggregateBinaryId
 }
 
 func (websocketServer *WebSocketServer) sendOptionalFilesToLockserver(client *Client, newJobRequest *JobRequest) WsResponse {

@@ -18,4 +18,5 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 	//now we should clean up
+	
 }

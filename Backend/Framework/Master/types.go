@@ -31,6 +31,8 @@ type CurrentJob struct {
 	distributeBinary       utils.RunnableFile
 	aggregateBinary        utils.RunnableFile
 	optionalFilesZip       utils.File
+	createdAt              time.Time
+	timeAssigned           time.Time
 }
 
 type WorkerAndHisTimer struct {

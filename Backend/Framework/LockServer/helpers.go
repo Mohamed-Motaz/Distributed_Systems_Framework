@@ -111,7 +111,7 @@ func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.Get
 	reply.JobId = lateJob.JobId
 	reply.ClientId = lateJob.ClientId
 	reply.JobContent = lateJob.Content
-	processBinary, distributeBinary, aggregateBinary, err := lockServer.setBinaryFiles(args.ProcessBinaryName, args.DistributeBinaryName, args.AggregateBinaryName)
+	processBinary, distributeBinary, aggregateBinary, err := lockServer.setBinaryFiles(args.ProcessBinaryId, args.DistributeBinaryId, args.AggregateBinaryId)
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from binary files folder %+v", err)
 		*reply = RPC.GetJobReply{} //not accepted
@@ -239,9 +239,9 @@ func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) error {
 		Content:              args.JobContent,
 		TimeAssigned:         time.Now(),
 		Status:               database.IN_PROGRESS,
-		ProcessBinaryName:    args.ProcessBinaryName,
-		DistributeBinaryName: args.DistributeBinaryName,
-		AggregateBinaryName:  args.AggregateBinaryName,
+		ProcessBinaryId:    args.ProcessBinaryId,
+		DistributeBinaryId: args.DistributeBinaryId,
+		AggregateBinaryId:  args.AggregateBinaryId,
 	}
 
 	// add job to database

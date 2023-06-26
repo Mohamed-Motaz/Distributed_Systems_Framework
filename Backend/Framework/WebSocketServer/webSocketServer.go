@@ -48,11 +48,11 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	go webSocketServer.listenAndServe()
 	go webSocketServer.deliverJobs()
 
-	//todo: add a thread that periodically locks the connections map, loops on all connections,
+	//DONE: add a thread that periodically locks the connections map, loops on all connections,
 	//and the sends out  getAllBinaries and getSystemProgress and finishedJobsIds
 	//this means that as the websocket server, you will have to make those calls to the lockserver yourself
 	//be careful to assign each websocket message its type
-	//todo: make sure all messages on the WS connection are only of type WsResponse
+	//DONE: make sure all messages on the WS connection are only of type WsResponse
 	return webSocketServer, nil
 }
 
@@ -110,23 +110,24 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 
 		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "This is the message received on the websocket connection %+v",
 			struct {
-				JobId                string
-				JobContent           string
-				DistributeBinaryName string
-				ProcessBinaryName    string
-				AggregateBinaryName  string
-			}{JobId: newJobRequest.JobId, JobContent: newJobRequest.JobContent, DistributeBinaryName: newJobRequest.DistributeBinaryName, ProcessBinaryName: newJobRequest.ProcessBinaryName, AggregateBinaryName: newJobRequest.AggregateBinaryName},
+				JobId              string
+				JobContent         string
+				DistributeBinaryId string
+				ProcessBinaryId    string
+				AggregateBinaryId  string
+			}{JobId: newJobRequest.JobId, JobContent: newJobRequest.JobContent, DistributeBinaryId: newJobRequest.DistributeBinaryId, ProcessBinaryId: newJobRequest.ProcessBinaryId, AggregateBinaryId: newJobRequest.AggregateBinaryId},
 		)
 
-		resOfSendingOptionalFiles := webSocketServer.sendOptionalFilesToLockserver(client, newJobRequest);
+		resOfSendingOptionalFiles := webSocketServer.sendOptionalFilesToLockserver(client, newJobRequest)
 
-		if !resOfSendingOptionalFiles.Response.Success{ 
-			webSocketServer.writeResp(client,resOfSendingOptionalFiles);
+		if !resOfSendingOptionalFiles.Response.Success {
+			webSocketServer.writeResp(client, resOfSendingOptionalFiles)
 			continue
 		}
 
 		modifiedJobRequest := &mq.AssignedJob{
-			ClientId: client.id,
+			ClientId:  client.id,
+			CreatedAt: time.Now(),
 		}
 
 		webSocketServer.modifyJobRequest(newJobRequest, modifiedJobRequest)
@@ -218,7 +219,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				if clientIsAlive { //p1
 
 					res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
-				    webSocketServer.writeResp(client, res)
+					webSocketServer.writeResp(client, res)
 
 					/////////////////////////////////////why here using gorotine///////////////////////////////
 					//go webSocketServer.writeResp(client, WsResponse{FINISHED_JOB,utils.HttpResponse{Success: true, Response: *finishedJob}})
@@ -232,6 +233,8 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				finishedJobToCache := &cache.FinishedJob{
 					JobId:     finishedJob.JobId,
 					JobResult: finishedJob.Result,
+					CreatedAt: finishedJob.CreatedAt,
+					TimeAssigned: finishedJob.TimeAssigned,
 				}
 
 				//error may be redis.Nil
@@ -251,10 +254,10 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				} else if clientData.ServerID == webSocketServer.id {
 					if clientIsAlive { //p1
 						res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
-				        webSocketServer.writeResp(client, res)
+						webSocketServer.writeResp(client, res)
 						//go webSocketServer.writeResp(client, WsResponse{FINISHED_JOB,utils.HttpResponse{Success: true, Response: *finishedJob}})
 					}
-					
+
 					//p2
 
 					clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
@@ -275,26 +278,26 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 	}
 }
 
+func (webSocketServer *WebSocketServer) sendSystemInfo(client *Client) {
 
-func (webSocketServer *WebSocketServer) sendSystemInfo(client *Client){
-
-	for{
+	for {
 
 		time.Sleep(time.Second * 10)
 
 		webSocketServer.mu.Lock()
-		_, found := webSocketServer.clients[client.id];
+		_, found := webSocketServer.clients[client.id]
 		webSocketServer.mu.Unlock()
 
-		if  !found {
-			return;
+		if !found {
+			return
 		}
 
-		go webSocketServer.writeResp(client, webSocketServer.GetFinishedJobsIds(client));
+		//does the gorotine here by default get applied with the functions in the response field or not
+		go webSocketServer.writeResp(client, webSocketServer.GetFinishedJobsIds(client))
 
-		go webSocketServer.writeResp(client, webSocketServer.GetSystemProgress());
+		go webSocketServer.writeResp(client, webSocketServer.GetSystemProgress())
 
-		go webSocketServer.writeResp(client, webSocketServer.GetSystemBinaries());
+		go webSocketServer.writeResp(client, webSocketServer.GetSystemBinaries())
 
 	}
 

@@ -5,6 +5,7 @@ import (
 	mq "Framework/MessageQueue"
 	utils "Framework/Utils"
 	"fmt"
+	"math"
 	"strings"
 
 	"Framework/RPC"
@@ -97,6 +98,8 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		distributeBinary:       reply.DistributeBinary,
 		aggregateBinary:        reply.AggregateBinary,
 		optionalFilesZip:       reply.OptionalFilesZip,
+		createdAt:              reply.CreatedAt,
+		timeAssigned:           time.Now(),
 	}
 
 	//now write the distribute, aggregate, and optionalFilesZip  to disk
@@ -200,8 +203,9 @@ func (master *Master) sendPeriodicProgress() {
 		}
 		progress /= float32(len(master.currentJob.tasks))
 		progress *= 100
+		progress = float32(math.Round((float64(progress*100) / 100)))
 
-		//todo: set progress to 1 decimal point
+		//DONE: set progress to 1 decimal point
 		args := &RPC.SetJobProgressArgs{
 			CurrentJobProgress: RPC.CurrentJobProgress{
 				MasterId:     master.id,
@@ -209,6 +213,8 @@ func (master *Master) sendPeriodicProgress() {
 				ClientId:     master.currentJob.clientId,
 				Progress:     progress,
 				Status:       RPC.PROCESSING, //todo this will probably change in the future
+				CreatedAt:    master.currentJob.createdAt,
+				TimeAssigned: master.currentJob.timeAssigned,
 				WorkersTasks: master.generateWorkersTasks(),
 			},
 		}
@@ -272,14 +278,15 @@ func (master *Master) qConsumer() {
 
 			//ask lockserver if i can get it
 			args := &RPC.GetJobArgs{
-				JobId:                data.JobId,
-				ClientId:             data.ClientId,
-				MasterId:             master.id,
-				JobContent:           data.JobContent,
-				MQJobFound:           true,
-				ProcessBinaryName:    data.ProcessBinaryId,
-				DistributeBinaryName: data.DistributeBinaryId,
-				AggregateBinaryName:  data.AggregateBinaryId,
+				JobId:              data.JobId,
+				ClientId:           data.ClientId,
+				MasterId:           master.id,
+				JobContent:         data.JobContent,
+				MQJobFound:         true,
+				ProcessBinaryId:    data.ProcessBinaryId,
+				DistributeBinaryId: data.DistributeBinaryId,
+				AggregateBinaryId:  data.AggregateBinaryId,
+				CreatedAt:          data.CreatedAt,
 			}
 			reply := &RPC.GetJobReply{}
 			ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
@@ -540,6 +547,8 @@ func (master *Master) finishUpJob() {
 		JobId:    master.currentJob.jobId,
 		Content:  master.currentJob.jobContent,
 		Result:   string(finalResult),
+		CreatedAt: master.currentJob.createdAt,
+		TimeAssigned: master.currentJob.timeAssigned,
 	}, false)
 
 	master.attemptSendFinishedJobToLockServer()
@@ -669,8 +678,8 @@ func (master *Master) allTasksDone() bool {
 	return true
 }
 
-//this function generates the WorkersTasks field
-//this function expects to hold a lock
+// this function generates the WorkersTasks field
+// this function expects to hold a lock
 func (master *Master) generateWorkersTasks() []RPC.WorkerTask {
 	workersTasks := make([]RPC.WorkerTask, 0)
 	workersMp := make(map[string]*RPC.WorkerTask)

@@ -45,14 +45,15 @@ type WorkerHeartBeatReply struct {
 //master-lockserver communication ---------
 
 type GetJobArgs struct {
-	JobId                string
-	ClientId             string
-	MasterId             string
-	JobContent           string
-	MQJobFound           bool
-	ProcessBinaryName    string //required only when the lock server adds this job to the db
-	DistributeBinaryName string //required only when the lock server adds this job to the db
-	AggregateBinaryName  string //required only when the lock server adds this job to the db
+	JobId              string
+	ClientId           string
+	MasterId           string
+	JobContent         string
+	MQJobFound         bool
+	ProcessBinaryId    string //required only when the lock server adds this job to the db
+	DistributeBinaryId string //required only when the lock server adds this job to the db
+	AggregateBinaryId  string //required only when the lock server adds this job to the db
+	CreatedAt          time.Time
 }
 
 type GetJobReply struct {
@@ -64,6 +65,7 @@ type GetJobReply struct {
 	DistributeBinary utils.RunnableFile
 	AggregateBinary  utils.RunnableFile
 	OptionalFilesZip utils.File
+	CreatedAt        time.Time
 }
 
 type FinishedJobArgs struct {
@@ -96,7 +98,7 @@ type WorkerTask struct {
 	FinishedTasksContent []string
 }
 
-//todo: add the current binary names used ex processbinaryname ta7t
+// todo: add the current binary names used ex processbinaryname ta7t
 type CurrentJobProgress struct {
 	MasterId          string
 	JobId             string
@@ -105,6 +107,8 @@ type CurrentJobProgress struct {
 	Progress          float32
 	Status            JobProgress
 	WorkersTasks      []WorkerTask
+	CreatedAt         time.Time
+	TimeAssigned      time.Time
 }
 type SetJobProgressArgs struct {
 	CurrentJobProgress
@@ -133,9 +137,9 @@ type GetBinaryFilesArgs struct {
 }
 
 type GetBinaryFilesReply struct {
-	ProcessBinaryNames    []BinaryFileNameAndId
-	DistributeBinaryNames []BinaryFileNameAndId
-	AggregateBinaryNames  []BinaryFileNameAndId
+	ProcessBinaryNames    []string
+	DistributeBinaryNames []string
+	AggregateBinaryNames  []string
 	utils.Error
 }
 

@@ -30,12 +30,13 @@ type WebSocketServer struct {
 }
 
 type JobRequest struct {
-	JobId                string     `json:"jobId"`
-	JobContent           string     `json:"jobContent"`
-	OptionalFilesZip     utils.File `json:"optionalFilesZip"`
-	DistributeBinaryName string     `json:"distributeBinaryName"`
-	ProcessBinaryName    string     `json:"processBinaryName"`
-	AggregateBinaryName  string     `json:"aggregateBinaryName"`
+	JobId              string     `json:"jobId"`
+	JobContent         string     `json:"jobContent"`
+	OptionalFilesZip   utils.File `json:"optionalFilesZip"`
+	DistributeBinaryId string     `json:"distributeBinaryId"`
+	ProcessBinaryId    string     `json:"processBinaryId"`
+	AggregateBinaryId  string     `json:"aggregateBinaryId"`
+	CreatedAt          time.Time  `json:"createdAt"`
 }
 
 type UploadBinaryRequest struct {
