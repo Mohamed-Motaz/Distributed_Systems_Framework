@@ -51,7 +51,7 @@ export const DeleteFileCard = (props) => {
             disabled={!selectedFile}
             onClick={() =>
               handleDeleteBinary(
-                selectedFile,
+                selectedFile.id,
                 deleteFileType,
                 TriggerAlert,
                 setIsSuccess
