@@ -19,7 +19,7 @@ func (lockServer *LockServer) checkIsMasterAlive() {
 		time.Sleep(time.Second * 5)
 		lockServer.mu.Lock()
 		for masterId, masterState := range lockServer.mastersState {
-			if time.Since(masterState.lastHeartBeat) > 30*time.Minute {
+			if time.Since(masterState.lastHeartBeat) > 20*time.Second { //todo put those times in const
 				delete(lockServer.mastersState, masterId)
 			} else if time.Since(masterState.lastHeartBeat) > 5*time.Second {
 				masterState.Status = RPC.UNRESPONSIVE
@@ -78,7 +78,7 @@ func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.Get
 	// found job, let's assign it :')
 	logger.LogInfo(logger.LOCK_SERVER, logger.ESSENTIAL, "Found a late job that will be reassigned %+v", lateJob)
 
-	//DONE : case that will be ignored -- if i delete, then fail to create 
+	//DONE : case that will be ignored -- if i delete, then fail to create
 
 	if lockServer.db.Db.Transaction(func(tx *gorm.DB) error {
 		// return any error will rollback
@@ -233,12 +233,12 @@ func (lockServer *LockServer) addJobToDB(args *RPC.GetJobArgs) error {
 
 	// assign job to the master and update database
 	jobInfo := &database.JobInfo{
-		ClientId:             args.ClientId,
-		MasterId:             args.MasterId,
-		JobId:                args.JobId,
-		Content:              args.JobContent,
-		TimeAssigned:         time.Now(),
-		Status:               database.IN_PROGRESS,
+		ClientId:           args.ClientId,
+		MasterId:           args.MasterId,
+		JobId:              args.JobId,
+		Content:            args.JobContent,
+		TimeAssigned:       time.Now(),
+		Status:             database.IN_PROGRESS,
 		ProcessBinaryId:    args.ProcessBinaryId,
 		DistributeBinaryId: args.DistributeBinaryId,
 		AggregateBinaryId:  args.AggregateBinaryId,
