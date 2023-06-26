@@ -1,7 +1,0 @@
-process.txt contains -->
-./optionalFile1.txt
-=========================================
-optionalFile1.txt contains -->
-Hi this is me.
-This is a test file.
-===============

@@ -1,19 +1,18 @@
-import React, { useEffect, useState, useContext } from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import React, { useContext, useEffect, useState } from "react";
+import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import useWebSocket from "react-use-websocket";
-import RootLayout from "./components/RootLayout";
-import Home from "./Pages/Home";
-import NotFound from "./Pages/NotFound";
-import Landing from "./Pages/Landing.jsx";
-import HowTo from "./Pages/HowTo.jsx";
 import { AppContext } from "../src/context/AppContext";
-import Manage from "./Pages/Manage.jsx";
-import SubmitJob from "./Pages/SubmitJob.jsx";
-import useAlert from "./helpers/useAlert";
 import "./App.css";
-import Status from "./Pages/Status.jsx";
 import AboutUs from "./Pages/AboutUs.jsx";
 import FinishedJobs from "./Pages/FinishedJobs.jsx";
+import HowTo from "./Pages/HowTo.jsx";
+import Landing from "./Pages/Landing.jsx";
+import Manage from "./Pages/Manage.jsx";
+import NotFound from "./Pages/NotFound";
+import Status from "./Pages/Status.jsx";
+import SubmitJob from "./Pages/SubmitJob.jsx";
+import RootLayout from "./components/RootLayout";
+import useAlert from "./helpers/useAlert";
 
 export default function App() {
   const [isFirst, setIsFirst] = useState(true);
@@ -58,44 +57,46 @@ export default function App() {
     //   setTimeout(wsClient, 1000);
     // },
     onMessage: (e) => {
-      if (e.data.msgType === "systemBinaries") {
-        if (e.data.response.success) {
-          setAllBinaries(e.data.response.response);
+      const wsResponse = JSON.parse(e.data);
+      console.log({ e: wsResponse });
+      if (wsResponse.msgType === "systemBinaries") {
+        if (wsResponse.response.success) {
+          setAllBinaries(wsResponse.response.response);
         } else {
           TriggerAlert(
             e?.data?.response.response ?? "Unable to get system binaries"
           );
         }
-      } else if (e.data.msgType === "finishedJobsIds") {
-        if (e.data.response.success) {
+      } else if (wsResponse.msgType === "finishedJobsIds") {
+        if (wsResponse.response.success) {
           setFinishedJobIds(e?.data?.response.response || []);
         } else {
           TriggerAlert(
-            e?.data?.response.response ?? "Unable to get finished job IDs"
+            wsResponse.response.response ?? "Unable to get finished job IDs"
           );
         }
-      } else if (e.data.msgType === "systemProgress") {
-        if (e.data.response.success) {
-          setSystemProgress(e?.data?.response.response || []);
+      } else if (wsResponse.msgType === "systemProgress") {
+        if (wsResponse.response.success) {
+          setSystemProgress(wsResponse.response.response || []);
         } else {
           TriggerAlert(
-            e?.data?.response.response ?? "Unable to get systemProgress"
+            wsResponse.response.response ?? "Unable to get systemProgress"
           );
         }
-      } else if (e.data.msgType === "finishedJob") {
-        if (e.data.response.success) {
+      } else if (wsResponse.msgType === "finishedJob") {
+        if (wsResponse.response.success) {
           TriggerAlert(
-            `The job with id: ${e.data.response.response.JobId} is finished`,
+            `The job with id: ${wsResponse.response.response.JobId} is finished`,
             () => {}
           ); // implement download logic
         } else {
           TriggerAlert(
-            e?.data?.response.response ?? "Unable to get finished job"
+            wsResponse.response.response ?? "Unable to get finished job"
           );
         }
+      } else {
+        TriggerAlert(`Unexpected message type: ${wsResponse.msgType}`);
       }
-
-      console.log({ e });
     },
   });
 
