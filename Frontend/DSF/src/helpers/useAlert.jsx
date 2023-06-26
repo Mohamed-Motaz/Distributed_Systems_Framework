@@ -29,7 +29,7 @@ export default function useAlert() {
         <div
           className={`px-4 py-5 text-sm text-white rounded-3xl ${
             handleOnClick ? "w-2/4" : "w-3/4"
-          } bg-red-800`}
+          } ${success ? "bg-green-800" : "bg-red-800"} `}
         >
           ALERT
         </div>
