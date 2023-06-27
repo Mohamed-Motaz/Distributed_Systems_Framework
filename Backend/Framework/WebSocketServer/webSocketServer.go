@@ -131,6 +131,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 		}
 
 		webSocketServer.modifyJobRequest(newJobRequest, modifiedJobRequest)
+		logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "This is the modified job request %+v\nfor client %+v", modifiedJobRequest, client.webSocketConn.RemoteAddr())
 
 		jobToAssign := new(bytes.Buffer)
 
@@ -231,9 +232,9 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			} else { //case 2 -- cache is alive
 
 				finishedJobToCache := &cache.FinishedJob{
-					JobId:     finishedJob.JobId,
-					JobResult: finishedJob.Result,
-					CreatedAt: finishedJob.CreatedAt,
+					JobId:        finishedJob.JobId,
+					JobResult:    finishedJob.Result,
+					CreatedAt:    finishedJob.CreatedAt,
 					TimeAssigned: finishedJob.TimeAssigned,
 				}
 
@@ -282,8 +283,6 @@ func (webSocketServer *WebSocketServer) sendSystemInfo(client *Client) {
 
 	for {
 
-		time.Sleep(time.Second * 10)
-
 		webSocketServer.mu.Lock()
 		_, found := webSocketServer.clients[client.id]
 		webSocketServer.mu.Unlock()
@@ -295,9 +294,29 @@ func (webSocketServer *WebSocketServer) sendSystemInfo(client *Client) {
 		//does the gorotine here by default get applied with the functions in the response field or not
 		go webSocketServer.writeResp(client, webSocketServer.GetFinishedJobsIds(client))
 
+		go webSocketServer.writeResp(client, webSocketServer.GetSystemBinaries())
+
+		time.Sleep(time.Second * 5)
+
+	}
+
+}
+
+func (webSocketServer *WebSocketServer) sendSystemProgress(client *Client) {
+
+	for {
+
+		webSocketServer.mu.Lock()
+		_, found := webSocketServer.clients[client.id]
+		webSocketServer.mu.Unlock()
+
+		if !found {
+			return
+		}
+
 		go webSocketServer.writeResp(client, webSocketServer.GetSystemProgress())
 
-		go webSocketServer.writeResp(client, webSocketServer.GetSystemBinaries())
+		time.Sleep(time.Second * 1)
 
 	}
 
