@@ -23,7 +23,16 @@ func (dBWrapper *DBWrapper) GetBinaryByNameAndType(runnableFile *RunnableFiles, 
 	return dBWrapper.Db.Raw(`
 	SELECT * FROM jobs.runnableFiles
 	WHERE binaryName = ? AND binaryType = ?
+	LIMIT 1
 	`, binaryName, binaryType).Scan(runnableFile)
+}
+
+func (dBWrapper *DBWrapper) GetBinaryById(runnableFile *RunnableFiles, binaryId int) *gorm.DB {
+	return dBWrapper.Db.Raw(`
+	SELECT * FROM jobs.runnableFiles
+	WHERE id = ?
+	LIMIT 1
+	`, binaryId).Scan(runnableFile)
 }
 
 func (dBWrapper *DBWrapper) GetRunnableFiles(runnableFile *RunnableFiles) *gorm.DB {

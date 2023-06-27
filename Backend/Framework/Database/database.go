@@ -65,11 +65,12 @@ func applyMigrations(db *gorm.DB) {
 	masterId longtext,
 	jobId varchar(100),
 	content longtext,
+	createdAt datetime(3) NULL,
 	timeAssigned datetime(3) NULL,
 	status longtext,
-	processBinaryName longtext,
-	distributeBinaryName longtext,
-	aggregateBinaryName longtext,
+	processBinaryId longtext,
+	distributeBinaryId longtext,
+	aggregateBinaryId longtext,
 		PRIMARY KEY (id),
 		UNIQUE KEY uniqueJId (jobId))
 	`).Error
