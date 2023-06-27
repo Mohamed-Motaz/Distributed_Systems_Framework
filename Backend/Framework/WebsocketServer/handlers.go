@@ -37,10 +37,9 @@ func (webSocketServer *WebSocketServer) handleWebSocketConnections(res http.Resp
 
 	clientData, err := webSocketServer.cache.Get(client.id)
 
-
 	if err != nil && err != redis.Nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-		webSocketServer.writeResp(client, WsResponse{JOB_REQUEST,utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")}})
+		webSocketServer.writeResp(client, WsResponse{JOB_REQUEST, utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")}})
 		client.webSocketConn.Close() //need to close the connection because the cache is down, and I can't map the client to the server
 		return
 	}
@@ -63,13 +62,14 @@ func (webSocketServer *WebSocketServer) handleWebSocketConnections(res http.Resp
 
 	if err != nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-		webSocketServer.writeResp(client, WsResponse{JOB_REQUEST,utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")}})
+		webSocketServer.writeResp(client, WsResponse{JOB_REQUEST, utils.HttpResponse{Success: false, Response: ("Cache is down temporarily, please try again later")}})
 		client.webSocketConn.Close() //need to close the connection because the cache is down, and I can't map the client to the server
 		return
 	}
 
 	go webSocketServer.listenForJobs(client)
 	go webSocketServer.sendSystemInfo(client)
+	go webSocketServer.sendSystemProgress(client)
 }
 
 func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.ResponseWriter, req *http.Request) {
@@ -200,7 +200,6 @@ func (webSocketServer *WebSocketServer) handleDeleteOptionalFiles(jobId string) 
 	}
 }
 
-
 func (webSocketServer *WebSocketServer) handleGetFinishedJobByIdRequests(res http.ResponseWriter, req *http.Request) {
 
 	GetFinishedJobByIdRequest := GetFinishedJobByIdRequest{}
@@ -246,4 +245,3 @@ func (webSocketServer *WebSocketServer) handlePingRequests(res http.ResponseWrit
 	res.WriteHeader(http.StatusOK)
 	json.NewEncoder(res).Encode(utils.HttpResponse{Success: true, Response: "Pong"})
 }
-

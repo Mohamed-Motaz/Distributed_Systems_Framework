@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -111,7 +112,7 @@ func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.Get
 	reply.JobId = lateJob.JobId
 	reply.ClientId = lateJob.ClientId
 	reply.JobContent = lateJob.Content
-	processBinary, distributeBinary, aggregateBinary, err := lockServer.setBinaryFiles(args.ProcessBinaryId, args.DistributeBinaryId, args.AggregateBinaryId)
+	processBinary, distributeBinary, aggregateBinary, err := lockServer.getBinaryFiles(args.ProcessBinaryId, args.DistributeBinaryId, args.AggregateBinaryId)
 	if err != nil {
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get files from binary files folder %+v", err)
 		*reply = RPC.GetJobReply{} //not accepted
@@ -132,53 +133,61 @@ func (lockServer *LockServer) assignLateJob(args *RPC.GetJobArgs, reply *RPC.Get
 
 }
 
-func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName, fileType utils.FileType, binaryName string) (utils.RunnableFile, error) {
+func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName, fileType utils.FileType, binaryId string) (utils.RunnableFile, error) {
 	binaryRunnableFile := utils.RunnableFile{
 		File: utils.File{
 			Content: make([]byte, 0),
 		},
 	}
 	runnableFile := &database.RunnableFiles{}
-	binaryFileContent, err := os.ReadFile(
-		lockServer.getBinaryFilePath(folderName, binaryName))
+	binaryIdNum, err := strconv.Atoi(binaryId)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from %+v folder %+v", binaryName, fileType, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to convert binaryId %+v to integer with error %+v", binaryId, err)
 		return binaryRunnableFile, err
 	}
-	err = lockServer.db.GetBinaryByNameAndType(runnableFile, binaryName, string(fileType)).Error
+
+	err = lockServer.db.GetBinaryById(runnableFile, binaryIdNum).Error
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get binary file of %+v %+v", binaryName, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Unable to get binary file of %+v %+v", binaryId, err)
 		return binaryRunnableFile, err
 	}
 	if runnableFile.Id == 0 {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db", fileType, binaryName)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this id %+v in db", fileType, binaryId)
 		return binaryRunnableFile, err
 	}
+
+	binaryFileContent, err := os.ReadFile(
+		lockServer.getBinaryFilePath(folderName, runnableFile.BinaryName))
+	if err != nil {
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary file %+v from %+v folder %+v", runnableFile.BinaryName, fileType, err)
+		return binaryRunnableFile, err
+	}
+
 	binaryRunnableFile.File = utils.File{
-		Name:    binaryName,
+		Name:    runnableFile.BinaryName,
 		Content: binaryFileContent,
 	}
 	binaryRunnableFile.RunCmd = runnableFile.BinaryRunCmd
 	return binaryRunnableFile, nil
 }
 
-func (lockServer *LockServer) setBinaryFiles(processBinaryName, distributeBinaryName, aggregateBinaryName string) (utils.RunnableFile, utils.RunnableFile, utils.RunnableFile, error) {
+func (lockServer *LockServer) getBinaryFiles(processBinaryId, distributeBinaryId, aggregateBinaryId string) (utils.RunnableFile, utils.RunnableFile, utils.RunnableFile, error) {
 	ProcessBinary := utils.RunnableFile{}
 	DistributeBinary := utils.RunnableFile{}
 	AggregateBinary := utils.RunnableFile{}
-	ProcessBinary, err := lockServer.getBinaryRunnableFileFromDB(PROCESS_BINARY_FOLDER_NAME, utils.ProcessBinary, processBinaryName)
+	ProcessBinary, err := lockServer.getBinaryRunnableFileFromDB(PROCESS_BINARY_FOLDER_NAME, utils.ProcessBinary, processBinaryId)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", processBinaryName, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", processBinaryId, err)
 		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
-	DistributeBinary, err = lockServer.getBinaryRunnableFileFromDB(DISTRIBUTE_BINARY_FOLDER_NAME, utils.DistributeBinary, distributeBinaryName)
+	DistributeBinary, err = lockServer.getBinaryRunnableFileFromDB(DISTRIBUTE_BINARY_FOLDER_NAME, utils.DistributeBinary, distributeBinaryId)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", distributeBinaryName, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", distributeBinaryId, err)
 		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
-	AggregateBinary, err = lockServer.getBinaryRunnableFileFromDB(AGGREGATE_BINARY_FOLDER_NAME, utils.AggregateBinary, aggregateBinaryName)
+	AggregateBinary, err = lockServer.getBinaryRunnableFileFromDB(AGGREGATE_BINARY_FOLDER_NAME, utils.AggregateBinary, aggregateBinaryId)
 	if err != nil {
-		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", aggregateBinaryName, err)
+		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "cannot get  %+v from the db with err %+v", aggregateBinaryId, err)
 		return ProcessBinary, DistributeBinary, AggregateBinary, err
 	}
 	return ProcessBinary, DistributeBinary, AggregateBinary, nil
