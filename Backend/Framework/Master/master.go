@@ -6,6 +6,7 @@ import (
 	utils "Framework/Utils"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"Framework/RPC"
@@ -543,11 +544,11 @@ func (master *Master) finishUpJob() {
 		master.currentJob.jobId, master.currentJob.clientId, string(finalResult))
 
 	master.publishFinJob(mq.FinishedJob{
-		ClientId: master.currentJob.clientId,
-		JobId:    master.currentJob.jobId,
-		Content:  master.currentJob.jobContent,
-		Result:   string(finalResult),
-		CreatedAt: master.currentJob.createdAt,
+		ClientId:     master.currentJob.clientId,
+		JobId:        master.currentJob.jobId,
+		Content:      master.currentJob.jobContent,
+		Result:       string(finalResult),
+		CreatedAt:    master.currentJob.createdAt,
 		TimeAssigned: master.currentJob.timeAssigned,
 	}, false)
 
@@ -683,8 +684,14 @@ func (master *Master) allTasksDone() bool {
 func (master *Master) generateWorkersTasks() []RPC.WorkerTask {
 	workersTasks := make([]RPC.WorkerTask, 0)
 	workersMp := make(map[string]*RPC.WorkerTask)
+	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "These are the workers data: %+v", master.currentJob.workersTimers)
 
 	for i, workerTimer := range master.currentJob.workersTimers {
+		logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "These are the workers data: %+v ---\n---\n%+v", master.currentJob.workersTimers[i], master.currentJob.tasks[i])
+
+		if workerTimer.workerId == "" { //task isn't yet assigned
+			continue
+		}
 		//init a new key for the worker if it doesn't exist in the map
 		if _, ok := workersMp[workerTimer.workerId]; !ok {
 			workersMp[workerTimer.workerId] = &RPC.WorkerTask{
@@ -709,6 +716,10 @@ func (master *Master) generateWorkersTasks() []RPC.WorkerTask {
 		workersTasks = append(workersTasks, *workerT)
 	}
 
+	//sort the workers
+	sort.Slice(workersTasks, func(i, j int) bool {
+		return workersTasks[i].WorkerId < workersTasks[j].WorkerId
+	})
 	return workersTasks
 }
 

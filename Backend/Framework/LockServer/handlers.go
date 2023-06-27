@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -44,7 +45,7 @@ func (lockServer *LockServer) HandleGetJob(args *RPC.GetJobArgs, reply *RPC.GetJ
 		reply.JobId = args.JobId
 		reply.ClientId = args.ClientId
 		reply.JobContent = args.JobContent
-		processBinary, distributeBinary, aggregateBinary, err := lockServer.setBinaryFiles(args.ProcessBinaryId, args.DistributeBinaryId, args.AggregateBinaryId)
+		processBinary, distributeBinary, aggregateBinary, err := lockServer.getBinaryFiles(args.ProcessBinaryId, args.DistributeBinaryId, args.AggregateBinaryId)
 		if err != nil {
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "Cannot get binary files %+v", err)
 			*reply = RPC.GetJobReply{} //not accepted
@@ -321,6 +322,11 @@ func (lockServer *LockServer) HandleGetSystemProgress(args *RPC.GetSystemProgres
 	}
 
 	//todo: sort the masters by id
+	//done
+	sort.Slice(progress, func(i, j int) bool {
+		return progress[i].MasterId < progress[j].MasterId
+	})
+
 	reply.Progress = progress
 	return nil
 }
