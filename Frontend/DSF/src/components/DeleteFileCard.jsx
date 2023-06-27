@@ -17,8 +17,8 @@ export const DeleteFileCard = (props) => {
     deleteFileType === BinariesType.process
       ? binaries.process
       : deleteFileType === BinariesType.Distribute
-      ? binaries.distribute
-      : binaries.aggregate;
+        ? binaries.distribute
+        : binaries.aggregate;
 
   return (
     <div className="flex flex-col justify-center items-center shadow-card hover:shadow-cardhover rounded-lg px-8 py-12 gap-2  w-full">
@@ -45,13 +45,12 @@ export const DeleteFileCard = (props) => {
           }
         >
           <button
-            className={`rounded-lg px-14 py-2 ${
-              !selectedFile ? "bg-blue-800 opacity-60" : "bg-blue-800"
-            } w-fit mt-8 self-center text-xl`}
+            className={`rounded-lg px-14 py-2 ${!selectedFile ? "bg-blue-800 opacity-60" : "bg-blue-800"
+              } w-fit mt-8 self-center text-xl`}
             disabled={!selectedFile}
             onClick={() =>
               handleDeleteBinary(
-                selectedFile.id,
+                selectedFile.name,
                 deleteFileType,
                 TriggerAlert,
                 setIsSuccess

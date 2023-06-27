@@ -24,13 +24,13 @@ export default function SubmitJob(props) {
   const [isLoading, setIsLoading] = useState(false);
 
   const [distributeSelectedFile, setDistributeSelectedFile] = React.useState(
-    sessionStorage.getItem("distribute")
+    JSON.parse(sessionStorage.getItem("distribute") ?? "{}")
   );
   const [processSelectedFile, setProcessSelectedFile] = React.useState(
-    sessionStorage.getItem("process")
+    JSON.parse(sessionStorage.getItem("process") ?? "{}")
   );
   const [aggregateSelectedFile, setAggregateSelectedFile] = React.useState(
-    sessionStorage.getItem("aggregate")
+    JSON.parse(sessionStorage.getItem("aggregate") ?? "{}")
   );
   const [optionalFiles, setOptionalFiles] = React.useState({
     name: "",
@@ -40,15 +40,16 @@ export default function SubmitJob(props) {
   const handleJobSubmit = async () => {
     setIsLoading(true);
     try {
+
       wsClient.sendMessage(
         `${JSON.stringify({
           jobId: uuid(),
           clientId,
           jobContent: jobContentInput.current.value,
           optionalFilesZip: optionalFiles,
-          distributeBinaryName: distributeSelectedFile.id,
-          processBinaryName: processSelectedFile.id,
-          aggregateBinaryName: aggregateSelectedFile.id,
+          distributeBinaryId: distributeSelectedFile.id?.toString(),
+          processBinaryId: processSelectedFile.id?.toString(),
+          aggregateBinaryId: aggregateSelectedFile.id?.toString(),
         })}`
       );
       setIsSuccess(true);

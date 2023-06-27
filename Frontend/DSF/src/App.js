@@ -86,15 +86,27 @@ export default function App() {
       } else if (wsResponse.msgType === "finishedJob") {
         if (wsResponse.response.success) {
           TriggerAlert(
-            `The job with id: ${wsResponse.response.response.JobId} is finished`,
-            () => {}
+            `The job with id: ${wsResponse.response.response.jobId} is finished`,
+            () => { }
           ); // implement download logic
         } else {
           TriggerAlert(
             wsResponse.response.response ?? "Unable to get finished job"
           );
         }
-      } else {
+      } else if (wsResponse.msgType === "jobRequest") {
+        if (wsResponse.response.success) {
+          TriggerAlert(
+            `The job with id: ${wsResponse.response.response.JobId} is finished`,
+            () => { }
+          ); // implement download logic
+        } else {
+          TriggerAlert(
+            wsResponse.response.response ?? `Job has an error: ${wsResponse.response.response}`
+          );
+        }
+      }
+      else {
         TriggerAlert(`Unexpected message type: ${wsResponse.msgType}`);
       }
     },
@@ -154,15 +166,15 @@ export default function App() {
           localStorage.getItem("apiEndPoint")
             ? HOME_ROUTE
             : createBrowserRouter([
-                {
-                  path: "/",
-                  element: (
-                    <div className="dark pt-28 px-8">
-                      <Landing />
-                    </div>
-                  ),
-                },
-              ])
+              {
+                path: "/",
+                element: (
+                  <div className="dark pt-28 px-8">
+                    <Landing />
+                  </div>
+                ),
+              },
+            ])
         }
       />
     </main>

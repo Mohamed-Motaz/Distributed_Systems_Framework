@@ -6,9 +6,11 @@ export default function DropDownBox(props) {
   function handlechange(e) {
     console.log("Selected file", e.target.value);
     const f = e.target.value;
-    setSelectedFile(f === "Choose file..." ? undefined : f);
+    const file = files.find(file => file.name === f)
+    setSelectedFile(f === "Choose file..." ? {} : file);
     if (f !== "Choose file...") {
-      sessionStorage.setItem(title, f);
+      sessionStorage.setItem(title, JSON.stringify(file)
+      );
     }
   }
 
@@ -23,8 +25,8 @@ export default function DropDownBox(props) {
         {`Select ${title} file`}
       </label>
       <select
-        defaultValue={selectedFile}
-        value={selectedFile}
+        defaultValue={selectedFile.name}
+        value={selectedFile.name}
         placeholder="choose file"
         id="countries"
         onChange={(e) => handlechange(e)}
