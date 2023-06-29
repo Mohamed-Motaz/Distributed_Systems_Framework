@@ -172,7 +172,7 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 		// handle the case where the file already exists
 		logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "The binary file name %+v already exists", args.File.Name)
 		reply.Err = true
-		reply.ErrMsg = fmt.Sprintf("The binary file name %+v already exists", args.File.Name) //todo error here is not 500, it is a bad request
+		reply.ErrMsg = fmt.Sprintf("The binary file name %+v already exists", args.File.Name) 
 		return nil
 	}
 	file.Close()
@@ -321,8 +321,8 @@ func (lockServer *LockServer) HandleGetSystemProgress(args *RPC.GetSystemProgres
 		progress = append(progress, masterState.CurrentJobProgress)
 	}
 
-	//todo: sort the masters by id
-	//done
+	//DONE: sort the masters by id
+	
 	sort.Slice(progress, func(i, j int) bool {
 		return progress[i].MasterId < progress[j].MasterId
 	})

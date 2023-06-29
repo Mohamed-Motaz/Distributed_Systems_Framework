@@ -20,7 +20,7 @@ type JobInfo struct {
 	AggregateBinaryId  string    `gorm:"column:aggregateBinaryId"    json:"aggregateBinaryId"`
 }
 
-// todo: change binaries to be ids here and in the migration
+// DONE: change binaries to be ids here and in the migration
 func (JobInfo) TableName() string {
 	return "jobs.jobsinfo"
 }

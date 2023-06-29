@@ -209,14 +209,17 @@ func (master *Master) sendPeriodicProgress() {
 		//DONE: set progress to 1 decimal point
 		args := &RPC.SetJobProgressArgs{
 			CurrentJobProgress: RPC.CurrentJobProgress{
-				MasterId:     master.id,
-				JobId:        master.currentJob.jobId,
-				ClientId:     master.currentJob.clientId,
-				Progress:     progress,
-				Status:       RPC.PROCESSING, //todo this will probably change in the future
-				CreatedAt:    master.currentJob.createdAt,
-				TimeAssigned: master.currentJob.timeAssigned,
-				WorkersTasks: master.generateWorkersTasks(),
+				MasterId:             master.id,
+				JobId:                master.currentJob.jobId,
+				ClientId:             master.currentJob.clientId,
+				Progress:             progress,
+				Status:               RPC.PROCESSING, //todo this will probably change in the future
+				CreatedAt:            master.currentJob.createdAt,
+				TimeAssigned:         master.currentJob.timeAssigned,
+				WorkersTasks:         master.generateWorkersTasks(),
+				DistributeBinaryName: master.currentJob.distributeBinary.Name,
+				ProcessBinaryName:    master.currentJob.processBinary.Name,
+				AggregateBinaryName:  master.currentJob.aggregateBinary.Name,
 			},
 		}
 

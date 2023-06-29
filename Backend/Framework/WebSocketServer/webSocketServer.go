@@ -143,7 +143,7 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 			continue
 		}
-		//todo: add field createdAt
+		//DONE: add field createdAt
 		//should be added to the database (jobinfo) & the migration
 		//should be added to the mq field
 		//should be accepted by the master, and sent to the lockserver
@@ -205,25 +205,23 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			client, clientIsAlive := webSocketServer.clients[finishedJob.ClientId]
 			webSocketServer.mu.Unlock()
 
-			if finishedJob.Err && clientIsAlive {
-				res.Response = utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")}
-				webSocketServer.writeResp(client, res)
-				continue
-			}
-
 			var clientData *cache.CacheValue
 			clientData, err = webSocketServer.cache.Get(finishedJob.ClientId)
 
 			if err != nil && err != redis.Nil { //case 1 -- cache is dead
 
 				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+
 				if clientIsAlive { //p1
 
-					res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
+					if finishedJob.Err {
+						res.Response = utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")}
+					} else {
+						res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
+					}
+
 					webSocketServer.writeResp(client, res)
 
-					/////////////////////////////////////why here using gorotine///////////////////////////////
-					//go webSocketServer.writeResp(client, WsResponse{FINISHED_JOB,utils.HttpResponse{Success: true, Response: *finishedJob}})
 					finishedJobObj.Ack(false)
 
 				} else { //p2
@@ -238,29 +236,24 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 					TimeAssigned: finishedJob.TimeAssigned,
 				}
 
-				//error may be redis.Nil
-				//todo nadafha
-				if clientData == nil {
+				if err == redis.Nil {
+
 					clientData = &cache.CacheValue{
 						ServerID:     webSocketServer.id, //no lock errors because no one writes the server.id
-						FinishedJobs: []cache.FinishedJob{*finishedJobToCache},
+						FinishedJobs: []cache.FinishedJob{},
 					}
-					err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+				}
 
-					if err != nil {
-						logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
-					}
-					finishedJobObj.Ack(false)
 
-				} else if clientData.ServerID == webSocketServer.id {
-					if clientIsAlive { //p1
+				if clientData.ServerID == webSocketServer.id {
+
+					//p1
+					if clientIsAlive { 
 						res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
 						webSocketServer.writeResp(client, res)
-						//go webSocketServer.writeResp(client, WsResponse{FINISHED_JOB,utils.HttpResponse{Success: true, Response: *finishedJob}})
 					}
 
 					//p2
-
 					clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
 					err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
 
@@ -270,6 +263,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 					finishedJobObj.Ack(false)
 
 				} else {
+					//p3
 					finishedJobObj.Nack(false, true)
 				}
 			}
