@@ -20,7 +20,7 @@ func (lockServer *LockServer) checkIsMasterAlive() {
 		time.Sleep(time.Second * 5)
 		lockServer.mu.Lock()
 		for masterId, masterState := range lockServer.mastersState {
-			if time.Since(masterState.lastHeartBeat) > 20*time.Second { //todo put those times in const
+			if time.Since(masterState.lastHeartBeat) > 20*time.Second { //TODO put those times in const
 				delete(lockServer.mastersState, masterId)
 			} else if time.Since(masterState.lastHeartBeat) > 5*time.Second {
 				masterState.Status = RPC.UNRESPONSIVE
@@ -168,6 +168,7 @@ func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName,
 		Content: binaryFileContent,
 	}
 	binaryRunnableFile.RunCmd = runnableFile.BinaryRunCmd
+	binaryRunnableFile.Id = runnableFile.BinaryId;
 	return binaryRunnableFile, nil
 }
 

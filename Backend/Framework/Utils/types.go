@@ -6,6 +6,7 @@ type File struct {
 }
 
 type RunnableFile struct {
+	Id     string
 	File
 	RunCmd string //cmd to run the file
 }

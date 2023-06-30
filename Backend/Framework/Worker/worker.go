@@ -14,6 +14,9 @@ import (
 func NewWorker() *Worker {
 	worker := &Worker{
 		id: uuid.NewString(), //random id
+		ProcessBinary: utils.RunnableFile{},
+		OptionalFilesZip: utils.File{},
+		JobId: "",
 	}
 
 	logger.LogInfo(logger.WORKER, logger.ESSENTIAL, "Worker is now alive")
@@ -31,7 +34,10 @@ func (worker *Worker) work() {
 
 		getTaskArgs := &RPC.GetTaskArgs{
 			WorkerId: worker.id,
+			ProcessBinaryId: worker.ProcessBinary.Id,
+			JobId: worker.JobId,
 		}
+
 		getTaskReply := &RPC.GetTaskReply{}
 
 		rpcConn := &RPC.RpcConnection{
@@ -53,8 +59,16 @@ func (worker *Worker) work() {
 
 		if !getTaskReply.TaskAvailable {
 			logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Master doesn't have available tasks")
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
 			continue
+		}
+		
+		if getTaskReply.JobId == worker.JobId{
+			getTaskReply.OptionalFilesZip = worker.OptionalFilesZip
+		}
+
+		if getTaskReply.ProcessBinary.Id == worker.ProcessBinary.Id{
+			getTaskReply.ProcessBinary = worker.ProcessBinary
 		}
 
 		logger.LogInfo(logger.WORKER, logger.ESSENTIAL, "This is the response received from the master %+v", struct {
@@ -68,7 +82,12 @@ func (worker *Worker) work() {
 			OptionalFilesZipName: getTaskReply.OptionalFilesZip.Name, TaskId: getTaskReply.TaskId, JobId: getTaskReply.TaskId},
 		)
 
-		worker.handleTask(getTaskReply)
+		worker.JobId = getTaskReply.JobId
+		worker.OptionalFilesZip = getTaskReply.OptionalFilesZip
+		worker.ProcessBinary = getTaskReply.ProcessBinary
+
+		//do this needs a goroutine
+		go worker.handleTask(getTaskReply)
 
 	}
 

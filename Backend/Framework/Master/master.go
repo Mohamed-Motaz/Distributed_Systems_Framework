@@ -133,7 +133,7 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		return err
 	}
 
-	tasks := strings.Split(string(data), ",") //expect the tasks to be comma-separated
+	tasks := strings.Split(string(data), ",") //TODO: expect the tasks to be comma-separated
 
 	if err != nil {
 		return fmt.Errorf("error while decoding the tasks array created by the distribute binary")
@@ -460,6 +460,14 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 			reply.TaskId = currentTask.id
 			reply.JobId = master.currentJob.jobId
 
+			if args.ProcessBinaryId == master.currentJob.processBinary.Id {
+				reply.ProcessBinary = utils.RunnableFile{Id: master.currentJob.processBinary.Id}
+			}
+
+			if args.JobId == master.currentJob.jobId{
+				reply.OptionalFilesZip = utils.File{}
+			}
+
 			//now as a master, need to mark this job as given to a worker
 			master.currentJob.workersTimers[i] = WorkerAndHisTimer{
 				lastHeartBeat: time.Now(),
@@ -562,6 +570,7 @@ func (master *Master) finishUpJob() {
 
 // this function expects to hold a lock
 func (master *Master) attemptSendFinishedJobToLockServer() {
+
 	ok := false
 	ctr := 1
 	mxRetries := 3

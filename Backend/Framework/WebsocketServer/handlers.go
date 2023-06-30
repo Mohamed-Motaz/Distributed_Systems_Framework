@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -87,6 +88,7 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 	uploadBinaryRequestArgs := RPC.BinaryUploadArgs{
 		FileType: uploadBinaryRequest.FileType,
 		File: utils.RunnableFile{
+			Id: uuid.NewString(),
 			RunCmd: uploadBinaryRequest.RunCmd,
 			File: utils.File{
 				Name:    uploadBinaryRequest.Name,

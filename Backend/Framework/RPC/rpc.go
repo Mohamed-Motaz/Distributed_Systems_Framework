@@ -14,7 +14,9 @@ for any inter-server communication
 
 // master-worker communication ---------
 type GetTaskArgs struct {
-	WorkerId string
+	WorkerId        string
+	ProcessBinaryId string
+	JobId           string
 }
 type GetTaskReply struct {
 	TaskAvailable    bool
@@ -146,7 +148,7 @@ type GetBinaryFilesReply struct {
 }
 
 type BinaryFileNameAndId struct {
-	Id   int    `json:"id"`
+	Id   string `json:"id"`
 	Name string `json:"name"`
 }
 

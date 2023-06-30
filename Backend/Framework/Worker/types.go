@@ -9,7 +9,10 @@ import (
 )
 
 type Worker struct {
-	id string
+	id               string
+	ProcessBinary    utils.RunnableFile
+	OptionalFilesZip utils.File
+	JobId            string
 }
 
 const (

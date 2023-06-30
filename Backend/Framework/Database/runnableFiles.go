@@ -6,6 +6,7 @@ import (
 
 type RunnableFiles struct {
 	Id           int    `gorm:"primaryKey; column:id"       json:"id"`
+	BinaryId     string `gorm:"column:binaryId"           json:"binaryId"`
 	BinaryName   string `gorm:"column:binaryName"           json:"binaryName"`
 	BinaryType   string `gorm:"column:binaryType"           json:"binaryType"`
 	BinaryRunCmd string `gorm:"column:binaryRunCmd"         json:"binaryRunCmd"`
