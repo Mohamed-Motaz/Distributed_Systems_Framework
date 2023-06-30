@@ -168,7 +168,7 @@ func (lockServer *LockServer) getBinaryRunnableFileFromDB(folderName FolderName,
 		Content: binaryFileContent,
 	}
 	binaryRunnableFile.RunCmd = runnableFile.BinaryRunCmd
-	binaryRunnableFile.Id = runnableFile.BinaryId;
+	binaryRunnableFile.Id = runnableFile.Id;
 	return binaryRunnableFile, nil
 }
 

@@ -464,7 +464,7 @@ func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskRe
 				reply.ProcessBinary = utils.RunnableFile{Id: master.currentJob.processBinary.Id}
 			}
 
-			if args.JobId == master.currentJob.jobId{
+			if args.JobId == master.currentJob.jobId {
 				reply.OptionalFilesZip = utils.File{}
 			}
 

@@ -186,7 +186,6 @@ func (lockServer *LockServer) HandleAddBinaryFile(args *RPC.BinaryUploadArgs, re
 		return nil
 	}
 	runnableFile := &database.RunnableFiles{
-		BinaryId:     args.File.Id,
 		BinaryName:   args.File.Name,
 		BinaryType:   string(args.FileType),
 		BinaryRunCmd: args.File.RunCmd,
@@ -248,7 +247,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db", string(utils.ProcessBinary), file.Name())
 			continue
 		}
-		reply.ProcessBinaryNames = append(reply.ProcessBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.BinaryId, Name: file.Name()})
+		reply.ProcessBinaryNames = append(reply.ProcessBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.Id, Name: file.Name()})
 	}
 
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(DISTRIBUTE_BINARY_FOLDER_NAME)))
@@ -269,7 +268,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db", string(utils.DistributeBinary), file.Name())
 			continue
 		}
-		reply.DistributeBinaryNames = append(reply.DistributeBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.BinaryId, Name: file.Name()})
+		reply.DistributeBinaryNames = append(reply.DistributeBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.Id, Name: file.Name()})
 	}
 
 	files, err = ioutil.ReadDir(filepath.Join(string(BINARY_FILES_FOLDER_NAME), string(AGGREGATE_BINARY_FOLDER_NAME)))
@@ -290,7 +289,7 @@ func (lockServer *LockServer) HandleGetBinaryFiles(args *RPC.GetBinaryFilesArgs,
 			logger.LogError(logger.LOCK_SERVER, logger.ESSENTIAL, "There is no %+v binary file with this name %+v in db", string(utils.AggregateBinary), file.Name())
 			continue
 		}
-		reply.AggregateBinaryNames = append(reply.AggregateBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.BinaryId, Name: file.Name()})
+		reply.AggregateBinaryNames = append(reply.AggregateBinaryNames, RPC.BinaryFileNameAndId{Id: runnableFile.Id, Name: file.Name()})
 	}
 
 	if !foundFile {
