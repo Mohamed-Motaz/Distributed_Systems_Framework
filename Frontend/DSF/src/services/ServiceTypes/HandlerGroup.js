@@ -1,4 +1,3 @@
-import { useContext } from "react";
 import { WebSocketServerService } from "../WebSocketServerService";
 
 export const handleUploadFile = async (
@@ -53,6 +52,7 @@ export const handleDeleteBinary = async (
     fileType
   );
   if (res?.data?.success) {
+    sessionStorage.removeItem(fileName);
     setIsSuccess(true);
     TriggerAlert("File has been deleted successfully");
   } else {

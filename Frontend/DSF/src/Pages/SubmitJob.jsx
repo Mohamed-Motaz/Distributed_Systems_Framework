@@ -37,14 +37,14 @@ export default function SubmitJob(props) {
     content: [],
   });
 
+  console.log({ optionalFiles });
+
   const handleJobSubmit = async () => {
     setIsLoading(true);
     try {
-
       wsClient.sendMessage(
         `${JSON.stringify({
           jobId: uuid(),
-          clientId,
           jobContent: jobContentInput.current.value,
           optionalFilesZip: optionalFiles,
           distributeBinaryId: distributeSelectedFile.id?.toString(),

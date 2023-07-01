@@ -64,12 +64,12 @@ export default function App() {
           setAllBinaries(wsResponse.response.response);
         } else {
           TriggerAlert(
-            e?.data?.response.response ?? "Unable to get system binaries"
+            wsResponse.response.response ?? "Unable to get system binaries"
           );
         }
       } else if (wsResponse.msgType === "finishedJobsIds") {
         if (wsResponse.response.success) {
-          setFinishedJobIds(e?.data?.response.response || []);
+          setFinishedJobIds(wsResponse.response.response || []);
         } else {
           TriggerAlert(
             wsResponse.response.response ?? "Unable to get finished job IDs"
@@ -87,7 +87,7 @@ export default function App() {
         if (wsResponse.response.success) {
           TriggerAlert(
             `The job with id: ${wsResponse.response.response.jobId} is finished`,
-            () => { }
+            () => {}
           ); // implement download logic
         } else {
           TriggerAlert(
@@ -98,15 +98,15 @@ export default function App() {
         if (wsResponse.response.success) {
           TriggerAlert(
             `The job with id: ${wsResponse.response.response.JobId} is finished`,
-            () => { }
+            () => {}
           ); // implement download logic
         } else {
           TriggerAlert(
-            wsResponse.response.response ?? `Job has an error: ${wsResponse.response.response}`
+            wsResponse.response.response ??
+              `Job has an error: ${wsResponse.response.response}`
           );
         }
-      }
-      else {
+      } else {
         TriggerAlert(`Unexpected message type: ${wsResponse.msgType}`);
       }
     },
@@ -166,15 +166,15 @@ export default function App() {
           localStorage.getItem("apiEndPoint")
             ? HOME_ROUTE
             : createBrowserRouter([
-              {
-                path: "/",
-                element: (
-                  <div className="dark pt-28 px-8">
-                    <Landing />
-                  </div>
-                ),
-              },
-            ])
+                {
+                  path: "/",
+                  element: (
+                    <div className="dark pt-28 px-8">
+                      <Landing />
+                    </div>
+                  ),
+                },
+              ])
         }
       />
     </main>
