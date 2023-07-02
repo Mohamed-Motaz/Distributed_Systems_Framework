@@ -40,7 +40,7 @@ func NewLockServer() *LockServer {
 	if err := lockServer.initDir(); err != nil {
 		logger.FailOnError(logger.LOCK_SERVER, logger.ESSENTIAL, "Error while initializing Files: %v", err)
 	}
-	go lockServer.server()
+	go lockServer.rpcServer()
 	go lockServer.checkIsMasterAlive()
 	return lockServer
 }
@@ -49,7 +49,7 @@ func CreateLockServerAddress() string {
 	return MyHost + ":" + MyPort
 }
 
-func (lockServer *LockServer) server() error {
+func (lockServer *LockServer) rpcServer() error {
 	rpc.Register(lockServer)
 	rpc.HandleHTTP()
 

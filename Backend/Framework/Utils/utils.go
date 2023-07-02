@@ -21,7 +21,7 @@ func GetEnv(key, fallback string) string {
 	return fallback
 }
 
-func RemoveFilesThatDontMatchNames(names []string) {
+func KeepFilesThatMatch(names []string) {
 	files, err := filepath.Glob("*")
 	if err != nil {
 		log.Printf("Error while getting files\n")

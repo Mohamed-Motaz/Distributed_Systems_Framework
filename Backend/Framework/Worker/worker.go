@@ -12,30 +12,34 @@ import (
 
 // returns a pointer a worker and runs it
 func NewWorker() *Worker {
+
 	worker := &Worker{
-		id: uuid.NewString(), //random id
-		ProcessBinary: utils.RunnableFile{},
+		id:               uuid.NewString(), //random id
+		ProcessBinary:    utils.RunnableFile{},
 		OptionalFilesZip: utils.File{},
-		JobId: "",
+		JobId:            "",
 	}
 
 	logger.LogInfo(logger.WORKER, logger.ESSENTIAL, "Worker is now alive")
 
-	go worker.work()
+	utils.KeepFilesThatMatch(FileNamesToIgnore)
+
+	go worker.askForWork()
 
 	return worker
 }
 
-func (worker *Worker) work() {
+func (worker *Worker) askForWork() {
 	//endless for loop that keeps asking for tasks from the master
+
 	for {
+
 		//clean any old files
-		utils.RemoveFilesThatDontMatchNames(FileNamesToIgnore)
 
 		getTaskArgs := &RPC.GetTaskArgs{
-			WorkerId: worker.id,
+			WorkerId:        worker.id,
 			ProcessBinaryId: worker.ProcessBinary.Id,
-			JobId: worker.JobId,
+			JobId:           worker.JobId,
 		}
 
 		getTaskReply := &RPC.GetTaskReply{}
@@ -51,6 +55,7 @@ func (worker *Worker) work() {
 				Host: MasterHost,
 			},
 		}
+
 		ok, err := RPC.EstablishRpcConnection(rpcConn)
 		if !ok {
 			logger.LogError(logger.WORKER, logger.ESSENTIAL, "Unable to call master HandleGetTasks with error -> %v", err)
@@ -62,14 +67,43 @@ func (worker *Worker) work() {
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		
-		if getTaskReply.JobId == worker.JobId{
-			getTaskReply.OptionalFilesZip = worker.OptionalFilesZip
-		}
 
-		if getTaskReply.ProcessBinary.Id == worker.ProcessBinary.Id{
+		if getTaskReply.ProcessBinary.Id == worker.ProcessBinary.Id {
+			//process already exists on disk
 			getTaskReply.ProcessBinary = worker.ProcessBinary
+
+		} else {
+
+			utils.KeepFilesThatMatch(FileNamesToIgnore)
+
+			//write process on disk
+			if err := utils.CreateAndWriteToFile(getTaskReply.ProcessBinary.Name, getTaskReply.ProcessBinary.Content); err != nil {
+				worker.callMasterWithError(fmt.Sprintf("Error while creating the process binary zip file %+v", err), "Error while creating the process binary zip file")
+				continue
+			}
+			if err := utils.UnzipSource(getTaskReply.ProcessBinary.Name, ""); err != nil {
+				worker.callMasterWithError(fmt.Sprintf("Unable to unzip the client process with err: %+v", err), "Error while unzipping process binary on the worker")
+				continue
+			}
 		}
+		worker.ProcessBinary = getTaskReply.ProcessBinary
+
+		if getTaskReply.JobId == worker.JobId {
+			getTaskReply.OptionalFilesZip = worker.OptionalFilesZip
+
+		} else {
+
+			if err := utils.CreateAndWriteToFile(getTaskReply.OptionalFilesZip.Name, getTaskReply.OptionalFilesZip.Content); err != nil {
+				worker.callMasterWithError(fmt.Sprintf("Error while creating the optional files zip file %+v", err), "Error while creating the optional files zip file")
+				continue
+			}
+			if err := utils.UnzipSource(getTaskReply.OptionalFilesZip.Name, ""); err != nil {
+				worker.callMasterWithError(fmt.Sprintf("Unable to unzip the client optional files with err: %+v", err), "Error while unzipping the optional files on the worker")
+				continue
+			}
+		}
+		worker.JobId = getTaskReply.JobId
+		worker.OptionalFilesZip = getTaskReply.OptionalFilesZip
 
 		logger.LogInfo(logger.WORKER, logger.ESSENTIAL, "This is the response received from the master %+v", struct {
 			TaskAvailable        bool
@@ -82,20 +116,17 @@ func (worker *Worker) work() {
 			OptionalFilesZipName: getTaskReply.OptionalFilesZip.Name, TaskId: getTaskReply.TaskId, JobId: getTaskReply.TaskId},
 		)
 
-		worker.JobId = getTaskReply.JobId
-		worker.OptionalFilesZip = getTaskReply.OptionalFilesZip
-		worker.ProcessBinary = getTaskReply.ProcessBinary
-
 		//do this needs a goroutine
-		go worker.handleTask(getTaskReply)
+		go worker.doWork(getTaskReply)
 
 	}
 
 }
 
-func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
+func (worker *Worker) doWork(getTaskReply *RPC.GetTaskReply) {
 	stopHeartBeatsCh := make(chan bool)
 	go worker.startHeartBeats(getTaskReply, stopHeartBeatsCh)
+
 	defer func() {
 		logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Worker done with handleTask with this data %+v", struct {
 			TaskAvailable        bool
@@ -109,33 +140,13 @@ func (worker *Worker) handleTask(getTaskReply *RPC.GetTaskReply) {
 		stopHeartBeatsCh <- true
 	}()
 
-	//write the process to disk
-	if err := utils.CreateAndWriteToFile(getTaskReply.ProcessBinary.Name, getTaskReply.ProcessBinary.Content); err != nil {
-		worker.callMasterWithError(fmt.Sprintf("Error while creating the process binary zip file %+v", err), "Error while creating the process binary zip file")
-		return
-	}
-	if err := utils.UnzipSource(getTaskReply.ProcessBinary.Name, ""); err != nil {
-		worker.callMasterWithError(fmt.Sprintf("Unable to unzip the client process with err: %+v", err), "Error while unzipping process binary on the worker")
-		return
-	}
-
-	//write the optional files to disk
-	if err := utils.CreateAndWriteToFile(getTaskReply.OptionalFilesZip.Name, getTaskReply.OptionalFilesZip.Content); err != nil {
-		worker.callMasterWithError(fmt.Sprintf("Error while creating the optional files zip file %+v", err), "Error while creating the optional files zip file")
-		return
-	}
-	if err := utils.UnzipSource(getTaskReply.OptionalFilesZip.Name, ""); err != nil {
-		worker.callMasterWithError(fmt.Sprintf("Unable to unzip the client optional files with err: %+v", err), "Error while unzipping the optional files on the worker")
-		return
-	}
-
 	//now, need to run process
 	data, err := utils.ExecuteProcess(logger.MASTER, utils.ProcessBinary,
 		utils.File{Name: "process.txt", Content: []byte(getTaskReply.TaskContent)},
 		getTaskReply.ProcessBinary)
 
 	if err != nil {
-		worker.callMasterWithError(fmt.Sprintf("Unable to excute the client process with err: %+v", err), "Error while execute process binary on the worker")
+		worker.callMasterWithError(fmt.Sprintf("Unable to execute the client process with err: %+v", err), "Error while execute process binary on the worker")
 		return
 	}
 

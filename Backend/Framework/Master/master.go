@@ -6,7 +6,6 @@ import (
 	utils "Framework/Utils"
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 
 	"Framework/RPC"
@@ -29,9 +28,9 @@ func NewMaster() *Master {
 		maxHeartBeatTimer: 30 * time.Second, //each heartbeat should be every 10 seconds but we allow up to 2 failures
 		mu:                sync.Mutex{},
 	}
-	master.resetStatus() //remove old files from previous jobs
+	master.resetCurrentJob() //remove old files from previous jobs
 
-	go master.server()
+	go master.rpcServer()
 	go master.qConsumer()
 	go master.sendPeriodicProgress()
 
@@ -40,19 +39,11 @@ func NewMaster() *Master {
 	return master
 }
 
-func CreateMasterAddress() string {
-	return MyHost + ":" + MyPort
-}
-
-func (master *Master) removeOldJobFiles() {
-	utils.RemoveFilesThatDontMatchNames(FileNamesToIgnore)
-}
-
 // this function expects to hold a lock
 // it resets the currentJob of the master
-func (master *Master) resetStatus() {
+func (master *Master) resetCurrentJob() {
 
-	master.removeOldJobFiles()
+	utils.KeepFilesThatMatch(FileNamesToIgnore)
 
 	master.currentJob = CurrentJob{
 		tasks:                  make([]Task, 0),
@@ -85,6 +76,7 @@ func (master *Master) resetStatus() {
 // this function is responsible for setting up the new job and running distribute binary
 // this function doesn't log. The caller is responsible for logging
 func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
+
 	master.isRunning = true
 
 	master.currentJob = CurrentJob{
@@ -330,7 +322,7 @@ func (master *Master) qConsumer() {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
 				//DONE: send the lockserver an error alerting him that I finished this job (lie)
 				master.attemptSendFinishedJobToLockServer()
-				master.publishErrAsFinJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
+				master.publishErrAsfinishedJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
 			}
 			master.mu.Unlock()
 
@@ -359,7 +351,7 @@ func (master *Master) qConsumer() {
 				master.mu.Lock()
 				if err := master.setJobStatus(reply); err != nil {
 					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
-					master.publishErrAsFinJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
+					master.publishErrAsfinishedJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
 				}
 				master.mu.Unlock()
 				continue
@@ -375,9 +367,9 @@ func (master *Master) qConsumer() {
 
 // publishes a finished job to the message queue
 // this has to hold a lock
-func (master *Master) publishFinJob(finJob mq.FinishedJob, resetStatus bool) {
+func (master *Master) publishFinishedJob(finishedJob mq.FinishedJob, resetCurrentJob bool) {
 
-	res, err := json.Marshal(finJob)
+	res, err := json.Marshal(finishedJob)
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to convert finished job to string! Discarding...")
 		fn := mq.FinishedJob{
@@ -391,153 +383,26 @@ func (master *Master) publishFinJob(finJob mq.FinishedJob, resetStatus bool) {
 		if err != nil {
 			logger.LogError(logger.MASTER, logger.ESSENTIAL, "Finished job not published to queue with err %v", err)
 		} else {
-			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finJob.JobId, finJob.ClientId)
+			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finishedJob.JobId, finishedJob.ClientId)
 		}
 	} else {
 		err = master.q.Enqueue(mq.FINISHED_JOBS_QUEUE, res)
 		if err != nil {
 			logger.LogError(logger.MASTER, logger.ESSENTIAL, "Finished job not published to queue with err %v", err)
 		} else {
-			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finJob.JobId, finJob.ClientId)
+			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Finished job %+v successfully published to finished jobs queue for client %+v", finishedJob.JobId, finishedJob.ClientId)
 		}
 	}
-	if resetStatus {
-		master.resetStatus()
+	if resetCurrentJob {
+		master.resetCurrentJob()
 	}
 }
 
-// this function expects to hold a lock because master.publishFinJob needs to hold a lock
-// it resets the job status completely
-func (master *Master) publishErrAsFinJob(err, clientId, jobId string) { //DONE fix
-	fn := mq.FinishedJob{}
-	fn.ClientId = clientId
-	fn.JobId = jobId
-	fn.Err = true
-	fn.ErrMsg = err
-	master.publishFinJob(fn, true)
-}
 
-//
-//RPC handlers
-//
-
-func (master *Master) HandleGetTasks(args *RPC.GetTaskArgs, reply *RPC.GetTaskReply) error {
-	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Worker called HandleGetTasks with these args %+v", args)
-
-	master.mu.Lock()
-	defer master.mu.Unlock()
-	defer logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master replied with this reply: %+v", struct {
-		TaskAvailable        bool
-		TaskContent          string
-		ProcessBinaryName    string
-		OptionalFilesZipName string
-		TaskId               string
-		JobId                string
-	}{TaskAvailable: reply.TaskAvailable, TaskContent: reply.TaskContent,
-		ProcessBinaryName: reply.ProcessBinary.Name, OptionalFilesZipName: reply.OptionalFilesZip.Name,
-		TaskId: reply.TaskId, JobId: reply.JobId})
-
-	if !master.isRunning {
-		reply.TaskAvailable = false
-		return nil
-	}
-
-	//now need to check the available tasks
-
-	for i := range master.currentJob.tasks {
-		currentTask := master.currentJob.tasks[i]
-		currentWorkerAndTimer := master.currentJob.workersTimers[i]
-
-		if currentTask.isDone {
-			continue
-		}
-		if time.Since(currentWorkerAndTimer.lastHeartBeat) > master.maxHeartBeatTimer {
-			//the other worker is probably dead, so give this worker this job
-			reply.TaskAvailable = true
-			reply.TaskContent = currentTask.content
-			reply.ProcessBinary = master.currentJob.processBinary
-			reply.OptionalFilesZip = master.currentJob.optionalFilesZip
-			reply.TaskId = currentTask.id
-			reply.JobId = master.currentJob.jobId
-
-			if args.ProcessBinaryId == master.currentJob.processBinary.Id {
-				reply.ProcessBinary = utils.RunnableFile{Id: master.currentJob.processBinary.Id}
-			}
-
-			if args.JobId == master.currentJob.jobId {
-				reply.OptionalFilesZip = utils.File{}
-			}
-
-			//now as a master, need to mark this job as given to a worker
-			master.currentJob.workersTimers[i] = WorkerAndHisTimer{
-				lastHeartBeat: time.Now(),
-				workerId:      args.WorkerId,
-			}
-
-			return nil
-		}
-
-	}
-
-	reply.TaskAvailable = false
-	return nil
-}
-
-func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC.FinishedTaskReply) error {
-	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Worker called HandleFinishedTasks with these args %+v", args)
-	master.mu.Lock()
-	defer master.mu.Unlock()
-
-	if !master.isRunning {
-		return nil
-	}
-
-	if args.JobId != master.currentJob.jobId {
-		return nil
-	}
-
-	if args.Err {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Worker sent this error %+v", args.ErrMsg)
-		master.publishErrAsFinJob(fmt.Sprintf("Worker sent this error: %+v", args.ErrMsg), master.currentJob.clientId, master.currentJob.jobId)
-		return nil
-	}
-
-	taskIndex := master.getTaskIndexByTaskId(args.TaskId)
-	if taskIndex == -1 {
-		return nil
-	}
-
-	//now need to write the results to a file, and save this files location
-	filePath := args.TaskId + ".txt"
-	err := utils.CreateAndWriteToFile(filePath, []byte(args.TaskResult))
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the task file %+v", err)
-		master.publishErrAsFinJob(
-			fmt.Sprintf("Error while saving worker's task locally on the master: %+v", err),
-			master.currentJob.clientId,
-			master.currentJob.jobId)
-		return nil
-	}
-
-	master.currentJob.tasks[taskIndex].isDone = true
-	master.currentJob.finishedTasksFilePaths[taskIndex] = filePath
-	master.currentJob.workersTimers[taskIndex].lastHeartBeat = time.Now()
-
-	//check if all tasks are done and aggregate the results
-	jobDone := master.allTasksDone()
-	if !jobDone {
-		return nil
-	}
-
-	//all tasks have been finished!
-	master.finishUpJob()
-	return nil
-}
-
-// this function expects to hold a lock because it calls publishErrAsFinJob & publishFinJob
+// this function expects to hold a lock because it calls publishErrAsfinishedJob & publishFinishedJob
 // it runs aggregate binary and pushes the job
-// to the finJobs queue and notifies the lockserver
-func (master *Master) finishUpJob() {
+// to the finishedJobs queue and notifies the lockserver
+func (master *Master) aggregateTasks() {
 	//aggregate.txt contains the paths of the finished tasks, each path in a newline
 	finishedTasks := strings.Join(master.currentJob.finishedTasksFilePaths, ",")
 
@@ -547,14 +412,14 @@ func (master *Master) finishUpJob() {
 		master.currentJob.aggregateBinary)
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while running aggregate process: %+v", err)
-		master.publishErrAsFinJob(fmt.Sprintf("Error while running aggregate process: %+v", err), master.currentJob.clientId, master.currentJob.jobId)
+		master.publishErrAsfinishedJob(fmt.Sprintf("Error while running aggregate process: %+v", err), master.currentJob.clientId, master.currentJob.jobId)
 		return
 	}
 
 	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
 		master.currentJob.jobId, master.currentJob.clientId, string(finalResult))
 
-	master.publishFinJob(mq.FinishedJob{
+	master.publishFinishedJob(mq.FinishedJob{
 		ClientId:     master.currentJob.clientId,
 		JobId:        master.currentJob.jobId,
 		Content:      master.currentJob.jobContent,
@@ -565,7 +430,7 @@ func (master *Master) finishUpJob() {
 
 	master.attemptSendFinishedJobToLockServer()
 
-	master.resetStatus()
+	master.resetCurrentJob()
 }
 
 // this function expects to hold a lock
@@ -611,37 +476,11 @@ func (master *Master) attemptSendFinishedJobToLockServer() {
 	return
 }
 
-func (master *Master) HandleWorkerHeartBeats(args *RPC.WorkerHeartBeatArgs, reply *RPC.WorkerHeartBeatReply) error {
-	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Worker called HandleWorkerHeartBeat with these args %+v", args)
 
-	master.mu.Lock()
-	defer master.mu.Unlock()
-
-	if !master.isRunning {
-		return nil
-	}
-
-	if args.JobId != master.currentJob.jobId {
-		return nil
-	}
-
-	taskIndex := master.getTaskIndexByTaskId(args.TaskId)
-	if taskIndex == -1 {
-		return nil
-	}
-
-	//now make sure that this worker was actually assigned this task
-	if master.currentJob.workersTimers[taskIndex].workerId != args.WorkerId {
-		return nil
-	}
-
-	master.currentJob.workersTimers[taskIndex].lastHeartBeat = time.Now()
-
-	return nil
-}
 
 // main server loop
-func (master *Master) server() error {
+func (master *Master) rpcServer() error {
+
 	rpc.Register(master)
 	rpc.HandleHTTP()
 
@@ -660,87 +499,3 @@ func (master *Master) server() error {
 	return nil
 }
 
-//
-//helpers
-//
-
-// this function expects to hold a lock
-// returns -1 if task not found
-func (master *Master) getTaskIndexByTaskId(taskId string) int {
-
-	for i := range master.currentJob.tasks {
-		if master.currentJob.tasks[i].id == taskId {
-			return i
-		}
-	}
-
-	return -1
-}
-
-// this function expects to hold a lock
-func (master *Master) allTasksDone() bool {
-	if !master.isRunning {
-		return false //no tasks in the first place
-	}
-
-	for _, t := range master.currentJob.tasks {
-		if !t.isDone {
-			return false
-		}
-	}
-	return true
-}
-
-// this function generates the WorkersTasks field
-// this function expects to hold a lock
-func (master *Master) generateWorkersTasks() []RPC.WorkerTask {
-	workersTasks := make([]RPC.WorkerTask, 0)
-	workersMp := make(map[string]*RPC.WorkerTask)
-	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "These are the workers data: %+v", master.currentJob.workersTimers)
-
-	for i, workerTimer := range master.currentJob.workersTimers {
-		logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "These are the workers data: %+v ---\n---\n%+v", master.currentJob.workersTimers[i], master.currentJob.tasks[i])
-
-		if workerTimer.workerId == "" { //task isn't yet assigned
-			continue
-		}
-		//init a new key for the worker if it doesn't exist in the map
-		if _, ok := workersMp[workerTimer.workerId]; !ok {
-			workersMp[workerTimer.workerId] = &RPC.WorkerTask{
-				FinishedTasksContent: make([]string, 0),
-			}
-		}
-
-		task := master.currentJob.tasks[i]
-		//todo: check if the logic is correct
-		if task.isDone {
-			workersMp[workerTimer.workerId].FinishedTasksContent =
-				append(workersMp[workerTimer.workerId].FinishedTasksContent, task.content)
-		} else if workerTimer.lastHeartBeat.UnixMilli() > 0 {
-			//check if the worker is currently working
-			workersMp[workerTimer.workerId].CurrentTaskContent = task.content
-		}
-	}
-
-	for k, v := range workersMp {
-		workerT := v
-		workerT.WorkerId = k
-		workersTasks = append(workersTasks, *workerT)
-	}
-
-	//sort the workers
-	sort.Slice(workersTasks, func(i, j int) bool {
-		return workersTasks[i].WorkerId < workersTasks[j].WorkerId
-	})
-	return workersTasks
-}
-
-// func (master *Master) removeSliceElementByIndex (arr *[]Task, index int) int {
-
-// 	// Shift a[i+1:] left one index.
-// 	copy((*arr)[index:], (*arr)[index+1:])
-// 	// Erase last element (write zero value).
-// 	(*arr)[len((*arr))-1] = Task{}
-// 	// Truncate slice.
-// 	(*arr) = (*arr)[:len((*arr))-1]
-// }
