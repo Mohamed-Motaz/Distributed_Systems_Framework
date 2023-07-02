@@ -218,6 +218,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 						res.Response = utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")}
 					} else {
 						res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
+						logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "About to send job to client")
 					}
 
 					webSocketServer.writeResp(client, res)
@@ -225,6 +226,8 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 					finishedJobObj.Ack(false)
 
 				} else { //p2
+					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Cache and Client both are dead job will be Nacked")
+
 					finishedJobObj.Nack(false, true)
 				}
 			} else { //case 2 -- cache is alive
@@ -244,31 +247,41 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 					}
 				}
 
+				logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Job Id : "+finishedJob.JobId+" Client Id: "+finishedJob.ClientId)
+
+				logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "ClientServer ID :"+clientData.ServerID+" server Id: "+webSocketServer.id)
+
 				if clientData.ServerID == webSocketServer.id {
 
 					//p1
 					if clientIsAlive {
 						res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
+						logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "job sent to client")
 						webSocketServer.writeResp(client, res)
 					}
 
 					//p2
+					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "About to cache job")
 					clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
 					err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
 
 					if err != nil {
 						logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment} -> error : %v", err)
+					} else {
+						logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Job cached successfully")
 					}
+
 					finishedJobObj.Ack(false)
 
 				} else {
 					//p3
-					finishedJobObj.Nack(false, true)
+					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Client is not mine and job will be Nacked")
+					time.Sleep(15 * time.Second)
+					finishedJobObj.Nack(false, false)
 				}
 			}
 
 		}
-
 	}
 }
 

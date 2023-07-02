@@ -134,6 +134,8 @@ func (master *Master) consumeJob() {
 				},
 			})
 
+			logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Got Job From Queue")
+
 			if !ok {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to contact lockserver to ask about job with error %v\nWill discard it", err)
 				time.Sleep(1 * time.Minute) //sleep so maybe if the lockserver is asleep now, he can would have woken up by then
@@ -154,10 +156,15 @@ func (master *Master) consumeJob() {
 				} else {
 					//seems like there is an error with the lockserver, and I can't accept any jobs now
 					logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer seems like it is unable to accept my job requests now")
-					newJob.Nack(false, true)
+					newJob.Nack(false, false)
 					continue
 				}
 			}
+			master.mu.Lock()
+			master.startWorkingOnJob(reply)
+			master.mu.Unlock()
+
+			continue
 
 		default: //I didn't find a job from the message queue
 
