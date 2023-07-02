@@ -13,7 +13,7 @@ import (
 
 func (webSocketServer *WebSocketServer) writeResp(client *Client, res WsResponse) {
 	client.webSocketConn.WriteJSON(res)
-	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Resp sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), res)
+	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Resp sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), res.MsgType)
 }
 
 func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest, modifiedJobRequest *mq.AssignedJob) {

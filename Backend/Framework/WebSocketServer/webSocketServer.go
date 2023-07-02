@@ -182,13 +182,13 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			finishedJob := &mq.FinishedJob{}
 			err := json.Unmarshal(finishedJobObj.Body, finishedJob)
 			if err != nil {
-				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to unMarshal job %v } -> error : %v\n Will be discarded", string(finishedJobObj.Body), err)
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to unMarshal job } -> error : %v\n Will be discarded", err)
 				finishedJobObj.Ack(false)
 				continue
 			}
 
 			if finishedJob.ClientId == "" {
-				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Corrupt job with no clientId %+v }. Will be discarded", finishedJob)
+				logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Corrupt job with no clientId %+v }. Will be discarded", finishedJob.JobId)
 				finishedJobObj.Ack(false)
 				continue
 			}
@@ -244,11 +244,10 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 					}
 				}
 
-
 				if clientData.ServerID == webSocketServer.id {
 
 					//p1
-					if clientIsAlive { 
+					if clientIsAlive {
 						res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
 						webSocketServer.writeResp(client, res)
 					}
