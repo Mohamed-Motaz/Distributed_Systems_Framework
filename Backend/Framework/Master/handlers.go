@@ -92,7 +92,7 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 
 	if args.Err {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Worker sent this error %+v", args.ErrMsg)
-		master.publishErrAsfinishedJob(fmt.Sprintf("Worker sent this error: %+v", args.ErrMsg), master.currentJob.clientId, master.currentJob.jobId)
+		master.publishErrAsFinishedJob(fmt.Sprintf("Worker sent this error: %+v", args.ErrMsg), master.currentJob.clientId, master.currentJob.jobId)
 		return nil
 	}
 
@@ -106,7 +106,7 @@ func (master *Master) HandleFinishedTasks(args *RPC.FinishedTaskArgs, reply *RPC
 	err := utils.CreateAndWriteToFile(filePath, []byte(args.TaskResult))
 	if err != nil {
 		logger.LogError(logger.MASTER, logger.ESSENTIAL, "error while creating the task file %+v", err)
-		master.publishErrAsfinishedJob(
+		master.publishErrAsFinishedJob(
 			fmt.Sprintf("Error while saving worker's task locally on the master: %+v", err),
 			master.currentJob.clientId,
 			master.currentJob.jobId)

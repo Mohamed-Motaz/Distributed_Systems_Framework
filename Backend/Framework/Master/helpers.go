@@ -3,10 +3,11 @@ package main
 import (
 	logger "Framework/Logger"
 	mq "Framework/MessageQueue"
+	utils "Framework/Utils"
+	"fmt"
 	"sort"
 
 	"Framework/RPC"
-
 )
 
 
@@ -17,7 +18,7 @@ func CreateMasterAddress() string {
 
 // this function expects to hold a lock because master.publishFinishedJob needs to hold a lock
 // it resets the job status completely
-func (master *Master) publishErrAsfinishedJob(err, clientId, jobId string) { //DONE fix
+func (master *Master) publishErrAsFinishedJob(err, clientId, jobId string) { //DONE fix
 	fn := mq.FinishedJob{}
 	fn.ClientId = clientId
 	fn.JobId = jobId
@@ -51,6 +52,33 @@ func (master *Master) allTasksDone() bool {
 		}
 	}
 	return true
+}
+
+func (master *Master) writeBinariesAndFilesOnDisk() error {
+
+	//now write the distribute, aggregate, and optionalFilesZip  to disk
+	if err := utils.CreateAndWriteToFile(master.currentJob.distributeBinary.Name, master.currentJob.distributeBinary.Content); err != nil {
+		return fmt.Errorf("error while creating the distribute binary zip file %+v", err)
+	}
+	if err := utils.UnzipSource(master.currentJob.distributeBinary.Name, ""); err != nil {
+		return fmt.Errorf("error while unzipping distribute zip %+v", err)
+	}
+
+	if err := utils.CreateAndWriteToFile(master.currentJob.aggregateBinary.Name, master.currentJob.aggregateBinary.Content); err != nil {
+		return fmt.Errorf("error while creating the aggregate binary zip file %+v", err)
+	}
+	if err := utils.UnzipSource(master.currentJob.aggregateBinary.Name, ""); err != nil {
+		return fmt.Errorf("error while unzipping aggregate zip %+v", err)
+	}
+
+	if err := utils.CreateAndWriteToFile(master.currentJob.optionalFilesZip.Name, master.currentJob.optionalFilesZip.Content); err != nil {
+		return fmt.Errorf("error while creating the optional files zip file %+v", err)
+	}
+	if err := utils.UnzipSource(master.currentJob.optionalFilesZip.Name, ""); err != nil {
+		return fmt.Errorf("error while unzipping optional files zip %+v", err)
+	}
+
+	return nil
 }
 
 // this function generates the WorkersTasks field

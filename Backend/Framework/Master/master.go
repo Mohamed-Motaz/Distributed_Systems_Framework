@@ -31,7 +31,7 @@ func NewMaster() *Master {
 	master.resetCurrentJob() //remove old files from previous jobs
 
 	go master.rpcServer()
-	go master.qConsumer()
+	go master.consumeJob()
 	go master.sendPeriodicProgress()
 
 	logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "Master is now alive")
@@ -72,10 +72,133 @@ func (master *Master) resetCurrentJob() {
 
 }
 
-// this function expects to hold a lock
-// this function is responsible for setting up the new job and running distribute binary
-// this function doesn't log. The caller is responsible for logging
-func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
+
+
+// start a thread that waits on a job from the message queue
+func (master *Master) consumeJob() {
+
+	jobsChan, err := master.q.Dequeue(mq.ASSIGNED_JOBS_QUEUE)
+	time.Sleep(10 * time.Second) //sleep for 10 seconds to await lockServer waking up
+
+	if err != nil {
+		logger.FailOnError(logger.MASTER, logger.ESSENTIAL, "Master can't consume jobs with this error %v", err)
+	}
+
+	for {
+		master.mu.Lock()
+
+		if master.isRunning { //there is a current job, so dont try to pull a new one
+			master.mu.Unlock()
+			time.Sleep(time.Second * 5)
+			continue
+		} else {
+			master.mu.Unlock()
+		}
+
+		reply := &RPC.GetJobReply{}
+		//no lock
+		select {
+		case newJob := <-jobsChan: //and I am available to get one
+			//new job arrived
+			body := newJob.Body
+			data := &mq.AssignedJob{}
+
+			err := json.Unmarshal(body, data)
+			if err != nil {
+				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to consume job with error %v\nWill discard it", err)
+				newJob.Ack(false)
+
+				continue
+			}
+
+			//ask lockserver if i can get it
+			args := &RPC.GetJobArgs{
+				JobId:              data.JobId,
+				ClientId:           data.ClientId,
+				MasterId:           master.id,
+				JobContent:         data.JobContent,
+				MQJobFound:         true,
+				ProcessBinaryId:    data.ProcessBinaryId,
+				DistributeBinaryId: data.DistributeBinaryId,
+				AggregateBinaryId:  data.AggregateBinaryId,
+				CreatedAt:          data.CreatedAt,
+			}
+
+			ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+				Name:         "LockServer.HandleGetJob",
+				Args:         &args,
+				Reply:        &reply,
+				SenderLogger: logger.MASTER,
+				Reciever: RPC.Reciever{
+					Name: "Lockserver",
+					Port: LockServerPort,
+					Host: LockServerHost,
+				},
+			})
+
+			if !ok {
+				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to contact lockserver to ask about job with error %v\nWill discard it", err)
+				time.Sleep(1 * time.Minute) //sleep so maybe if the lockserver is asleep now, he can would have woken up by then
+				newJob.Nack(false, true)    //requeue job, so maybe another master can contact the lock server
+				continue
+			}
+
+			if reply.IsAccepted {
+				//use args that the lockserver has accepted
+				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer accepted job request %v for client %+v", args.JobId, args.ClientId)
+				newJob.Ack(false)
+			} else {
+
+				if reply.JobId != "" {
+					//use alternative provided by lockserver
+					logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v for client %v instead of requested job %v", reply.JobId, reply.ClientId, args.JobId)
+					newJob.Nack(false, true) //requeue job since lockserver provided another
+				} else {
+					//seems like there is an error with the lockserver, and I can't accept any jobs now
+					logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer seems like it is unable to accept my job requests now")
+					newJob.Nack(false, true)
+					continue
+				}
+			}
+
+		default: //I didn't find a job from the message queue
+
+			args := &RPC.GetJobArgs{
+				MasterId:   master.id,
+				MQJobFound: false,
+				JobId:      "",
+			}
+
+			ok, _ := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+				Name:         "LockServer.HandleGetJob",
+				Args:         args,
+				Reply:        &reply,
+				SenderLogger: logger.MASTER,
+				Reciever: RPC.Reciever{
+					Name: "Lockserver",
+					Port: LockServerPort,
+					Host: LockServerHost,
+				},
+			})
+			if ok && reply.IsAccepted {
+				//there is indeed an outstanding job
+				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v", reply.JobId)
+
+			} else {
+				logger.LogInfo(logger.MASTER, logger.DEBUGGING, "No jobs found, about to sleep")
+				time.Sleep(time.Second * 5)
+				continue
+			}
+		}
+
+		master.mu.Lock()
+		master.startWorkingOnJob(reply)
+		master.mu.Unlock()
+
+	}
+}
+
+func (master *Master) startWorkingOnJob(reply *RPC.GetJobReply) {
 
 	master.isRunning = true
 
@@ -95,27 +218,25 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 		timeAssigned:           time.Now(),
 	}
 
-	//now write the distribute, aggregate, and optionalFilesZip  to disk
-	if err := utils.CreateAndWriteToFile(master.currentJob.distributeBinary.Name, master.currentJob.distributeBinary.Content); err != nil {
-		return fmt.Errorf("error while creating the distribute binary zip file %+v", err)
-	}
-	if err := utils.UnzipSource(master.currentJob.distributeBinary.Name, ""); err != nil {
-		return fmt.Errorf("error while unzipping distribute zip %+v", err)
-	}
-
-	if err := utils.CreateAndWriteToFile(master.currentJob.aggregateBinary.Name, master.currentJob.aggregateBinary.Content); err != nil {
-		return fmt.Errorf("error while creating the aggregate binary zip file %+v", err)
-	}
-	if err := utils.UnzipSource(master.currentJob.aggregateBinary.Name, ""); err != nil {
-		return fmt.Errorf("error while unzipping aggregate zip %+v", err)
+	if err := master.writeBinariesAndFilesOnDisk(); err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
+		//DONE: send the lockserver an error alerting him that I finished this job (lie)
+		master.attemptSendFinishedJobToLockServer()
+		master.publishErrAsFinishedJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
+		return
 	}
 
-	if err := utils.CreateAndWriteToFile(master.currentJob.optionalFilesZip.Name, master.currentJob.optionalFilesZip.Content); err != nil {
-		return fmt.Errorf("error while creating the optional files zip file %+v", err)
+	if err := master.distributeJob(reply); err != nil {
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
+		//DONE: send the lockserver an error alerting him that I finished this job (lie)
+		master.attemptSendFinishedJobToLockServer()
+		master.publishErrAsFinishedJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
 	}
-	if err := utils.UnzipSource(master.currentJob.optionalFilesZip.Name, ""); err != nil {
-		return fmt.Errorf("error while unzipping optional files zip %+v", err)
-	}
+	
+}
+
+
+func (master *Master) distributeJob(reply *RPC.GetJobReply) error {
 
 	//now, need to run distribute
 	data, err := utils.ExecuteProcess(logger.MASTER, utils.DistributeBinary,
@@ -151,218 +272,38 @@ func (master *Master) setJobStatus(reply *RPC.GetJobReply) error {
 	return nil
 }
 
-// start a thread that periodically sends my progress
-func (master *Master) sendPeriodicProgress() {
-	for {
-		time.Sleep(time.Second * 1)
+// this function expects to hold a lock because it calls publishErrAsFinishedJob & publishFinishedJob
+// it runs aggregate binary and pushes the job
+// to the finishedJobs queue and notifies the lockserver
+func (master *Master) aggregateTasks() {
+	//aggregate.txt contains the paths of the finished tasks, each path in a newline
+	finishedTasks := strings.Join(master.currentJob.finishedTasksFilePaths, ",")
 
-		master.mu.Lock()
-		if !master.isRunning {
-			args := &RPC.SetJobProgressArgs{
-				CurrentJobProgress: RPC.CurrentJobProgress{
-					MasterId: master.id,
-					JobId:    "",
-					ClientId: "",
-					Progress: 0,
-					Status:   RPC.FREE,
-				},
-			}
-
-			master.mu.Unlock()
-
-			logger.LogInfo(logger.MASTER, logger.DEBUGGING, "About to send periodic progress %+v", args)
-			reply := &RPC.SetJobProgressReply{}
-			if _, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-				Name:         "LockServer.HandleSetJobProgress",
-				Args:         &args,
-				Reply:        &reply,
-				SenderLogger: logger.MASTER,
-				Reciever: RPC.Reciever{
-					Name: "Lockserver",
-					Port: LockServerPort,
-					Host: LockServerHost,
-				},
-			}); err != nil {
-				logger.LogError(logger.MASTER, logger.DEBUGGING, "Error while sending periodic progress err: %+v", err)
-			}
-			continue
-		}
-
-		var progress float32 = 0
-		for _, t := range master.currentJob.tasks {
-			if t.isDone {
-				progress++
-			}
-		}
-		progress /= float32(len(master.currentJob.tasks))
-		progress *= 100
-		progress = float32(math.Round((float64(progress*100) / 100)))
-
-		//DONE: set progress to 1 decimal point
-		args := &RPC.SetJobProgressArgs{
-			CurrentJobProgress: RPC.CurrentJobProgress{
-				MasterId:             master.id,
-				JobId:                master.currentJob.jobId,
-				ClientId:             master.currentJob.clientId,
-				Progress:             progress,
-				Status:               RPC.PROCESSING, //todo this will probably change in the future
-				CreatedAt:            master.currentJob.createdAt,
-				TimeAssigned:         master.currentJob.timeAssigned,
-				WorkersTasks:         master.generateWorkersTasks(),
-				DistributeBinaryName: master.currentJob.distributeBinary.Name,
-				ProcessBinaryName:    master.currentJob.processBinary.Name,
-				AggregateBinaryName:  master.currentJob.aggregateBinary.Name,
-			},
-		}
-
-		master.mu.Unlock()
-
-		logger.LogInfo(logger.MASTER, logger.DEBUGGING, "About to send periodic progress %+v", args)
-		reply := &RPC.SetJobProgressReply{}
-		if _, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-			Name:         "LockServer.HandleSetJobProgress",
-			Args:         &args,
-			Reply:        &reply,
-			SenderLogger: logger.MASTER,
-			Reciever: RPC.Reciever{
-				Name: "Lockserver",
-				Port: LockServerPort,
-				Host: LockServerHost,
-			},
-		}); err != nil {
-			logger.LogError(logger.MASTER, logger.DEBUGGING, "Error while sending periodic progress err: %+v", err)
-		}
-
-	}
-}
-
-// start a thread that waits on a job from the message queue
-func (master *Master) qConsumer() {
-	ch, err := master.q.Dequeue(mq.ASSIGNED_JOBS_QUEUE)
-	time.Sleep(10 * time.Second) //sleep for 10 seconds to await lockServer waking up
-
+	//now, need to run aggregate
+	finalResult, err := utils.ExecuteProcess(logger.MASTER, utils.AggregateBinary,
+		utils.File{Name: "aggregate.txt", Content: []byte(finishedTasks)},
+		master.currentJob.aggregateBinary)
 	if err != nil {
-		logger.FailOnError(logger.MASTER, logger.ESSENTIAL, "Master can't consume jobs with this error %v", err)
+		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while running aggregate process: %+v", err)
+		master.publishErrAsFinishedJob(fmt.Sprintf("Error while running aggregate process: %+v", err), master.currentJob.clientId, master.currentJob.jobId)
+		return
 	}
 
-	for {
-		master.mu.Lock()
+	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
+		master.currentJob.jobId, master.currentJob.clientId, string(finalResult))
 
-		if master.isRunning { //there is a current job, so dont try to pull a new one
-			master.mu.Unlock()
-			time.Sleep(time.Second * 5)
-			continue
-		} else {
-			master.mu.Unlock()
-		}
+	master.publishFinishedJob(mq.FinishedJob{
+		ClientId:     master.currentJob.clientId,
+		JobId:        master.currentJob.jobId,
+		Content:      master.currentJob.jobContent,
+		Result:       string(finalResult),
+		CreatedAt:    master.currentJob.createdAt,
+		TimeAssigned: master.currentJob.timeAssigned,
+	}, false)
 
-		//no lock
-		select {
-		case newJob := <-ch: //and I am available to get one
-			//new job arrived
-			body := newJob.Body
-			data := &mq.AssignedJob{}
+	master.attemptSendFinishedJobToLockServer()
 
-			err := json.Unmarshal(body, data)
-			if err != nil {
-				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to consume job with error %v\nWill discard it", err)
-				newJob.Ack(false) //probably should just ack so it doesnt sit around in the queue forever
-
-				//no need to send an error
-				continue
-			}
-
-			//ask lockserver if i can get it
-			args := &RPC.GetJobArgs{
-				JobId:              data.JobId,
-				ClientId:           data.ClientId,
-				MasterId:           master.id,
-				JobContent:         data.JobContent,
-				MQJobFound:         true,
-				ProcessBinaryId:    data.ProcessBinaryId,
-				DistributeBinaryId: data.DistributeBinaryId,
-				AggregateBinaryId:  data.AggregateBinaryId,
-				CreatedAt:          data.CreatedAt,
-			}
-			reply := &RPC.GetJobReply{}
-			ok, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-				Name:         "LockServer.HandleGetJob",
-				Args:         &args,
-				Reply:        &reply,
-				SenderLogger: logger.MASTER,
-				Reciever: RPC.Reciever{
-					Name: "Lockserver",
-					Port: LockServerPort,
-					Host: LockServerHost,
-				},
-			})
-			if !ok {
-				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to contact lockserver to ask about job with error %v\nWill discard it", err)
-				time.Sleep(1 * time.Minute) //sleep so maybe if the lockserver is asleep now, he can would have woken up by then
-				newJob.Nack(false, true)    //requeue job, so maybe another master can contact the lock server
-				continue
-			}
-
-			if reply.IsAccepted {
-				//use args that the lockserver has accepted
-				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer accepted job request %v for client %+v", args.JobId, args.ClientId)
-				newJob.Ack(false)
-			} else if reply.JobId != "" {
-				//use alternative provided by lockserver
-				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v for client %v instead of requested job %v", reply.JobId, reply.ClientId, args.JobId)
-				newJob.Nack(false, true) //requeue job since lockserver provided another
-			} else {
-				//seems like there is an error with the lockserver, and I can't accept any jobs now
-				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer seems like it is unable to accept my job requests now")
-				newJob.Nack(false, true)
-				continue
-			}
-			master.mu.Lock()
-			if err := master.setJobStatus(reply); err != nil {
-				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
-				//DONE: send the lockserver an error alerting him that I finished this job (lie)
-				master.attemptSendFinishedJobToLockServer()
-				master.publishErrAsfinishedJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
-			}
-			master.mu.Unlock()
-
-		default: //I didn't find a job from the message queue
-
-			//need to ask lockServer if there are any outstanding jobs
-			reply := &RPC.GetJobReply{}
-			args := &RPC.GetJobArgs{
-				MasterId:   master.id,
-				MQJobFound: false,
-			}
-			ok, _ := RPC.EstablishRpcConnection(&RPC.RpcConnection{
-				Name:         "LockServer.HandleGetJob",
-				Args:         args,
-				Reply:        &reply,
-				SenderLogger: logger.MASTER,
-				Reciever: RPC.Reciever{
-					Name: "Lockserver",
-					Port: LockServerPort,
-					Host: LockServerHost,
-				},
-			})
-			if ok && reply.IsAccepted {
-				//there is indeed an outstanding job
-				logger.LogInfo(logger.MASTER, logger.ESSENTIAL, "LockServer provided outstanding job %v", reply.JobId)
-				master.mu.Lock()
-				if err := master.setJobStatus(reply); err != nil {
-					logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while setting job status: %+v", err)
-					master.publishErrAsfinishedJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
-				}
-				master.mu.Unlock()
-				continue
-			}
-
-			logger.LogInfo(logger.MASTER, logger.DEBUGGING, "No jobs found, about to sleep")
-			time.Sleep(time.Second * 5)
-		}
-
-	}
-
+	master.resetCurrentJob()
 }
 
 // publishes a finished job to the message queue
@@ -398,39 +339,81 @@ func (master *Master) publishFinishedJob(finishedJob mq.FinishedJob, resetCurren
 	}
 }
 
-
-// this function expects to hold a lock because it calls publishErrAsfinishedJob & publishFinishedJob
-// it runs aggregate binary and pushes the job
-// to the finishedJobs queue and notifies the lockserver
-func (master *Master) aggregateTasks() {
-	//aggregate.txt contains the paths of the finished tasks, each path in a newline
-	finishedTasks := strings.Join(master.currentJob.finishedTasksFilePaths, ",")
-
-	//now, need to run aggregate
-	finalResult, err := utils.ExecuteProcess(logger.MASTER, utils.AggregateBinary,
-		utils.File{Name: "aggregate.txt", Content: []byte(finishedTasks)},
-		master.currentJob.aggregateBinary)
-	if err != nil {
-		logger.LogError(logger.MASTER, logger.ESSENTIAL, "Error while running aggregate process: %+v", err)
-		master.publishErrAsfinishedJob(fmt.Sprintf("Error while running aggregate process: %+v", err), master.currentJob.clientId, master.currentJob.jobId)
-		return
+// start a thread that periodically sends my progress
+func (master *Master) sendPeriodicProgress() {
+	for {
+		time.Sleep(time.Second * 1)
+		master.mu.Lock()
+		if !master.isRunning {
+			args := &RPC.SetJobProgressArgs{
+				CurrentJobProgress: RPC.CurrentJobProgress{
+					MasterId: master.id,
+					JobId:    "",
+					ClientId: "",
+					Progress: 0,
+					Status:   RPC.FREE,
+				},
+			}
+			master.mu.Unlock()
+			logger.LogInfo(logger.MASTER, logger.DEBUGGING, "About to send periodic progress %+v", args)
+			reply := &RPC.SetJobProgressReply{}
+			if _, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+				Name:         "LockServer.HandleSetJobProgress",
+				Args:         &args,
+				Reply:        &reply,
+				SenderLogger: logger.MASTER,
+				Reciever: RPC.Reciever{
+					Name: "Lockserver",
+					Port: LockServerPort,
+					Host: LockServerHost,
+				},
+			}); err != nil {
+				logger.LogError(logger.MASTER, logger.DEBUGGING, "Error while sending periodic progress err: %+v", err)
+			}
+			continue
+		}
+		var progress float32 = 0
+		for _, t := range master.currentJob.tasks {
+			if t.isDone {
+				progress++
+			}
+		}
+		progress /= float32(len(master.currentJob.tasks))
+		progress *= 100
+		progress = float32(math.Round((float64(progress*100) / 100)))
+		//DONE: set progress to 1 decimal point
+		args := &RPC.SetJobProgressArgs{
+			CurrentJobProgress: RPC.CurrentJobProgress{
+				MasterId:             master.id,
+				JobId:                master.currentJob.jobId,
+				ClientId:             master.currentJob.clientId,
+				Progress:             progress,
+				Status:               RPC.PROCESSING, //todo this will probably change in the future
+				CreatedAt:            master.currentJob.createdAt,
+				TimeAssigned:         master.currentJob.timeAssigned,
+				WorkersTasks:         master.generateWorkersTasks(),
+				DistributeBinaryName: master.currentJob.distributeBinary.Name,
+				ProcessBinaryName:    master.currentJob.processBinary.Name,
+				AggregateBinaryName:  master.currentJob.aggregateBinary.Name,
+			},
+		}
+		master.mu.Unlock()
+		logger.LogInfo(logger.MASTER, logger.DEBUGGING, "About to send periodic progress %+v", args)
+		reply := &RPC.SetJobProgressReply{}
+		if _, err := RPC.EstablishRpcConnection(&RPC.RpcConnection{
+			Name:         "LockServer.HandleSetJobProgress",
+			Args:         &args,
+			Reply:        &reply,
+			SenderLogger: logger.MASTER,
+			Reciever: RPC.Reciever{
+				Name: "Lockserver",
+				Port: LockServerPort,
+				Host: LockServerHost,
+			},
+		}); err != nil {
+			logger.LogError(logger.MASTER, logger.DEBUGGING, "Error while sending periodic progress err: %+v", err)
+		}
 	}
-
-	logger.LogMilestone(logger.MASTER, logger.ESSENTIAL, "Finished job %+v for client %+v with result %+v",
-		master.currentJob.jobId, master.currentJob.clientId, string(finalResult))
-
-	master.publishFinishedJob(mq.FinishedJob{
-		ClientId:     master.currentJob.clientId,
-		JobId:        master.currentJob.jobId,
-		Content:      master.currentJob.jobContent,
-		Result:       string(finalResult),
-		CreatedAt:    master.currentJob.createdAt,
-		TimeAssigned: master.currentJob.timeAssigned,
-	}, false)
-
-	master.attemptSendFinishedJobToLockServer()
-
-	master.resetCurrentJob()
 }
 
 // this function expects to hold a lock
@@ -476,8 +459,6 @@ func (master *Master) attemptSendFinishedJobToLockServer() {
 	return
 }
 
-
-
 // main server loop
 func (master *Master) rpcServer() error {
 
@@ -498,4 +479,3 @@ func (master *Master) rpcServer() error {
 	go http.Serve(listener, nil)
 	return nil
 }
-
