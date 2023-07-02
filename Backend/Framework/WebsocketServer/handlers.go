@@ -102,7 +102,7 @@ func (webSocketServer *WebSocketServer) handleUploadBinaryRequests(res http.Resp
 		Args:         uploadBinaryRequestArgs,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
+		Receiver: RPC.Receiver{
 			Name: "Lockserver",
 			Port: LockServerPort,
 			Host: LockServerHost,
@@ -149,7 +149,7 @@ func (webSocketServer *WebSocketServer) handleDeleteBinaryRequests(res http.Resp
 		Args:         deleteBinaryRequestArgs,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
+		Receiver: RPC.Receiver{
 			Name: "Lockserver",
 			Port: LockServerPort,
 			Host: LockServerHost,
@@ -184,7 +184,7 @@ func (webSocketServer *WebSocketServer) handleDeleteOptionalFiles(jobId string) 
 		Args:         deleteOptionalFilesArgs,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
+		Receiver: RPC.Receiver{
 			Name: "Lockserver",
 			Port: LockServerPort,
 			Host: LockServerHost,

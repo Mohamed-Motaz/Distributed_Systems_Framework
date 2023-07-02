@@ -72,8 +72,6 @@ func (master *Master) resetCurrentJob() {
 
 }
 
-
-
 // start a thread that waits on a job from the message queue
 func (master *Master) consumeJob() {
 
@@ -129,7 +127,7 @@ func (master *Master) consumeJob() {
 				Args:         &args,
 				Reply:        &reply,
 				SenderLogger: logger.MASTER,
-				Reciever: RPC.Reciever{
+				Receiver: RPC.Receiver{
 					Name: "Lockserver",
 					Port: LockServerPort,
 					Host: LockServerHost,
@@ -174,7 +172,7 @@ func (master *Master) consumeJob() {
 				Args:         args,
 				Reply:        &reply,
 				SenderLogger: logger.MASTER,
-				Reciever: RPC.Reciever{
+				Receiver: RPC.Receiver{
 					Name: "Lockserver",
 					Port: LockServerPort,
 					Host: LockServerHost,
@@ -232,9 +230,8 @@ func (master *Master) startWorkingOnJob(reply *RPC.GetJobReply) {
 		master.attemptSendFinishedJobToLockServer()
 		master.publishErrAsFinishedJob(err.Error(), master.currentJob.clientId, master.currentJob.jobId)
 	}
-	
-}
 
+}
 
 func (master *Master) distributeJob(reply *RPC.GetJobReply) error {
 
@@ -362,7 +359,7 @@ func (master *Master) sendPeriodicProgress() {
 				Args:         &args,
 				Reply:        &reply,
 				SenderLogger: logger.MASTER,
-				Reciever: RPC.Reciever{
+				Receiver: RPC.Receiver{
 					Name: "Lockserver",
 					Port: LockServerPort,
 					Host: LockServerHost,
@@ -405,7 +402,7 @@ func (master *Master) sendPeriodicProgress() {
 			Args:         &args,
 			Reply:        &reply,
 			SenderLogger: logger.MASTER,
-			Reciever: RPC.Reciever{
+			Receiver: RPC.Receiver{
 				Name: "Lockserver",
 				Port: LockServerPort,
 				Host: LockServerHost,
@@ -440,7 +437,7 @@ func (master *Master) attemptSendFinishedJobToLockServer() {
 			Args:         &args,
 			Reply:        &reply,
 			SenderLogger: logger.MASTER,
-			Reciever: RPC.Reciever{
+			Receiver: RPC.Receiver{
 				Name: "Lockserver",
 				Port: LockServerPort,
 				Host: LockServerHost,
@@ -456,7 +453,6 @@ func (master *Master) attemptSendFinishedJobToLockServer() {
 		ctr++
 		time.Sleep(10 * time.Second)
 	}
-	return
 }
 
 // main server loop

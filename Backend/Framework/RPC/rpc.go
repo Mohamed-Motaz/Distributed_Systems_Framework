@@ -183,13 +183,13 @@ func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 	var err error
 
 	for i := 1; i <= 3 && !successfullConnection; i++ {
-		client, err = rpc.DialHTTP("tcp", rpcConn.Reciever.Host+":"+rpcConn.Reciever.Port)
+		client, err = rpc.DialHTTP("tcp", rpcConn.Receiver.Host+":"+rpcConn.Receiver.Port)
 		if err != nil {
 			logger.LogError(
 				rpcConn.SenderLogger,
 				logger.ESSENTIAL,
 				"Attempt number %v of dialing %v failed with error: %v\n",
-				i, rpcConn.Reciever.Name, err,
+				i, rpcConn.Receiver.Name, err,
 			)
 			time.Sleep(10 * time.Second)
 		} else {
@@ -202,7 +202,7 @@ func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 			rpcConn.SenderLogger,
 			logger.ESSENTIAL,
 			"Error dialing http: %v\nFatal Error: Can't establish connection with %v. Exiting now",
-			rpcConn.Reciever.Name, err,
+			rpcConn.Receiver.Name, err,
 		)
 	}
 
@@ -215,7 +215,7 @@ func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 			rpcConn.SenderLogger,
 			logger.ESSENTIAL,
 			"Unable to call %v with RPC with error: %v",
-			rpcConn.Reciever.Name, err,
+			rpcConn.Receiver.Name, err,
 		)
 		return false, err
 	}
@@ -223,7 +223,7 @@ func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 	return true, nil
 }
 
-type Reciever struct {
+type Receiver struct {
 	Name string
 	Port string
 	Host string
@@ -234,5 +234,5 @@ type RpcConnection struct {
 	Args         interface{}
 	Reply        interface{}
 	SenderLogger int
-	Reciever     Reciever
+	Receiver     Receiver
 }

@@ -27,7 +27,7 @@ func (webSocketServer *WebSocketServer) modifyJobRequest(jobRequest *JobRequest,
 
 func (websocketServer *WebSocketServer) sendOptionalFilesToLockserver(client *Client, newJobRequest *JobRequest) WsResponse {
 
-	res := WsResponse{MsgType: JOB_REQUEST, Response: utils.HttpResponse{true, ""}}
+	res := WsResponse{MsgType: JOB_REQUEST, Response: utils.HttpResponse{Success: true, Response: ""}}
 
 	if len(newJobRequest.OptionalFilesZip.Content) == 0 {
 		return res
@@ -45,7 +45,7 @@ func (websocketServer *WebSocketServer) sendOptionalFilesToLockserver(client *Cl
 		Args:         optionalFilesUploadArgs,
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
+		Receiver: RPC.Receiver{
 			Name: "Lockserver",
 			Port: LockServerPort,
 			Host: LockServerHost,
@@ -112,7 +112,7 @@ func (webSocketServer *WebSocketServer) GetSystemBinaries() WsResponse {
 		Args:         &RPC.GetBinaryFilesArgs{},
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
+		Receiver: RPC.Receiver{
 			Name: "Lockserver",
 			Port: LockServerPort,
 			Host: LockServerHost,
@@ -146,7 +146,7 @@ func (webSocketServer *WebSocketServer) GetSystemProgress() WsResponse {
 		Args:         &RPC.GetSystemProgressArgs{},
 		Reply:        &reply,
 		SenderLogger: logger.WEBSOCKET_SERVER,
-		Reciever: RPC.Reciever{
+		Receiver: RPC.Receiver{
 			Name: "Lockserver",
 			Port: LockServerPort,
 			Host: LockServerHost,
