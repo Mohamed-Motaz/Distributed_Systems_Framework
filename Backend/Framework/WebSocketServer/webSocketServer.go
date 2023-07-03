@@ -276,7 +276,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 				} else {
 					//p3
 					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Client is not mine and job will be Nacked")
-					time.Sleep(15 * time.Second)
+
 					finishedJobObj.Nack(false, false)
 				}
 			}
