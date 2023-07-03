@@ -1,7 +1,7 @@
+import { saveAs } from "file-saver";
 import React, { useContext } from "react";
 import { FaDownload } from "react-icons/fa";
 import { AppContext } from "../context/AppContext.js";
-import { downloadItem } from "../helpers/index.js";
 import { WebSocketServerService } from "../services/WebSocketServerService.js";
 
 export default function FinishedJobs(props) {
@@ -18,10 +18,13 @@ export default function FinishedJobs(props) {
       );
       return;
     }
-    downloadItem(
-      job?.data?.response?.jobResult,
-      `${job?.data?.response?.jobId}.txt`
-    );
+    // downloadItem(
+    //   job?.data?.response?.jobResult,
+    //   `${job?.data?.response?.jobId}.txt`
+    // );
+    console.log("bhawel a download");
+    const file = new Blob([job?.data?.response?.jobResult]);
+    saveAs(file, `${job?.data?.response?.jobId}.txt`);
     TriggerAlert("Job result downloaded successfully");
   };
 
@@ -29,7 +32,7 @@ export default function FinishedJobs(props) {
     <main className="flex flex-col items-center pb-20 md:px-6">
       <h1 className="md:text-5xl text-3xl mb-16">Finished Jobs</h1>
       <section>
-        {jobs.length ? (
+        {jobs?.length ? (
           <table className="w-full table-fixed">
             <thead>
               <tr>
