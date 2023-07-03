@@ -26,7 +26,7 @@ func (webSocketServer *WebSocketServer) handleWebSocketConnections(res http.Resp
 		return
 	}
 
-	upgradedConn, err := upgrader.Upgrade(res, req, nil)
+	upgradedConn, err := connectionUpgrader.Upgrade(res, req, nil)
 
 	if err != nil {
 		logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to upgrade http request to websocket} -> error : %v", err)
@@ -48,7 +48,7 @@ func (webSocketServer *WebSocketServer) handleWebSocketConnections(res http.Resp
 	webSocketServer.clients[client.id] = client
 	webSocketServer.mu.Unlock()
 
-	if clientData != nil {
+	if err != redis.Nil {
 		clientData.ServerID = webSocketServer.id
 		//leave the finishedJobsResults as it is
 	} else {

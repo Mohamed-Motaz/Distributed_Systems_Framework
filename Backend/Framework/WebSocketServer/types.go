@@ -87,7 +87,7 @@ const (
 )
 
 var (
-	upgrader = websocket.Upgrader{
+	connectionUpgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024 * 1024,
 		CheckOrigin:     func(req *http.Request) bool { return true },

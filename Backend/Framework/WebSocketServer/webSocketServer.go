@@ -48,11 +48,6 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 	go webSocketServer.listenAndServe()
 	go webSocketServer.deliverJobs()
 
-	//DONE: add a thread that periodically locks the connections map, loops on all connections,
-	//and the sends out  getAllBinaries and getSystemProgress and finishedJobsIds
-	//this means that as the websocket server, you will have to make those calls to the lockserver yourself
-	//be careful to assign each websocket message its type
-	//DONE: make sure all messages on the WS connection are only of type WsResponse
 	return webSocketServer, nil
 }
 
@@ -247,9 +242,9 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 					}
 				}
 
-				logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Job Id : "+finishedJob.JobId+" Client Id: "+finishedJob.ClientId)
+				//logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Job Id : "+finishedJob.JobId+" Client Id: "+finishedJob.ClientId)
 
-				logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "ClientServer ID :"+clientData.ServerID+" server Id: "+webSocketServer.id)
+				//logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "ClientServer ID :"+clientData.ServerID+" server Id: "+webSocketServer.id)
 
 				if clientData.ServerID != webSocketServer.id {
 					//p1
