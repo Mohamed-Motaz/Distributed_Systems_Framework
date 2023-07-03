@@ -59,6 +59,7 @@ export default function FinishedJobs(props) {
 
                   <td className="text-center">
                     <FaDownload
+                      style={{ display: "initial" }}
                       onClick={() => {
                         handleDownloadJobById(row);
                       }}
