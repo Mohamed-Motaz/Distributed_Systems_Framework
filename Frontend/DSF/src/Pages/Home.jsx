@@ -1,14 +1,7 @@
-import React, { useContext } from "react";
-import { UploadFileButtons } from "../components/UploadFileButtons.jsx";
-import useWebSocket from "react-use-websocket";
-import TextField from "@material-ui/core/TextField";
-import { WebSocketServerService } from "./../services/WebSocketServerService";
+import React from "react";
 import useAlert from "../helpers/useAlert.jsx";
-import { Dropdown } from "flowbite-react";
-import { AppContext } from "../context/AppContext.js";
 
 export default function Home() {
-
   const [AlertComponent, TriggerAlert] = useAlert();
 
   return (

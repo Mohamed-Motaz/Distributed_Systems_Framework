@@ -2,16 +2,21 @@ import { saveAs } from "file-saver";
 import React, { useContext } from "react";
 import { FaDownload } from "react-icons/fa";
 import { AppContext } from "../context/AppContext.js";
+import useAlert from "../helpers/useAlert.jsx";
 import { WebSocketServerService } from "../services/WebSocketServerService.js";
 
 export default function FinishedJobs(props) {
   const { jobs } = props;
 
-  const { TriggerAlert, clientId } = useContext(AppContext);
+  const { clientId } = useContext(AppContext);
+  const [AlertComponent, TriggerAlert] = useAlert();
+  const [isSuccess, setIsSuccess] = React.useState(false);
 
   const handleDownloadJobById = async (jobId) => {
     const job = await WebSocketServerService().getJobById(clientId, jobId);
+    console.log({ job });
     if (!job?.data?.success) {
+      setIsSuccess(false);
       TriggerAlert(
         job?.data?.response ??
           "Unable to establish the communication with the server"
@@ -24,12 +29,15 @@ export default function FinishedJobs(props) {
     // );
     console.log("bhawel a download");
     const file = new Blob([job?.data?.response?.jobResult]);
+    console.log({ file });
     saveAs(file, `${job?.data?.response?.jobId}.txt`);
+    setIsSuccess(true);
     TriggerAlert("Job result downloaded successfully");
   };
 
   return (
     <main className="flex flex-col items-center pb-20 md:px-6">
+      <AlertComponent success={isSuccess} />
       <h1 className="md:text-5xl text-3xl mb-16">Finished Jobs</h1>
       <section>
         {jobs?.length ? (
