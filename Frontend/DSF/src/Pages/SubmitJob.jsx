@@ -54,6 +54,7 @@ export default function SubmitJob(props) {
       );
       setIsSuccess(true);
       TriggerAlert("Submit Successed");
+      navigate("/status");
     } catch (error) {
       console.log({ error });
       setIsSuccess(false);
@@ -61,7 +62,6 @@ export default function SubmitJob(props) {
     }
 
     setIsLoading(false);
-    navigate("/status");
   };
 
   const handleRandomizeClientId = () => setClientId(uuid());
