@@ -1,61 +1,68 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useCallback, useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
-import DropDownMenu from './DropDownMenu';
+import React, { useCallback, useEffect, useState } from "react";
+import { NavLink } from "react-router-dom";
+import DropDownMenu from "./DropDownMenu";
 
-import '../css/NavBarStyle.css'
+import "../css/NavBarStyle.css";
 
+export default function NavBar() {
+  const [width, setWidth] = useState(null);
+  const widthListener = useCallback(() => setWidth(window.innerWidth), []);
 
-export default function NavBar() 
-{
-    const [width, setWidth] = useState(null);
-    const widthListener = useCallback(() => setWidth(window.innerWidth), [],)
+  useEffect(() => {
+    setWidth(window.innerWidth);
+  }, []);
 
+  useEffect(() => {
+    window.addEventListener("resize", widthListener);
+    return () => {
+      window.removeEventListener("resize", widthListener);
+    };
+  }, []);
 
-    useEffect(() => {
-        setWidth(window.innerWidth)
-    }, [])
+  return (
+    <nav className="dark bg-black text-white shadow-md px-8 py-4  fixed top-0 left-0 right-0 z-50 flex items-center justify-between">
+      <NavLink className="nav-link" to="/">
+        <h1 className="text-3xl font-bold logo">DSF</h1>
+      </NavLink>
 
-    useEffect(() => {
-        window.addEventListener('resize', widthListener)
-        return (() => {
-            window.removeEventListener('resize', widthListener);
-        })
-    }, [])
+      {width <= 900 ? (
+        <DropDownMenu />
+      ) : (
+        <ul className="flex text-lg font-medium gap-x-4">
+          <li>
+            <NavLink className="nav-link" to="/">
+              Home
+            </NavLink>
+          </li>
 
-
-    return <nav className='dark bg-black text-white shadow-md px-8 py-4  fixed top-0 left-0 right-0 z-50 flex items-center justify-between'>
-        <NavLink className="nav-link"  to='/'>
-            <h1 className='text-3xl font-bold logo'>DSF</h1>
-        </NavLink>
-
-        {
-            width <= 900 ? <DropDownMenu />
-            : <ul className='flex text-lg font-medium gap-x-4'>
-                <li>
-                    <NavLink className="nav-link" to='/'>Home</NavLink>
-                </li>
-                <li>
-                    <NavLink className="nav-link" to='/how-to'>How To</NavLink>
-                </li>
-                <li>
-                    <NavLink className="nav-link" to='/manage'>Manage</NavLink>
-                </li>
-                <li>
-                    <NavLink className="nav-link" to='/submit-job'>Submit Job</NavLink>
-                </li>
-                <li>
-                    <NavLink className="nav-link" to='/status'>Status</NavLink>
-                </li>
-                <li>
-                    <NavLink className="nav-link" to='/finished-jobs'>Finished</NavLink>
-                </li>
-                <li>
-                    <NavLink className="nav-link" to='/about-us'>About Us</NavLink>
-                </li>
-            </ul>
-        }
-
+          <li>
+            <NavLink className="nav-link" to="/manage">
+              Manage
+            </NavLink>
+          </li>
+          <li>
+            <NavLink className="nav-link" to="/submit-job">
+              Submit Job
+            </NavLink>
+          </li>
+          <li>
+            <NavLink className="nav-link" to="/status">
+              Status
+            </NavLink>
+          </li>
+          <li>
+            <NavLink className="nav-link" to="/finished-jobs">
+              Finished
+            </NavLink>
+          </li>
+          <li>
+            <NavLink className="nav-link" to="/about-us">
+              About Us
+            </NavLink>
+          </li>
+        </ul>
+      )}
     </nav>
-
+  );
 }

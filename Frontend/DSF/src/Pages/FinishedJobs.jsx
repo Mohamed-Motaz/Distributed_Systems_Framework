@@ -21,14 +21,11 @@ export const handleDownloadJobById = async (
     );
     return;
   }
-  // downloadItem(
-  //   job?.data?.response?.jobResult,
-  //   `${job?.data?.response?.jobId}.txt`
-  // );
+
   console.log("bhawel a download");
-  const file = new Blob([job?.data?.response?.jobResult]);
+  const file = new Blob([job?.data?.response]);
   console.log({ file });
-  saveAs(file, `${job?.data?.response?.jobId}.txt`);
+  saveAs(file, `${jobId}.txt`);
   setIsSuccess(true);
   TriggerAlert("Job result downloaded successfully");
 };

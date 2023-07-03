@@ -15,7 +15,7 @@ export default function SubmitJob(props) {
   const [AlertComponent, TriggerAlert] = useAlert();
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const { apiEndPoint, clientId, setClientId } = useContext(AppContext);
+  const { apiEndPoint, clientId } = useContext(AppContext);
 
   console.log({ binaries });
 
@@ -64,8 +64,6 @@ export default function SubmitJob(props) {
     setIsLoading(false);
   };
 
-  const handleRandomizeClientId = () => setClientId(uuid());
-
   return (
     <main className="flex flex-col items-center pb-20 md:px-16">
       <AlertComponent success={isSuccess} />
@@ -85,12 +83,6 @@ export default function SubmitJob(props) {
           <div className="w-fit rounded-lg border-2 border-blue-800 outline-none bg-black px-3 py-1">
             <p>{clientId}</p>
           </div>
-          <button
-            className="rounded-lg px-14 py-2 bg-blue-800  mt-8 justify-center text-xl"
-            onClick={handleRandomizeClientId}
-          >
-            {"Randomize client id"}
-          </button>
         </section>
 
         <section className="mt-6 w-full">

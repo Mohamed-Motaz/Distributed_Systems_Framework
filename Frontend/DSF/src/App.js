@@ -5,7 +5,6 @@ import { AppContext } from "../src/context/AppContext";
 import "./App.css";
 import AboutUs from "./Pages/AboutUs.jsx";
 import FinishedJobs, { handleDownloadJobById } from "./Pages/FinishedJobs.jsx";
-import HowTo from "./Pages/HowTo.jsx";
 import Landing from "./Pages/Landing.jsx";
 import Manage from "./Pages/Manage.jsx";
 import NotFound from "./Pages/NotFound";
@@ -124,7 +123,6 @@ export default function App() {
       element: <RootLayout />,
       children: [
         { index: true, element: <Landing /> },
-        { path: "/how-to", element: <HowTo /> },
         { path: "/manage", element: <Manage binaries={binaries} /> },
         {
           path: "/submit-job",

@@ -28,17 +28,21 @@ export default function AppContextProvider(props) {
     return isAlive;
   }
 
-  const [clientId, setClientId] = useState(
-    Date.now().toString(36) + Math.random().toString(36).substr(2)
-  );
+  if (!sessionStorage.getItem("clientId")) {
+    sessionStorage.setItem(
+      "clientId",
+      JSON.stringify(
+        Date.now().toString(36) + Math.random().toString(36).substr(2)
+      )
+    );
+  }
 
   return (
     <AppContext.Provider
       value={{
         apiEndPoint,
         changeApiEndPoint,
-        clientId,
-        setClientId,
+        clientId: JSON.parse(sessionStorage.getItem("clientId")),
       }}
     >
       {props.children}
