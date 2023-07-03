@@ -4,7 +4,7 @@ import useWebSocket from "react-use-websocket";
 import { AppContext } from "../src/context/AppContext";
 import "./App.css";
 import AboutUs from "./Pages/AboutUs.jsx";
-import FinishedJobs from "./Pages/FinishedJobs.jsx";
+import FinishedJobs, { handleDownloadJobById } from "./Pages/FinishedJobs.jsx";
 import HowTo from "./Pages/HowTo.jsx";
 import Landing from "./Pages/Landing.jsx";
 import Manage from "./Pages/Manage.jsx";
@@ -59,6 +59,7 @@ export default function App() {
     onMessage: (e) => {
       const wsResponse = JSON.parse(e.data);
       console.log({ e: wsResponse });
+      setIsSuccess(wsResponse.response.success);
       if (wsResponse.msgType === "systemBinaries") {
         if (wsResponse.response.success) {
           setAllBinaries(wsResponse.response.response);
@@ -87,7 +88,12 @@ export default function App() {
         if (wsResponse.response.success) {
           TriggerAlert(
             `The job with id: ${wsResponse.response.response.jobId} is finished`,
-            () => {}
+            handleDownloadJobById(
+              TriggerAlert,
+              setIsSuccess,
+              wsResponse.response.response.jobId,
+              clientId
+            )
           ); // implement download logic
         } else {
           TriggerAlert(
