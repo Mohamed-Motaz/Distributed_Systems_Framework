@@ -34,7 +34,6 @@ func (worker *Worker) askForWork() {
 
 	for {
 
-
 		getTaskArgs := &RPC.GetTaskArgs{
 			WorkerId:        worker.id,
 			ProcessBinaryId: worker.ProcessBinary.Id,
@@ -67,40 +66,39 @@ func (worker *Worker) askForWork() {
 			continue
 		}
 
+		utils.KeepFilesThatMatch(FileNamesToIgnore)
+
 		if getTaskReply.ProcessBinary.Id == worker.ProcessBinary.Id {
 			//process already exists on disk
 			getTaskReply.ProcessBinary = worker.ProcessBinary
 
-		} else {
-
-			utils.KeepFilesThatMatch(FileNamesToIgnore)
-
-			//write process on disk
-			if err := utils.CreateAndWriteToFile(getTaskReply.ProcessBinary.Name, getTaskReply.ProcessBinary.Content); err != nil {
-				worker.sendFinishedTaskAsErr(fmt.Sprintf("Error while creating the process binary zip file %+v", err), "Error while creating the process binary zip file")
-				continue
-			}
-			if err := utils.UnzipSource(getTaskReply.ProcessBinary.Name, ""); err != nil {
-				worker.sendFinishedTaskAsErr(fmt.Sprintf("Unable to unzip the client process with err: %+v", err), "Error while unzipping process binary on the worker")
-				continue
-			}
 		}
+
+		//write process on disk
+		if err := utils.CreateAndWriteToFile(getTaskReply.ProcessBinary.Name, getTaskReply.ProcessBinary.Content); err != nil {
+			worker.sendFinishedTaskAsErr(fmt.Sprintf("Error while creating the process binary zip file %+v", err), "Error while creating the process binary zip file")
+			continue
+		}
+		if err := utils.UnzipSource(getTaskReply.ProcessBinary.Name, ""); err != nil {
+			worker.sendFinishedTaskAsErr(fmt.Sprintf("Unable to unzip the client process with err: %+v", err), "Error while unzipping process binary on the worker")
+			continue
+		}
+
 		worker.ProcessBinary = getTaskReply.ProcessBinary
 
 		if getTaskReply.JobId == worker.JobId {
 			getTaskReply.OptionalFilesZip = worker.OptionalFilesZip
-
-		} else {
-
-			if err := utils.CreateAndWriteToFile(getTaskReply.OptionalFilesZip.Name, getTaskReply.OptionalFilesZip.Content); err != nil {
-				worker.sendFinishedTaskAsErr(fmt.Sprintf("Error while creating the optional files zip file %+v", err), "Error while creating the optional files zip file")
-				continue
-			}
-			if err := utils.UnzipSource(getTaskReply.OptionalFilesZip.Name, ""); err != nil {
-				worker.sendFinishedTaskAsErr(fmt.Sprintf("Unable to unzip the client optional files with err: %+v", err), "Error while unzipping the optional files on the worker")
-				continue
-			}
 		}
+
+		if err := utils.CreateAndWriteToFile(getTaskReply.OptionalFilesZip.Name, getTaskReply.OptionalFilesZip.Content); err != nil {
+			worker.sendFinishedTaskAsErr(fmt.Sprintf("Error while creating the optional files zip file %+v", err), "Error while creating the optional files zip file")
+			continue
+		}
+		if err := utils.UnzipSource(getTaskReply.OptionalFilesZip.Name, ""); err != nil {
+			worker.sendFinishedTaskAsErr(fmt.Sprintf("Unable to unzip the client optional files with err: %+v", err), "Error while unzipping the optional files on the worker")
+			continue
+		}
+
 		worker.JobId = getTaskReply.JobId
 		worker.OptionalFilesZip = getTaskReply.OptionalFilesZip
 
@@ -155,7 +153,7 @@ func (worker *Worker) doWork(getTaskReply *RPC.GetTaskReply) {
 		TaskResult: string(data),
 		Error:      utils.Error{Err: false},
 	}
-	
+
 	worker.sendFinishedTask(finishedTaskArgs)
 }
 
@@ -211,7 +209,7 @@ func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartB
 	}
 }
 
-func (worker *Worker) sendFinishedTask(finishedTaskArgs *RPC.FinishedTaskArgs){
+func (worker *Worker) sendFinishedTask(finishedTaskArgs *RPC.FinishedTaskArgs) {
 
 	finishedTaskReply := &RPC.FinishedTaskReply{}
 
@@ -234,10 +232,10 @@ func (worker *Worker) sendFinishedTask(finishedTaskArgs *RPC.FinishedTaskArgs){
 }
 
 func (worker *Worker) sendFinishedTaskAsErr(logErrorMessage, masterErrorMessage string) {
-	
+
 	logger.LogError(logger.WORKER, logger.ESSENTIAL, logErrorMessage)
 
 	finishedTaskArgs := &RPC.FinishedTaskArgs{Error: utils.Error{Err: true, ErrMsg: masterErrorMessage}}
-	
+
 	worker.sendFinishedTask(finishedTaskArgs)
 }

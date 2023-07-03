@@ -12,6 +12,8 @@ import (
 )
 
 func (webSocketServer *WebSocketServer) writeResp(client *Client, res WsResponse) {
+	webSocketServer.writingMu.Lock()
+	defer webSocketServer.writingMu.Unlock()
 	client.webSocketConn.WriteJSON(res)
 	logger.LogInfo(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Resp sent to client} %+v\n%+v", client.webSocketConn.RemoteAddr(), res.MsgType)
 }
@@ -78,11 +80,14 @@ func (webSocketServer *WebSocketServer) GetFinishedJobsIds(client *Client) WsRes
 	var finishedJobs *cache.CacheValue
 	finishedJobs, err := webSocketServer.cache.Get(client.id)
 
+	//logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished jobs about to send to client} -> jobs : %+v", finishedJobs)
+
 	if err == nil {
 
 		finishedJobsIds := make([]string, 0)
 
 		for _, finishedJob := range finishedJobs.FinishedJobs {
+			//logger.LogInfo(logger.WEBSOCKET_SERVER, logger.DEBUGGING, "{Finished job } ->  : %+v", finishedJob)
 			finishedJobsIds = append(finishedJobsIds, finishedJob.JobId)
 		}
 

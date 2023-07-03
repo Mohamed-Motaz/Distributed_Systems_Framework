@@ -34,6 +34,7 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 		queue:   mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
 		clients: make(map[string]*Client),
 		mu:      sync.Mutex{},
+		writingMu: sync.Mutex{},
 	}
 
 	serveMux := mux.NewRouter()
@@ -138,11 +139,6 @@ func (webSocketServer *WebSocketServer) listenForJobs(client *Client) {
 			webSocketServer.handleDeleteOptionalFiles(modifiedJobRequest.JobId)
 			continue
 		}
-		//DONE: add field createdAt
-		//should be added to the database (jobinfo) & the migration
-		//should be added to the mq field
-		//should be accepted by the master, and sent to the lockserver
-		//so should be added to the communication between the master and the lock server
 
 		err = webSocketServer.queue.Enqueue(mq.ASSIGNED_JOBS_QUEUE, jobToAssign.Bytes())
 

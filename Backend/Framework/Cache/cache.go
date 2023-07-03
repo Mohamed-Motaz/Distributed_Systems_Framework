@@ -42,7 +42,7 @@ func NewCache(address string) *Cache {
 
 	if !utils.IN_DOCKER {
 		//just for testing
-		go cache.debug()
+		//go cache.debug()
 	}
 
 	return cache
@@ -81,6 +81,7 @@ func (c *Cache) Set(key string, value *CacheValue, expiration time.Duration) err
 }
 
 // prints out all cache contents every x amount of seconds
+/*
 func (cache *Cache) debug() {
 	time.Sleep(10 * time.Second)
 	for {
@@ -100,3 +101,4 @@ func (cache *Cache) debug() {
 	}
 
 }
+*/

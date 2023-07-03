@@ -27,6 +27,7 @@ type WebSocketServer struct {
 	queue          *mq.MQ
 	clients        map[string]*Client
 	mu             sync.Mutex
+	writingMu      sync.Mutex
 }
 
 type JobRequest struct {

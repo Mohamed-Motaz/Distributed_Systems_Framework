@@ -102,7 +102,7 @@ func (master *Master) generateWorkersTasks() []RPC.WorkerTask {
 		}
 
 		task := master.currentJob.tasks[i]
-		//todo: check if the logic is correct
+
 		if task.isDone {
 			workersMp[workerTimer.workerId].FinishedTasksContent =
 				append(workersMp[workerTimer.workerId].FinishedTasksContent, task.content)
