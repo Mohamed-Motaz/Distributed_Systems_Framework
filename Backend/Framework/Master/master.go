@@ -87,7 +87,7 @@ func (master *Master) consumeJob() {
 
 		if master.isRunning { //there is a current job, so dont try to pull a new one
 			master.mu.Unlock()
-			time.Sleep(time.Second * 1)
+			time.Sleep(500 * time.Millisecond)
 			continue
 		} else {
 			master.mu.Unlock()
