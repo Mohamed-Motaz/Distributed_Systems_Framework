@@ -29,11 +29,11 @@ func newClient(id string, webSocketConn *websocket.Conn) *Client {
 func NewWebSocketServer() (*WebSocketServer, error) {
 
 	webSocketServer := &WebSocketServer{
-		id:      uuid.NewString(),
-		cache:   cache.NewCache(cache.CreateCacheAddress(CacheHost, CachePort)),
-		queue:   mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
-		clients: make(map[string]*Client),
-		mu:      sync.Mutex{},
+		id:        uuid.NewString(),
+		cache:     cache.NewCache(cache.CreateCacheAddress(CacheHost, CachePort)),
+		queue:     mq.NewMQ(mq.CreateMQAddress(MqUsername, MqPassword, MqHost, MqPort)),
+		clients:   make(map[string]*Client),
+		mu:        sync.Mutex{},
 		writingMu: sync.Mutex{},
 	}
 
@@ -185,12 +185,13 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 			}
 
 			//CASES
-			//cache is dead				p1 client is alive     			   --send the response, and ack
+			//cache is dead:
+			//                          p1 client is alive     			   --send the response, and ack
 			//							p2 client isn't alive  			   --nack
 			//
-			//cache is alive			p1 client isn't mine			   --nack
-			//                          p2 client is mine and alive	   	   --send the response, cache, and ack
-			//							p3 client is mine and dead		   --cache only, and ack
+			//cache is alive:
+			//                          p1 client is alive	   	           --send the response, cache, and ack
+			//							p2 client is dead		           --cache only, and ack
 
 			webSocketServer.mu.Lock()
 			client, clientIsAlive := webSocketServer.clients[finishedJob.ClientId]
@@ -217,9 +218,9 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 					finishedJobObj.Ack(false)
 
 				} else { //p2
-					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Cache and Client both are dead job will be Nacked")
 
-					finishedJobObj.Nack(false, true)
+					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Cache and Client both are dead job will be Nacked")
+					finishedJobObj.Nack(false, false)
 				}
 			} else { //case 2 -- cache is alive
 
@@ -238,41 +239,31 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 					}
 				}
 
-				//logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Job Id : "+finishedJob.JobId+" Client Id: "+finishedJob.ClientId)
+				//p1
+				if clientIsAlive {
 
-				//logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "ClientServer ID :"+clientData.ServerID+" server Id: "+webSocketServer.id)
-
-				if clientData.ServerID != webSocketServer.id {
-					//p1
-					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Client is not mine and job will be Nacked")
-
-					finishedJobObj.Nack(false, false)
-				} else {
-
-					if clientIsAlive {
-						//p2
-						if finishedJob.Err {
-							res.Response = utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")}
-						} else {
-							res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
-							logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "job sent to client")
-						}
-						webSocketServer.writeResp(client, res)
-					}
-
-					//p3
-					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "About to cache job")
-					clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
-					err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
-
-					if err != nil {
-						logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment, job will not be cached} -> error : %v", err)
+					if finishedJob.Err {
+						res.Response = utils.HttpResponse{Success: false, Response: ("There was an Error while processing the job")}
 					} else {
-						logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Job cached successfully")
+						res.Response = utils.HttpResponse{Success: true, Response: *finishedJob}
+						logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "job sent to client")
 					}
-
-					finishedJobObj.Ack(false)
+					webSocketServer.writeResp(client, res)
 				}
+
+				//p2 & p1
+				logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "About to cache job")
+				clientData.FinishedJobs = append(clientData.FinishedJobs, *finishedJobToCache)
+				err := webSocketServer.cache.Set(finishedJob.ClientId, clientData, MAX_IDLE_CACHE_TIME)
+
+				if err != nil {
+					logger.LogError(logger.WEBSOCKET_SERVER, logger.ESSENTIAL, "{Unable to connect to cache at the moment, job will not be cached} -> error : %v", err)
+				} else {
+					logger.LogInfo(logger.WEBSOCKET_SERVER, logger.LOG_INFO, "Job cached successfully")
+				}
+
+				finishedJobObj.Ack(false)
+
 			}
 
 		}
