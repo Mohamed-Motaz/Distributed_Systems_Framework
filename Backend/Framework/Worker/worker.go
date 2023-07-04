@@ -62,7 +62,7 @@ func (worker *Worker) askForWork() {
 
 		if !getTaskReply.TaskAvailable {
 			logger.LogInfo(logger.WORKER, logger.DEBUGGING, "Master doesn't have available tasks")
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
@@ -113,9 +113,7 @@ func (worker *Worker) askForWork() {
 			OptionalFilesZipName: getTaskReply.OptionalFilesZip.Name, TaskId: getTaskReply.TaskId, JobId: getTaskReply.TaskId},
 		)
 
-		//do this needs a goroutine
-		go worker.doWork(getTaskReply)
-
+		worker.doWork(getTaskReply)
 	}
 
 }
@@ -182,7 +180,7 @@ func (worker *Worker) startHeartBeats(getTaskReply *RPC.GetTaskReply, stopHeartB
 				OptionalFilesZipName: getTaskReply.OptionalFilesZip.Name, TaskId: getTaskReply.TaskId, JobId: getTaskReply.TaskId})
 			return
 		default:
-			time.Sleep(9 * time.Second)
+			time.Sleep(5 * time.Second)
 			args := &RPC.WorkerHeartBeatArgs{
 				WorkerId: worker.id,
 				TaskId:   getTaskReply.TaskId,

@@ -166,7 +166,7 @@ func (webSocketServer *WebSocketServer) deliverJobs() {
 
 	for {
 
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 1)
 
 		for finishedJobObj := range finishedJobsChan {
 

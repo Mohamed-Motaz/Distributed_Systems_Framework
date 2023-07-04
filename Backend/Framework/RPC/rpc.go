@@ -191,7 +191,7 @@ func EstablishRpcConnection(rpcConn *RpcConnection) (bool, error) {
 				"Attempt number %v of dialing %v failed with error: %v\n",
 				i, rpcConn.Receiver.Name, err,
 			)
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
 		} else {
 			successfullConnection = true
 		}

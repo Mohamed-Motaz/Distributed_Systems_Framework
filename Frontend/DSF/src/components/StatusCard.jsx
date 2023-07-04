@@ -18,9 +18,14 @@ export default function StatusCard({ job }) {
   return job.Status === "Processing"
     ? ProgressingMaster(job, isCopied, copyToClipboard)
     : job.Status === "Free"
-    ? FreeMaster(job, isCopied, copyToClipboard)
-    : UnresponsiveMaster(job, isCopied, copyToClipboard);
+      ? FreeMaster(job, isCopied, copyToClipboard)
+      : UnresponsiveMaster(job, isCopied, copyToClipboard);
 }
+
+const getFormattedDateTime = (date) => {
+  const dateTime = new Date(date);
+  return dateTime.toLocaleTimeString();
+};
 
 function ProgressingMaster(job, isCopied, copyToClipboard) {
   return (
@@ -66,13 +71,13 @@ function ProgressingMaster(job, isCopied, copyToClipboard) {
         <div className="mb-3 flex items-center gap-2">
           <div className="w-24">Time Assigned:</div>
           <div className="w-fit rounded-lg border-2 border-blue-800 outline-none bg-black px-3 py-1">
-            <p>{job.TimeAssigned}</p>
+            <p>{getFormattedDateTime(job.TimeAssigned)}</p>
           </div>
         </div>
         <div className="mb-3 flex items-center gap-2">
           <div className="w-24">Created At:</div>
           <div className="w-fit rounded-lg border-2 border-blue-800 outline-none bg-black px-3 py-1">
-            <p>{job.CreatedAt}</p>
+            <p>{getFormattedDateTime(job.CreatedAt)}</p>
           </div>
         </div>
         <div className="mt-6 mb-3">

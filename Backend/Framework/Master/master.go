@@ -138,7 +138,7 @@ func (master *Master) consumeJob() {
 
 			if !ok {
 				logger.LogError(logger.MASTER, logger.ESSENTIAL, "Unable to contact lockserver to ask about job with error %v\nWill discard it", err)
-				time.Sleep(1 * time.Minute) //sleep so maybe if the lockserver is asleep now, he can would have woken up by then
+				time.Sleep(5 * time.Second) //sleep so maybe if the lockserver is asleep now, he can would have woken up by then
 				newJob.Nack(false, true)    //requeue job, so maybe another master can contact the lock server
 				continue
 			}
@@ -191,7 +191,7 @@ func (master *Master) consumeJob() {
 
 			} else {
 				logger.LogInfo(logger.MASTER, logger.DEBUGGING, "No jobs found, about to sleep")
-				time.Sleep(time.Second * 5)
+				time.Sleep(500 * time.Millisecond)
 				continue
 			}
 		}
