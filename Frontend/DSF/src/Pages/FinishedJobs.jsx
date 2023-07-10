@@ -17,7 +17,7 @@ export const handleDownloadJobById = async (
     setIsSuccess(false);
     TriggerAlert(
       job?.data?.response ??
-        "Unable to establish the communication with the server"
+      "Unable to establish the communication with the server"
     );
     return;
   }
@@ -25,7 +25,7 @@ export const handleDownloadJobById = async (
   console.log("bhawel a download");
   const file = new Blob([job?.data?.response]);
   console.log({ file });
-  saveAs(file, `${jobId}.txt`);
+  saveAs(file, `JOB_${jobId}.txt`);
   setIsSuccess(true);
   TriggerAlert("Job result downloaded successfully");
 };
@@ -53,9 +53,8 @@ export default function FinishedJobs(props) {
             <tbody>
               {jobs?.map((row, i) => (
                 <tr
-                  className={`border-t-2 border-b-2 ${
-                    i % 2 === 0 && "bg-white bg-opacity-10"
-                  }`}
+                  className={`border-t-2 border-b-2 ${i % 2 === 0 && "bg-white bg-opacity-10"
+                    }`}
                 >
                   <td className="text-center">{row}</td>
 

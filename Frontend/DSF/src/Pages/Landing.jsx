@@ -16,7 +16,9 @@ export default function Landing() {
     const isAlive = await changeApiEndPoint(apiEndPointInput.current.value);
     setIsSubmittingApi(false);
     if (isAlive) {
-      navigate("/manage");
+      setTimeout(() => {
+        navigate("/manage");
+      }, 500);
     } else {
       TriggerAlert("Endpoint is not found (Not Alive)");
     }

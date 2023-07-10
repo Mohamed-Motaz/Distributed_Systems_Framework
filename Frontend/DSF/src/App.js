@@ -12,6 +12,8 @@ import Status from "./Pages/Status.jsx";
 import SubmitJob from "./Pages/SubmitJob.jsx";
 import RootLayout from "./components/RootLayout";
 import useAlert from "./helpers/useAlert";
+import { saveAs } from "file-saver";
+
 
 export default function App() {
   const [isFirst, setIsFirst] = useState(true);
@@ -86,14 +88,12 @@ export default function App() {
       } else if (wsResponse.msgType === "finishedJob") {
         if (wsResponse.response.success) {
           TriggerAlert(
-            `The job with id: ${wsResponse.response.response.jobId} is finished`,
-            handleDownloadJobById(
-              TriggerAlert,
-              setIsSuccess,
-              wsResponse.response.response.jobId,
-              clientId
-            )
-          ); // implement download logic
+            "Job finished successfully"
+          );
+          const file = new Blob([wsResponse.response.response.result]);
+          console.log({ file });
+          saveAs(file, `JOB_${wsResponse.response.response.jobId}.txt`);
+
         } else {
           TriggerAlert(
             wsResponse.response.response ?? "Unable to get finished job"
@@ -103,12 +103,12 @@ export default function App() {
         if (wsResponse.response.success) {
           TriggerAlert(
             `The job with id: ${wsResponse.response.response.JobId} is finished`,
-            () => {}
+            () => { }
           ); // implement download logic
         } else {
           TriggerAlert(
             wsResponse.response.response ??
-              `Job has an error: ${wsResponse.response.response}`
+            `Job has an error: ${wsResponse.response.response}`
           );
         }
       } else {
@@ -170,15 +170,15 @@ export default function App() {
           localStorage.getItem("apiEndPoint")
             ? HOME_ROUTE
             : createBrowserRouter([
-                {
-                  path: "/",
-                  element: (
-                    <div className="dark pt-28 px-8">
-                      <Landing />
-                    </div>
-                  ),
-                },
-              ])
+              {
+                path: "/",
+                element: (
+                  <div className="dark pt-28 px-8">
+                    <Landing />
+                  </div>
+                ),
+              },
+            ])
         }
       />
     </main>
